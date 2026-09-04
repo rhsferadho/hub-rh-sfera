@@ -259,8 +259,8 @@
     el.querySelectorAll('[data-onboarding]').forEach(b => b.addEventListener('click', () => enviarParaOnboarding(b.dataset.onboarding)));
     $('#cd-export') && $('#cd-export').addEventListener('click', exportarCandidatosCSV);
     $('#cd-novo') && $('#cd-novo').addEventListener('click', () => openForm(null));
-    $('#cd-prev').addEventListener('click', () => { if (listState.page > 1) { listState.page--; render(); } });
-    $('#cd-next').addEventListener('click', () => { if (listState.page < totalPages) { listState.page++; render(); } });
+    $('#cd-prev') && $('#cd-prev').addEventListener('click', () => { if (listState.page > 1) { listState.page--; render(); } });
+    $('#cd-next') && $('#cd-next').addEventListener('click', () => { if (listState.page < totalPages) { listState.page++; render(); } });
   }
 
   function exportarCandidatosCSV() {
@@ -350,7 +350,7 @@
     return {
       vagaId: '', nome: '', contato: '', email: '', linkedin: '', linkPandape: '',
       dataEntrevista: U.todayISO(), horarioEntrevista: '', fitPct: 0, motivoReprovacao: '',
-      analise: 'Pendente', motivoAnalise: '', dataAnalise: '', checagem: 'Pendente', dataChecagem: '',
+      motivoAnalise: '', dataAnalise: '', dataChecagem: '',
       testePratico: 'Não aplicável', dataTestePratico: '', entrevistaGestor: '', dataEntrevistaGestor: '',
       entrevistaDiretoria: '', dataEntrevistaDiretoria: '',
       etapaRhStatus: 'Pendente', resultadoRh: 'Em andamento', dataContatoRh: '', dataAgendadaRh: '',
@@ -827,7 +827,7 @@
     } else if (d.etapaRhStatus !== 'Concluída' && d.dataEntrevista && d.horarioEntrevista) {
       await R.insertRow('entrevistas', {
         candidatoId: editingCandId, candidatoNome: d.nome, vagaId: d.vagaId, cargo: d.cargo, marca: d.marca,
-        recrutador: d.entrevistadoPor, etapa: 'Entrevista (RH)', data: d.dataEntrevista, horario: d.horarioEntrevista,
+        recrutador: d.entrevistadoPor, etapa: 'Entrevista (RH)', tipoEntrevista: 'RH', data: d.dataEntrevista, horario: d.horarioEntrevista,
         duracao: 60, status: 'Agendada', tipoProcesso: vaga ? vaga.tipoRecrutamento : 'Externo', nivelVaga: d.nivelVaga, observacao: ''
       });
     }
@@ -856,7 +856,7 @@
         if (d.dataEntrevista && d.horarioEntrevista) {
           await R.insertRow('entrevistas', {
             candidatoId: id, candidatoNome: novo.nome, vagaId: novo.vagaId, cargo: novo.cargo, marca: novo.marca,
-            recrutador: novo.entrevistadoPor, etapa: 'Entrevista (RH)', data: novo.dataEntrevista, horario: novo.horarioEntrevista,
+            recrutador: novo.entrevistadoPor, etapa: 'Entrevista (RH)', tipoEntrevista: 'RH', data: novo.dataEntrevista, horario: novo.horarioEntrevista,
             duracao: 60, status: 'Agendada', tipoProcesso: vaga ? vaga.tipoRecrutamento : 'Externo', nivelVaga: novo.nivelVaga, observacao: ''
           });
         }

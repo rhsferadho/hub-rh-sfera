@@ -24,9 +24,17 @@
   function camelToSnake(s) { return s.replace(/[A-Z]/g, m => '_' + m.toLowerCase()); }
   function snakeToCamel(s) { return s.replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase()); }
 
+  // Normaliza string vazia para null: os formulários deixam datas/números
+  // opcionais como '' quando o campo não foi preenchido (valor padrão de
+  // <input>), mas o Postgres rejeita '' como valor de coluna date/numeric/int
+  // ("invalid input syntax for type date") — só null é aceito pra "sem
+  // valor". Não mexe em arrays (portaisAtivos: [] etc.), só em string vazia.
   function toSnakeRow(obj) {
     const out = {};
-    for (const k of Object.keys(obj)) out[camelToSnake(k)] = obj[k];
+    for (const k of Object.keys(obj)) {
+      const v = obj[k];
+      out[camelToSnake(k)] = v === '' ? null : v;
+    }
     return out;
   }
   function toCamelRow(obj) {
