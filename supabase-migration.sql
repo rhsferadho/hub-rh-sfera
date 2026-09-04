@@ -376,6 +376,8 @@ create table if not exists public.vagas (
   tipo_movimentacao text,
   motivo_aumento text,
   pessoa_substituida text,
+  cota text, -- 'Sim' | 'Não' — vaga reservada a cota (PCD ou Jovem Aprendiz)
+  tipo_cota text, -- 'PCD' | 'Jovem Aprendiz' — só quando cota='Sim'
   tipo_recrutamento text,
   etapa text,
   motivo_sla text,
@@ -557,6 +559,8 @@ create index if not exists onboarding_status_idx on public.onboarding (status);
 -- Candidato (preenchidos pelo recrutador, não mais pelo treinador) e troca a
 -- rubrica de avaliação de treinamento por um formulário enxuto.
 -- ----------------------------------------------------------------------------
+alter table public.vagas add column if not exists cota text;
+alter table public.vagas add column if not exists tipo_cota text;
 alter table public.candidatos add column if not exists tipo_transporte text;
 alter table public.candidatos add column if not exists quantidade_passagens int;
 alter table public.candidatos add column if not exists valor_total_transporte numeric;

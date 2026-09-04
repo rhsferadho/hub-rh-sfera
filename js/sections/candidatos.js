@@ -104,6 +104,75 @@
   }
   function fitDotColor(fit) { return fit >= 80 ? 'var(--good)' : (fit >= 60 ? 'var(--warning)' : 'var(--critical)'); }
 
+  // ---- Selo de vaga-cota PCD, propagado da vaga vinculada (mesmo símbolo
+  // usado em vagas.js) para o nome do candidato, na lista e no formulário ----
+  const PCD_SIMBOLO = '<span title="Vaga PCD" style="font-size:14px">&#9855;</span>';
+  function pcdBadgeCandidato(c) {
+    const vaga = (D().vagas || []).find(v => v.id === c.vagaId);
+    return vaga && vaga.cota === 'Sim' && vaga.tipoCota === 'PCD' ? ' ' + PCD_SIMBOLO : '';
+  }
+
+  // ---- Modal genérico autocontido (mesmo padrão de abrirModal em vagas.js,
+  // duplicado aqui pois cada seção é um IIFE isolado) ----
+  function abrirModal(titulo, subtitulo, corpoHTML) {
+    const existente = document.getElementById('hub-cd-modal');
+    if (existente) existente.remove();
+    const modal = document.createElement('div');
+    modal.id = 'hub-cd-modal';
+    modal.innerHTML = `
+      <div data-fechar style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:998"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:92%;max-width:760px;max-height:85vh;z-index:999;display:flex;flex-direction:column">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <div><div style="font-size:16px;font-weight:700">${titulo}</div>${subtitulo ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${subtitulo}</div>` : ''}</div>
+          <button data-fechar class="btn btn-outline btn-sm" style="width:auto">Fechar</button>
+        </div>
+        <div style="padding:18px 22px;overflow-y:auto;flex:1">${corpoHTML}</div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.querySelectorAll('[data-fechar]').forEach(b => b.addEventListener('click', () => modal.remove()));
+  }
+
+  // ---- Timeline do candidato (portado de eventosProcessoCandidato/
+  // resumoCandidatoHTML/openTimelineCandidato, index.html original ~9116-9165) ----
+  function eventosProcessoCandidato(c) {
+    const eventos = [];
+    if (c.criadoEm) eventos.push({ data: c.criadoEm.slice(0, 10), titulo: 'Candidato cadastrado', detalhe: `Vinculado à vaga ${c.vagaId} — ${c.cargo}` });
+    if (c.dataEntrevista) eventos.push({ data: c.dataEntrevista, titulo: `Entrevista RH: ${c.resultadoRh || 'Em andamento'}`, detalhe: `Entrevistador: ${c.entrevistadoPor || '—'} · ${c.horarioEntrevista || ''}` });
+    if (c.dataAnalise) eventos.push({ data: c.dataAnalise, titulo: `Análise: ${c.resultadoAnalise || 'Em andamento'}`, detalhe: c.motivoAnalise || '' });
+    if (c.dataChecagem) eventos.push({ data: c.dataChecagem, titulo: `Checagem: ${c.resultadoChecagem || 'Em andamento'}`, detalhe: c.motivoChecagem || '' });
+    if (c.dataTestePratico) eventos.push({ data: c.dataTestePratico, titulo: `Teste prático: ${c.testePratico || '—'}` });
+    if (c.dataEntrevistaGestor) eventos.push({ data: c.dataEntrevistaGestor, titulo: `Entrevista Gestor: ${c.entrevistaGestor || c.resultadoGestor || 'Em andamento'}` });
+    if (c.dataEntrevistaDiretoria) eventos.push({ data: c.dataEntrevistaDiretoria, titulo: `Entrevista Diretoria: ${c.entrevistaDiretoria || '—'}` });
+    if (c.dataFechamento) eventos.push({ data: c.dataFechamento, titulo: `Resultado final: ${c.resultadoFinal || '—'}`, detalhe: c.motivoReprovacao || '' });
+    if (c.dataAdmissao) eventos.push({ data: c.dataAdmissao, titulo: 'Admissão realizada', detalhe: 'Candidato admitido' });
+    eventos.sort((a, b) => (a.data > b.data ? 1 : -1));
+    return eventos;
+  }
+  function resumoCandidatoHTML(c) {
+    const eventos = eventosProcessoCandidato(c);
+    return `
+      <div style="margin-bottom:14px;padding:12px;background:var(--bg);border-radius:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><strong>${U.escapeHtml(c.nome)}</strong>${pcdBadgeCandidato(c)} · <span style="font-family:monospace">${U.escapeHtml(c.id)}</span></div>
+        <div style="font-size:12px;color:var(--muted)">Vaga: ${U.escapeHtml(c.vagaId || '—')} — ${U.escapeHtml(c.cargo || '')} (${U.escapeHtml(c.marca || '')})</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">E-mail: ${U.escapeHtml(c.email || '—')} · Contato: ${U.escapeHtml(c.contato || '—')} · FIT: ${c.fitPct || 0}%</div>
+        ${c.observacoes && c.observacoes.trim() ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:12.5px"><strong>Observações internas:</strong><br>${U.escapeHtml(c.observacoes)}</div>` : ''}
+      </div>
+      ${eventos.length === 0 ? HUB_UI.empty('Sem eventos registrados ainda.') : `
+        <div>${eventos.map(e => `
+          <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+            <div style="font-weight:700;font-size:13px">${U.escapeHtml(e.titulo)}</div>
+            <div style="font-size:11.5px;color:var(--muted);margin-top:2px">${U.fmtDateBR(e.data)}</div>
+            ${e.detalhe ? `<div style="font-size:12.5px;margin-top:4px">${U.escapeHtml(e.detalhe)}</div>` : ''}
+          </div>
+        `).join('')}</div>
+      `}`;
+  }
+  function abrirModalTimelineCandidato(candId) {
+    const c = (D().candidatos || []).find(x => x.id === candId);
+    if (!c) return;
+    abrirModal(`Timeline — ${U.escapeHtml(c.nome)}`, `Candidato ${c.id}`, resumoCandidatoHTML(c));
+  }
+
   function selOpts(arr, val, emptyLabel) {
     return `<option value="">${emptyLabel || '—'}</option>` + arr.map(o => `<option value="${U.escapeHtml(o)}" ${val === o ? 'selected' : ''}>${U.escapeHtml(o)}</option>`).join('');
   }
@@ -208,7 +277,7 @@
               const wa = linkWhatsApp(c.contato);
               return `<tr>
                 <td>${U.escapeHtml(c.id)}</td>
-                <td><span class="fit-dot" style="background:${fitDotColor(c.fitPct)}"></span> ${U.escapeHtml(c.nome || '')}</td>
+                <td><span class="fit-dot" style="background:${fitDotColor(c.fitPct)}"></span> ${U.escapeHtml(c.nome || '')}${pcdBadgeCandidato(c)}</td>
                 <td>${U.escapeHtml(c.vagaId || '')}</td>
                 <td>${U.escapeHtml(c.cargo || '')}</td>
                 <td>${U.escapeHtml(c.marca || '')}</td>
@@ -222,6 +291,7 @@
                 <td>${U.escapeHtml(c.contato || '—')} ${wa ? `<a class="wa-link" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</td>
                 <td class="row-actions">
                   <button class="btn btn-outline btn-sm" data-editar="${c.id}">${canWrite() ? 'Editar' : 'Ver'}</button>
+                  <button class="btn btn-outline btn-sm" data-timeline="${c.id}">Timeline</button>
                   ${canWrite() ? `<button class="btn btn-danger btn-sm" data-excluir="${c.id}">${canApprove() ? 'Excluir' : 'Solicitar exclusão'}</button>` : ''}
                   ${canWrite() && podeEnviarParaOnboarding(c) ? `<button class="btn btn-outline btn-sm" data-onboarding="${c.id}" title="Enviar para Onboarding">Onboarding</button>` : ''}
                   ${candidatoJaEmOnboarding(c.id) ? '<span class="badge b2" title="Já está no Onboarding">Onboarding</span>' : ''}
@@ -255,6 +325,7 @@
     $('#cd-f-ini').addEventListener('change', e => { listState.filterDataIni = e.target.value; listState.page = 1; render(); });
     $('#cd-f-fim').addEventListener('change', e => { listState.filterDataFim = e.target.value; listState.page = 1; render(); });
     el.querySelectorAll('[data-editar]').forEach(b => b.addEventListener('click', () => openForm(b.dataset.editar)));
+    el.querySelectorAll('[data-timeline]').forEach(b => b.addEventListener('click', () => abrirModalTimelineCandidato(b.dataset.timeline)));
     el.querySelectorAll('[data-excluir]').forEach(b => b.addEventListener('click', () => acaoExcluirCandidato(b.dataset.excluir)));
     el.querySelectorAll('[data-onboarding]').forEach(b => b.addEventListener('click', () => enviarParaOnboarding(b.dataset.onboarding)));
     $('#cd-export') && $('#cd-export').addEventListener('click', exportarCandidatosCSV);
@@ -386,10 +457,14 @@
   function renderFormView(el) {
     const readOnly = !canWrite();
     const titulo = editingCandId ? `${readOnly ? 'Ver' : 'Editar'} candidato ${editingCandId}` : 'Novo Candidato';
+    const badgePcd = editingCandId ? pcdBadgeCandidato(candForm) : '';
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-        <div><h2 style="font-size:16px">${U.escapeHtml(titulo)}</h2><p class="sub" style="color:var(--muted);font-size:12px;margin-top:2px">Cadastre e acompanhe o processo seletivo do candidato</p></div>
-        <button class="btn btn-outline btn-sm" id="cf-voltar">‹ Voltar para a lista</button>
+        <div><h2 style="font-size:16px">${U.escapeHtml(titulo)}${badgePcd}</h2><p class="sub" style="color:var(--muted);font-size:12px;margin-top:2px">Cadastre e acompanhe o processo seletivo do candidato</p></div>
+        <div style="display:flex;gap:8px">
+          ${editingCandId ? '<button class="btn btn-outline btn-sm" id="cf-timeline">Timeline</button>' : ''}
+          <button class="btn btn-outline btn-sm" id="cf-voltar">‹ Voltar para a lista</button>
+        </div>
       </div>
       <div id="cf-progress"></div>
       <div id="cf-body"></div>
@@ -401,6 +476,8 @@
       <div class="msg err" id="cf-msg"></div>` : ''}
     `;
     el.querySelector('#cf-voltar').addEventListener('click', () => { view = 'list'; render(); });
+    const btnTl = el.querySelector('#cf-timeline');
+    btnTl && btnTl.addEventListener('click', () => abrirModalTimelineCandidato(editingCandId));
     renderProgress(el);
     renderBody(el, readOnly);
     if (!readOnly) {

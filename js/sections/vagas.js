@@ -28,6 +28,9 @@
   const MOTIVOS_AUMENTO = ['Ajuste Estrutural do Setor', 'Expansão de Negócios', 'Novo Projeto'];
   const TIPOS_RECRUT = ['Externo', 'Interno', 'Misto'];
   const SIGILO = ['Sim', 'Não'];
+  const TIPOS_COTA = ['PCD', 'Jovem Aprendiz'];
+  const PCD_SIMBOLO = '<span title="Vaga PCD" style="font-size:14px">&#9855;</span>';
+  function pcdBadge(v) { return v && v.cota === 'Sim' && v.tipoCota === 'PCD' ? ' ' + PCD_SIMBOLO : ''; }
 
   function D() { return window.HUB_RECRUIT_DATA || {}; }
   function canWrite() { return HUB_PERMISSIONS.hasPerm(HUB_USER, 'recrutamento.vagas'); }
@@ -124,6 +127,16 @@
     if (vaga.status === 'Finalizada' && typeof vaga.fitPct === 'number' && vaga.fitPct > 0) return vaga.fitPct;
     return null;
   }
+  // Data mais recente entre a própria vaga e qualquer candidato vinculado a
+  // ela (portado de ultimaAtualizacaoVaga do app original).
+  function ultimaAtualizacaoVaga(vaga) {
+    let maisRecente = vaga.atualizadoEm || vaga.criadoEm || vaga.dataAbertura || null;
+    for (const c of candidatosDaVaga(vaga.id)) {
+      const dataCand = c.atualizadoEm || c.criadoEm || null;
+      if (dataCand && (!maisRecente || new Date(dataCand) > new Date(maisRecente))) maisRecente = dataCand;
+    }
+    return maisRecente;
+  }
   function slaEtapaCandidatoUltimo(vagaId, etapa) {
     const cands = candidatosDaVaga(vagaId).slice().sort((a, b) => new Date(b.criadoEm || 0) - new Date(a.criadoEm || 0));
     if (!cands.length) return null;
@@ -148,6 +161,16 @@
   let rootEl = null;
   let editingVagaId = null;
   let editHistorico = null; // carregado sob demanda ao entrar em "editar"
+  // Histórico (todas as vagas) carregado uma vez ao entrar na lista — usado
+  // pelo resumo "X obs · Y cand." de cada linha e pelos modais de
+  // Observações/Histórico por vaga, sem precisar buscar de novo a cada linha.
+  let historicoCache = null;
+  function carregarHistoricoCache(el) {
+    R.listHistorico().then(list => {
+      historicoCache = list;
+      if (view === 'list' && rootEl === el) renderListView(el);
+    }).catch(() => { historicoCache = historicoCache || []; });
+  }
   let novaVagaStep = 1;
   let novaVagaDados = {};
   let finalistasSelecionados = [];
@@ -159,6 +182,7 @@
   // padrão function renderX(el, f) usada por app.js.
   function renderVagas(el, f) {
     rootEl = el;
+    if (historicoCache === null) carregarHistoricoCache(el);
     render();
   }
 
@@ -260,41 +284,58 @@
             <th data-k="marca" style="cursor:pointer">Marca${sortIcon('marca')}</th>
             <th data-k="departamento" style="cursor:pointer">Depto.${sortIcon('departamento')}</th>
             <th data-k="dataAbertura" style="cursor:pointer">Abertura${sortIcon('dataAbertura')}</th>
+            <th>Última Atualização</th>
             <th data-k="responsavel" style="cursor:pointer">Responsável${sortIcon('responsavel')}</th>
             <th data-k="status" style="cursor:pointer">Status${sortIcon('status')}</th>
             <th data-k="etapa" style="cursor:pointer">Etapa${sortIcon('etapa')}</th>
+            <th>Média FIT</th><th>FIT Contratado</th>
             <th data-k="sla" style="cursor:pointer">SLA${sortIcon('sla')}</th>
-            <th>SLA Status</th><th>Motivo SLA</th><th>Média FIT</th><th>FIT Contratado</th>
-            <th>Cand.</th><th>Entrev.</th><th>Reprov.</th><th>Desist.</th>
+            <th>SLA Status</th><th>Motivo SLA</th>
+            <th>SLA Etapa RH</th><th>SLA Etapa Análise</th><th>SLA Etapa Checagem</th><th>SLA Etapa Gestor</th><th>SLA Admissão</th>
             <th data-k="numInscricoes" style="cursor:pointer">Inscrições${sortIcon('numInscricoes')}</th>
+            <th>Cand.</th><th>Entrev.</th><th>Reprov.</th><th>Desist.</th>
+            <th>Última Divulgação</th><th>Fontes Divulgadas</th>
             <th data-k="tipoVaga" style="cursor:pointer">Tipo${sortIcon('tipoVaga')}</th>
+            <th>Observações</th>
             <th></th>
           </tr></thead>
           <tbody>
             ${page.map(v => {
               const sla = MR.calcularSLA(v), ss = MR.statusSLA(v);
+              const fontesArr = (v.fontesDivulgadas && v.fontesDivulgadas.length ? v.fontesDivulgadas : v.portaisAtivos) || [];
+              const resumo = resumoObsVaga(v.id);
               return `<tr>
                 <td>${U.escapeHtml(v.id)}</td>
-                <td><strong>${U.escapeHtml(v.cargo || '')}</strong></td>
+                <td><strong>${U.escapeHtml(v.cargo || '')}</strong>${pcdBadge(v)}</td>
                 <td>${U.escapeHtml(v.marca || '')}</td>
                 <td>${U.escapeHtml(v.departamento || '')}</td>
                 <td>${U.fmtDateBR(v.dataAbertura)}</td>
+                <td style="color:var(--muted)">${(() => { const ua = ultimaAtualizacaoVaga(v); return ua ? U.fmtDateBR(String(ua).slice(0, 10)) : '—'; })()}</td>
                 <td>${U.escapeHtml(v.responsavel || '')}</td>
                 <td>${badgeStatusVaga(v.status)}</td>
                 <td>${U.escapeHtml(v.etapa || '')}</td>
+                <td>${formatFitCel(mediaFitDaVaga(v.id))}</td>
+                <td>${formatFitCel(fitContratadoDaVaga(v))}</td>
                 <td>${sla}d</td>
                 <td>${badgeStatusSLA(ss)}</td>
                 <td style="max-width:150px;white-space:normal">${v.motivoSlaText ? U.escapeHtml(v.motivoSlaText) : '<span style="color:var(--muted)">—</span>'}</td>
-                <td>${formatFitCel(mediaFitDaVaga(v.id))}</td>
-                <td>${formatFitCel(fitContratadoDaVaga(v))}</td>
+                <td>${formatSLACel(slaEtapaCandidatoUltimo(v.id, 'RH'))}</td>
+                <td>${formatSLACel(slaEtapaCandidatoUltimo(v.id, 'Analise'))}</td>
+                <td>${formatSLACel(slaEtapaCandidatoUltimo(v.id, 'Checagem'))}</td>
+                <td>${formatSLACel(slaEtapaCandidatoUltimo(v.id, 'Gestor'))}</td>
+                <td>${formatSLACel(slaAdmissaoVaga(v))}</td>
+                <td style="text-align:center">${v.numInscricoes || 0}</td>
                 <td style="text-align:center">${contarCandsDaVaga(v.id)}</td>
                 <td style="text-align:center">${contarEntrevistadosDaVaga(v.id)}</td>
                 <td style="text-align:center">${contarReprovadosDaVaga(v.id)}</td>
                 <td style="text-align:center">${contarDesistentesDaVaga(v.id)}</td>
-                <td style="text-align:center">${v.numInscricoes || 0}</td>
+                <td>${v.dataUltimaDivulgacao ? U.fmtDateBR(v.dataUltimaDivulgacao) : (v.ultimaDivulgacao ? U.fmtDateBR(v.ultimaDivulgacao) : '<span style="color:var(--muted)">—</span>')}</td>
+                <td style="max-width:180px;white-space:normal">${fontesArr.length ? fontesArr.map(f => `<span class="tag-chip">${U.escapeHtml(f)}</span>`).join(' ') : '<span style="color:var(--muted)">—</span>'}</td>
                 <td>${U.escapeHtml(v.tipoVaga || '')}</td>
+                <td style="text-align:center">${resumo.totalObs + resumo.totalCands === 0 ? '<span style="color:var(--muted)">—</span>' : `<button class="btn btn-outline btn-sm" data-obs="${v.id}" title="Ver observações">${resumo.totalObs} obs · ${resumo.totalCands} cand.</button>`}</td>
                 <td class="row-actions">
                   <button class="btn btn-outline btn-sm" data-editar="${v.id}">${canWrite() ? 'Editar' : 'Ver'}</button>
+                  <button class="btn btn-outline btn-sm" data-hist="${v.id}" title="Ver histórico">Histórico</button>
                   ${canWrite() ? `<button class="btn btn-danger btn-sm" data-excluir="${v.id}">${canApprove() ? 'Excluir' : 'Solicitar exclusão'}</button>` : ''}
                 </td>
               </tr>`;
@@ -334,6 +375,8 @@
     }));
     el.querySelectorAll('[data-editar]').forEach(b => b.addEventListener('click', () => openEditar(b.dataset.editar)));
     el.querySelectorAll('[data-excluir]').forEach(b => b.addEventListener('click', () => acaoExcluirVaga(b.dataset.excluir)));
+    el.querySelectorAll('[data-obs]').forEach(b => b.addEventListener('click', () => abrirModalObsVaga(b.dataset.obs)));
+    el.querySelectorAll('[data-hist]').forEach(b => b.addEventListener('click', () => abrirModalHistoricoVaga(b.dataset.hist)));
     $('#vg-export') && $('#vg-export').addEventListener('click', exportarVagasCSV);
     $('#vg-nova') && $('#vg-nova').addEventListener('click', openNovaVaga);
     $('#vg-prev') && $('#vg-prev').addEventListener('click', () => { if (listState.page > 1) { listState.page--; render(); } });
@@ -341,11 +384,11 @@
   }
 
   function exportarVagasCSV() {
-    const header = ['ID', 'Data Abertura', 'Marca', 'Departamento', 'Cargo', 'Solicitante', 'Responsável', 'Status', 'Etapa', 'SLA (dias)', 'Status SLA', 'Tipo Vaga', 'Tipo Movimentação', 'Tipo Recrutamento', 'Fonte', 'Data Fechamento', 'Contratado', '% FIT', 'Observações'];
+    const header = ['ID', 'Data Abertura', 'Marca', 'Departamento', 'Cargo', 'Solicitante', 'Responsável', 'Status', 'Etapa', 'SLA (dias)', 'Status SLA', 'Tipo Vaga', 'Tipo Movimentação', 'Tipo Recrutamento', 'Fonte', 'Data Fechamento', 'Contratado', '% FIT', 'Cota', 'Tipo de Cota', 'Observações'];
     const rows = [header].concat((D().vagas || []).map(v => [
       v.id, v.dataAbertura, v.marca, v.departamento, v.cargo, v.solicitante, v.responsavel, v.status, v.etapa,
       MR.calcularSLA(v), MR.statusSLA(v), v.tipoVaga, v.tipoMovimentacao, v.tipoRecrutamento, v.fonte,
-      v.dataFechamento, v.contratado, v.fitPct, v.observacoes
+      v.dataFechamento, v.contratado, v.fitPct, v.cota || 'Não', v.tipoCota || '', v.observacoes
     ]));
     baixarCSV(`vagas_${U.todayISO()}.csv`, rows);
   }
@@ -445,6 +488,8 @@
         <div class="field"><label>Tipo de Movimentação</label><select id="ev_tipoMovimentacao" ${disabled}>${selOpts(TIPOS_MOV, v.tipoMovimentacao)}</select></div>
         <div class="field" id="ev_wrap_motivoAumento" style="${v.tipoMovimentacao === 'Aumento de Quadro' ? '' : 'display:none'}"><label>Motivo Aumento de Quadro</label><select id="ev_motivoAumento" ${disabled}>${selOpts(MOTIVOS_AUMENTO, v.motivoAumento)}</select></div>
         <div class="field" id="ev_wrap_pessoaSubstituida" style="${v.tipoMovimentacao === 'Substituição' ? '' : 'display:none'}"><label>Pessoa Substituída</label><input id="ev_pessoaSubstituida" value="${U.escapeHtml(v.pessoaSubstituida || '')}" ${disabled}></div>
+        <div class="field"><label>Vaga é Cota?</label><select id="ev_cota" ${disabled}>${selOpts(SIGILO, v.cota)}</select></div>
+        <div class="field" id="ev_wrap_tipoCota" style="${v.cota === 'Sim' ? '' : 'display:none'}"><label>Tipo de Cota</label><select id="ev_tipoCota" ${disabled}>${selOpts(TIPOS_COTA, v.tipoCota)}</select></div>
         <div class="field"><label>Tipo de Recrutamento</label><select id="ev_tipoRecrutamento" ${disabled}>${selOpts(TIPOS_RECRUT, v.tipoRecrutamento)}</select></div>
         <div class="field"><label>Etapa da Vaga</label><select id="ev_etapa" ${disabled}>${selOpts(etapasAtivas(), v.etapa)}</select></div>
         <div class="field"><label>Motivo SLA <span class="hint">${slaExpirada ? '' : '(só quando SLA expirar)'}</span></label><select id="ev_motivoSla" ${slaExpirada ? disabled : 'disabled'}>${selOpts(MOTIVOS_SLA, v.motivoSla)}</select></div>
@@ -479,7 +524,7 @@
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:10px">
         <div>
           <h2 style="font-size:16px">${readOnly ? 'Ver vaga' : 'Editar vaga'} ${U.escapeHtml(vaga.id)}</h2>
-          <p class="sub" style="color:var(--muted);font-size:12px;margin-top:2px">${U.escapeHtml(vaga.cargo || '')} — ${U.escapeHtml(vaga.marca || '')}</p>
+          <p class="sub" style="color:var(--muted);font-size:12px;margin-top:2px">${U.escapeHtml(vaga.cargo || '')}${pcdBadge(vaga)} — ${U.escapeHtml(vaga.marca || '')}</p>
         </div>
         <button class="btn btn-outline btn-sm" id="ev-voltar">‹ Voltar para a lista</button>
       </div>
@@ -512,6 +557,98 @@
     </tbody></table></div>`;
   }
 
+  // ================================================================
+  // MODAIS "Observações" e "Histórico" por vaga — portados de
+  // resumoObsVaga/gerarConteudoObsVaga/abrirModalObsVaga/openHistoryModal do
+  // app original. Como o hub não tem um <div id="historyModal"> compartilhado
+  // no shell (não existe drawer/modal fixo no HTML), cada modal é criado
+  // dinamicamente e anexado ao <body>, igual ao próprio abrirModalObsVaga do
+  // app original já fazia — sem precisar mexer em index.html.
+  // ================================================================
+  const ACOES_RELEVANTES_OBS = ['Congelamento', 'Cancelamento', 'Edição de Vaga', 'Reabertura', 'Finalização'];
+
+  function resumoObsVaga(vagaId) {
+    const vaga = (D().vagas || []).find(v => v.id === vagaId);
+    if (!vaga) return { totalObs: 0, totalCands: 0 };
+    let totalObs = 0;
+    if (vaga.observacoes && vaga.observacoes.trim()) totalObs++;
+    if (historicoCache) totalObs += historicoCache.filter(l => l.vagaId === vagaId && ACOES_RELEVANTES_OBS.some(a => (l.acao || '').includes(a))).length;
+    return { totalObs, totalCands: candidatosDaVaga(vagaId).length };
+  }
+
+  function abrirModal(titulo, subtitulo, corpoHTML) {
+    const existente = document.getElementById('hub-vg-modal');
+    if (existente) existente.remove();
+    const modal = document.createElement('div');
+    modal.id = 'hub-vg-modal';
+    modal.innerHTML = `
+      <div data-fechar style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:998"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:92%;max-width:760px;max-height:85vh;z-index:999;display:flex;flex-direction:column">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <div><div style="font-size:16px;font-weight:700">${titulo}</div>${subtitulo ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${subtitulo}</div>` : ''}</div>
+          <button data-fechar class="btn btn-outline btn-sm" style="width:auto">Fechar</button>
+        </div>
+        <div style="padding:18px 22px;overflow-y:auto;flex:1">${corpoHTML}</div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.querySelectorAll('[data-fechar]').forEach(b => b.addEventListener('click', () => modal.remove()));
+  }
+
+  function candidatoResumoPipelineHTML(c) {
+    const linhas = [];
+    if (c.resultadoRh || c.dataEntrevista || c.dataContatoRh) linhas.push(`<div>• <strong>Entrevista RH</strong>: ${U.escapeHtml(c.resultadoRh || 'Em andamento')} em ${U.fmtDateBR(c.dataEntrevista || c.dataAgendadaRh || c.dataContatoRh) || '—'}${c.entrevistadoPor ? ' por ' + U.escapeHtml(c.entrevistadoPor) : ''}.</div>`);
+    if (c.resultadoAnalise || c.dataContatoAnalise) linhas.push(`<div>• <strong>Análise Documental</strong>: ${U.escapeHtml(c.resultadoAnalise || 'Em andamento')} em ${U.fmtDateBR(c.dataAgendadaAnalise || c.dataContatoAnalise) || '—'}.</div>`);
+    if (c.resultadoChecagem || c.dataContatoChecagem) linhas.push(`<div>• <strong>Checagem</strong>: ${U.escapeHtml(c.resultadoChecagem || 'Em andamento')} em ${U.fmtDateBR(c.dataAgendadaChecagem || c.dataContatoChecagem) || '—'}.</div>`);
+    if (c.resultadoGestor || c.dataContatoGestor) linhas.push(`<div>• <strong>Entrevista Gestor</strong>: ${U.escapeHtml(c.resultadoGestor || 'Em andamento')} em ${U.fmtDateBR(c.dataAgendadaGestor || c.dataContatoGestor) || '—'}.</div>`);
+    if (c.resultadoFinal) {
+      const extra = c.resultadoFinal === 'Reprovado' && c.motivoReprovacao ? ` — Motivo: ${U.escapeHtml(c.motivoReprovacao)}` : '';
+      linhas.push(`<div>• <strong>Resultado Final</strong>: ${U.escapeHtml(c.resultadoFinal)}${c.dataFechamento ? ' em ' + U.fmtDateBR(c.dataFechamento) : ''}${extra}.</div>`);
+    }
+    if (c.observacoes && c.observacoes.trim()) linhas.push(`<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);font-style:italic;color:var(--muted)">${U.escapeHtml(c.observacoes)}</div>`);
+    return `<div style="padding:12px 14px;background:var(--bg);border-radius:8px;margin-bottom:10px;border-left:3px solid #1baf7a">
+      <div style="font-size:12px;font-weight:700;margin-bottom:6px">${U.escapeHtml(c.id)} — ${U.escapeHtml(c.nome)}${pcdBadge((D().vagas || []).find(v => v.id === c.vagaId))} ${c.resultadoFinal ? `<span class="badge ${c.resultadoFinal === 'Aprovado' ? 'b2' : c.resultadoFinal === 'Reprovado' ? 'b3' : 'b1'}" style="margin-left:6px">${U.escapeHtml(c.resultadoFinal)}</span>` : ''}</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text2)">${linhas.join('') || '<span style="color:var(--muted)">Sem eventos registrados ainda.</span>'}</div>
+    </div>`;
+  }
+
+  function abrirModalObsVaga(vagaId) {
+    const vaga = (D().vagas || []).find(v => v.id === vagaId);
+    if (!vaga) return;
+    let corpo = `<div style="margin-bottom:20px">
+      <h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:10px">Observações e histórico da vaga</h4>`;
+    let temAlgo = false;
+    if (vaga.observacoes && vaga.observacoes.trim()) {
+      corpo += `<div style="padding:10px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px;border-left:3px solid var(--p1)">
+        <div style="font-size:10.5px;color:var(--muted);margin-bottom:4px;font-weight:700">ANOTAÇÃO DO FORMULÁRIO</div>
+        <div style="font-size:13px;line-height:1.5">${U.escapeHtml(vaga.observacoes)}</div>
+      </div>`;
+      temAlgo = true;
+    }
+    const logs = (historicoCache || []).filter(l => l.vagaId === vagaId && ACOES_RELEVANTES_OBS.some(a => (l.acao || '').includes(a)))
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    logs.forEach(l => {
+      corpo += `<div style="padding:10px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px;border-left:3px solid var(--warning)">
+        <div style="font-size:10.5px;color:var(--muted);margin-bottom:4px;font-weight:700">${U.escapeHtml(l.acao)} · ${l.timestamp ? new Date(l.timestamp).toLocaleString('pt-BR') : '—'} · por ${U.escapeHtml(l.usuario || '—')}</div>
+        <div style="font-size:13px;line-height:1.5">${U.escapeHtml(l.detalhes || l.acao || '')}</div>
+      </div>`;
+      temAlgo = true;
+    });
+    if (!temAlgo) corpo += `<p style="color:var(--muted);font-size:13px;font-style:italic">Sem observações registradas no formulário da vaga.</p>`;
+    corpo += `</div>`;
+    const cands = candidatosDaVaga(vagaId);
+    corpo += `<div><h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:10px">Candidatos entrevistados (${cands.length})</h4>`;
+    corpo += cands.length ? cands.map(candidatoResumoPipelineHTML).join('') : `<p style="color:var(--muted);font-size:13px;font-style:italic">Nenhum candidato cadastrado para esta vaga.</p>`;
+    corpo += `</div>`;
+    abrirModal('Observações da vaga', `${U.escapeHtml(vaga.id)} · ${U.escapeHtml(vaga.cargo || '')} (${U.escapeHtml(vaga.marca || '')})`, corpo);
+  }
+
+  function abrirModalHistoricoVaga(vagaId) {
+    const vaga = (D().vagas || []).find(v => v.id === vagaId);
+    if (!vaga) return;
+    const logs = (historicoCache || []).filter(l => l.vagaId === vagaId).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    abrirModal(`Histórico — ${U.escapeHtml(vaga.id)}`, `${U.escapeHtml(vaga.cargo || '')} (${U.escapeHtml(vaga.marca || '')})`, renderHistoricoList(logs));
+  }
+
   function coletarFormVaga(el, prefix) {
     const get = id => { const e = el.querySelector('#' + prefix + id); return e ? e.value : ''; };
     const portaisSel = Array.from(el.querySelectorAll(`[data-portal]:checked`)).map(c => c.dataset.portal);
@@ -519,7 +656,9 @@
       dataAbertura: get('dataAbertura'), marca: get('marca'), departamento: get('departamento'), unidade: get('unidade'),
       nivelVaga: get('nivelVaga'), solicitante: get('solicitante'), cargo: get('cargo'), sigilosa: get('sigilosa'),
       tipoVaga: get('tipoVaga'), responsavel: get('responsavel'), status: get('status'), tipoMovimentacao: get('tipoMovimentacao'),
-      motivoAumento: get('motivoAumento'), pessoaSubstituida: get('pessoaSubstituida'), tipoRecrutamento: get('tipoRecrutamento'),
+      motivoAumento: get('motivoAumento'), pessoaSubstituida: get('pessoaSubstituida'),
+      cota: get('cota'), tipoCota: get('cota') === 'Sim' ? get('tipoCota') : '',
+      tipoRecrutamento: get('tipoRecrutamento'),
       etapa: get('etapa'), motivoSla: get('motivoSla'), dataCongelamento: get('dataCongelamento'), dataRetorno: get('dataRetorno'),
       dataCancelamento: get('dataCancelamento'), dataFechamento: get('dataFechamento'), dataInicio: get('dataInicio'),
       dataPrevistaAdmissao: get('dataPrevistaAdmissao'), ultimaDivulgacao: get('ultimaDivulgacao'),
@@ -543,6 +682,8 @@
       el.querySelector('#ev_wrap_motivoAumento').style.display = tipoMovSel.value === 'Aumento de Quadro' ? '' : 'none';
       el.querySelector('#ev_wrap_pessoaSubstituida').style.display = tipoMovSel.value === 'Substituição' ? '' : 'none';
     });
+    const cotaSel = el.querySelector('#ev_cota');
+    cotaSel && cotaSel.addEventListener('change', () => { el.querySelector('#ev_wrap_tipoCota').style.display = cotaSel.value === 'Sim' ? '' : 'none'; });
     el.addEventListener('change', e => {
       if (e.target.id === 'vg-finalista-add' && e.target.value) {
         if (!finalistasSelecionados.includes(e.target.value)) finalistasSelecionados.push(e.target.value);
@@ -568,7 +709,7 @@
     dataAbertura: 'Data de Abertura', marca: 'Marca', departamento: 'Departamento', solicitante: 'Solicitante',
     cargo: 'Cargo', sigilosa: 'Sigilosa', tipoVaga: 'Tipo da Vaga', responsavel: 'Responsável',
     status: 'Status', tipoMovimentacao: 'Tipo de Movimentação', motivoAumento: 'Motivo Aumento',
-    pessoaSubstituida: 'Pessoa Substituída', tipoRecrutamento: 'Tipo de Recrutamento', etapa: 'Etapa',
+    pessoaSubstituida: 'Pessoa Substituída', cota: 'Vaga é Cota?', tipoCota: 'Tipo de Cota', tipoRecrutamento: 'Tipo de Recrutamento', etapa: 'Etapa',
     motivoSla: 'Motivo SLA', motivoSlaText: 'Motivo SLA (texto)', dataCongelamento: 'Data Congelamento',
     dataRetorno: 'Data Retorno', dataCancelamento: 'Data Cancelamento', dataFechamento: 'Data Fechamento',
     dataInicio: 'Data Início', ultimaDivulgacao: 'Última Divulgação', fitPct: '% FIT', fonte: 'Fonte',
@@ -583,6 +724,9 @@
     const dados = coletarFormVaga(el, 'ev_');
     if (!dados.dataAbertura || !dados.marca || !dados.cargo || !dados.responsavel || !dados.status) {
       msg.textContent = 'Preencha os campos obrigatórios marcados com *.'; msg.style.display = 'block'; return;
+    }
+    if (dados.cota === 'Sim' && !dados.tipoCota) {
+      msg.textContent = 'Selecione o Tipo de Cota (a vaga foi marcada como cota).'; msg.style.display = 'block'; return;
     }
     const btn = el.querySelector('#ev-salvar');
     btn.disabled = true; btn.textContent = 'Salvando...';
@@ -706,10 +850,13 @@
           <div class="field"><label>Tipo de Movimentação <span class="req">*</span></label><select id="nv_tipoMovimentacao">${selOpts(TIPOS_MOV, d.tipoMovimentacao)}</select></div>
           ${d.tipoMovimentacao === 'Aumento de Quadro' ? `<div class="field"><label>Motivo Aumento de Quadro <span class="req">*</span></label><select id="nv_motivoAumento">${selOpts(MOTIVOS_AUMENTO, d.motivoAumento)}</select></div>` : ''}
           ${d.tipoMovimentacao === 'Substituição' ? `<div class="field"><label>Pessoa Substituída <span class="req">*</span></label><input id="nv_pessoaSubstituida" value="${U.escapeHtml(d.pessoaSubstituida || '')}"></div>` : ''}
+          <div class="field"><label>Vaga é Cota? <span class="req">*</span></label><select id="nv_cota">${selOpts(SIGILO, d.cota)}</select></div>
+          ${d.cota === 'Sim' ? `<div class="field"><label>Tipo de Cota <span class="req">*</span></label><select id="nv_tipoCota">${selOpts(TIPOS_COTA, d.tipoCota)}</select></div>` : ''}
         </div>`;
       const marcaSel = container.querySelector('#nv_marca');
       marcaSel.addEventListener('change', () => { coletarStep(container); renderStep(el); });
       container.querySelector('#nv_tipoMovimentacao').addEventListener('change', () => { coletarStep(container); renderStep(el); });
+      container.querySelector('#nv_cota').addEventListener('change', () => { coletarStep(container); renderStep(el); });
     } else if (novaVagaStep === 2) {
       container.innerHTML = `
         <div class="form-grid">
@@ -749,7 +896,8 @@
         marca: get('nv_marca'), departamento: get('nv_departamento'), unidade: get('nv_unidade'), nivelVaga: get('nv_nivelVaga'),
         cargo: get('nv_cargo'), solicitante: get('nv_solicitante'), tipoVaga: get('nv_tipoVaga'), responsavel: get('nv_responsavel'),
         sigilosa: get('nv_sigilosa'), tipoMovimentacao: get('nv_tipoMovimentacao'), motivoAumento: get('nv_motivoAumento'),
-        pessoaSubstituida: get('nv_pessoaSubstituida')
+        pessoaSubstituida: get('nv_pessoaSubstituida'),
+        cota: get('nv_cota'), tipoCota: get('nv_cota') === 'Sim' ? get('nv_tipoCota') : ''
       });
     } else if (novaVagaStep === 2) {
       Object.assign(novaVagaDados, {
@@ -785,6 +933,7 @@
       for (const [c, l] of obrig) if (!d[c]) { showNvMsg(el, `Preencha o campo "${l}".`); return false; }
       if (d.tipoMovimentacao === 'Aumento de Quadro' && !d.motivoAumento) { showNvMsg(el, 'Preencha o campo "Motivo Aumento de Quadro".'); return false; }
       if (d.tipoMovimentacao === 'Substituição' && !d.pessoaSubstituida) { showNvMsg(el, 'Preencha o campo "Pessoa Substituída".'); return false; }
+      if (d.cota === 'Sim' && !d.tipoCota) { showNvMsg(el, 'Selecione o Tipo de Cota.'); return false; }
     } else if (novaVagaStep === 2) {
       const obrig = [['status', 'Status da Vaga'], ['tipoRecrutamento', 'Tipo de Recrutamento'], ['etapa', 'Etapa da Vaga'],
         ['fonte', 'Fonte'], ['quemIndicou', 'Quem Indicou'], ['dataUltimaDivulgacao', 'Última Divulgação']];
@@ -832,7 +981,8 @@
         ultimaDivulgacao: dados.ultimaDivulgacao || '', dataUltimaDivulgacao: dados.dataUltimaDivulgacao || dados.ultimaDivulgacao || '',
         numInscricoes: parseInt(dados.numInscricoes) || 0, fontesDivulgadas: dados.portaisAtivos || [],
         motivoSlaText: dados.motivoSlaText || '', fonte: dados.fonte || '', quemIndicou: dados.quemIndicou || '',
-        observacoes: dados.observacoes || '', portaisAtivos: dados.portaisAtivos || []
+        observacoes: dados.observacoes || '', portaisAtivos: dados.portaisAtivos || [],
+        cota: dados.cota || 'Não', tipoCota: dados.cota === 'Sim' ? (dados.tipoCota || '') : ''
       };
       await R.insertRow('vagas', vaga);
       await R.logAcao({ acao: 'Criação de Vaga', vagaId: vaga.id, detalhes: `Vaga criada: ${vaga.cargo} (${vaga.marca})` });
