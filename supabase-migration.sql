@@ -512,11 +512,11 @@ create index if not exists entrevistas_data_idx on public.entrevistas (data);
 -- Módulo Treinamento e Desenvolvimento → Onboarding. Um registro é criado
 -- automaticamente (nunca à mão) quando alguém envia, na tela Candidatos, um
 -- candidato com resultado_final='Aprovado' cuja vaga já está 'Finalizada' —
--- ver js/sections/candidatos.js (enviarParaOnboarding). Escopo enxuto por
--- pedido explícito: só o essencial pro treinador agendar e registrar o
--- resultado do treinamento — dados de transporte/logística ficam no
--- cadastro do candidato (preenchidos pelo recrutador), e não há mais rubrica
--- de avaliação de desempenho aqui.
+-- ver js/sections/candidatos.js (enviarParaOnboarding). Dados de
+-- transporte/logística ficam no cadastro do candidato (preenchidos pelo
+-- recrutador). A avaliação do treinador foi simplificada de 16 itens
+-- individuais para 1 nota por pilar (4 pilares) + 1 nota final geral —
+-- obrigatória só quando status='Realizado'.
 create table if not exists public.onboarding (
   id uuid primary key default gen_random_uuid(),
   candidato_id text references public.candidatos(id) on delete set null,
@@ -535,6 +535,12 @@ create table if not exists public.onboarding (
   status text not null default 'Pendente', -- 'Pendente' | 'Agendado' | 'Realizado' | 'Não realizado'
   motivo_nao_realizado text, -- 'Faltou' | 'Desistiu' | 'Reagendado' — só quando status='Não realizado'
   observacoes text, -- detalhamento do treinador pro caso de motivo_nao_realizado
+  -- Avaliação do treinador (escala 1-5 por pilar; obrigatória quando Realizado)
+  pontuacao_comportamento int, -- pilar "Comportamento e Postura"
+  pontuacao_atendimento int, -- pilar "Aspectos de Atendimento"
+  pontuacao_cultura int, -- pilar "Alinhamento com a Cultura Organizacional"
+  pontuacao_engajamento int, -- pilar "Engajamento, Participação e Interesse"
+  nota_final numeric, -- nota geral do treinando, 0 a 10
   enviado_por text,
   enviado_em timestamptz,
   criado_em timestamptz not null default now()
@@ -558,6 +564,11 @@ alter table public.candidatos add column if not exists valor_total_transporte nu
 alter table public.onboarding add column if not exists modalidade text;
 alter table public.onboarding add column if not exists carga_horaria numeric;
 alter table public.onboarding add column if not exists observacoes text;
+alter table public.onboarding add column if not exists pontuacao_comportamento int;
+alter table public.onboarding add column if not exists pontuacao_atendimento int;
+alter table public.onboarding add column if not exists pontuacao_cultura int;
+alter table public.onboarding add column if not exists pontuacao_engajamento int;
+alter table public.onboarding add column if not exists nota_final numeric;
 alter table public.onboarding drop column if exists quantidade_passagens;
 alter table public.onboarding drop column if exists tipo_transporte;
 alter table public.onboarding drop column if exists valor_total_transporte;

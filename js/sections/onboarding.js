@@ -1,11 +1,12 @@
 // Treinamento e Desenvolvimento → Onboarding. Formulário enxuto (revisado a
 // pedido: os dados de transporte saíram daqui e foram para o cadastro do
 // candidato — preenchidos pelo(a) recrutador(a) ao aprovar, não mais pelo
-// treinador — e a rubrica de avaliação de desempenho de 16 itens saiu de
-// escopo). O que o treinador preenche aqui é só: Local, Modalidade
-// (Presencial/Híbrido/Online), Carga Horária, Status e — se o status for
-// "Não realizado" — o Motivo (lista fixa) com um campo de observações que só
-// aparece depois de escolher o motivo.
+// treinador). O que o treinador preenche aqui é: Local, Modalidade
+// (Presencial/Híbrido/Online), Carga Horária, Status, a Avaliação (1 nota de
+// 1 a 5 por pilar + 1 nota final geral de 0 a 10 — obrigatórias quando o
+// Status é "Realizado") e — se o status for "Não realizado" — o Motivo
+// (lista fixa) com um campo de observações que só aparece depois de escolher
+// o motivo.
 //
 // Mesmas convenções de js/sections/candidatos.js e vagas.js: sem drawer (a
 // seção troca entre lista e formulário de página inteira), blocos com
@@ -23,6 +24,18 @@
   const STATUS_ONBOARDING = ['Pendente', 'Agendado', 'Realizado', 'Não realizado'];
   const MODALIDADES_ONBOARDING = ['Presencial', 'Híbrido', 'Online'];
   const MOTIVOS_NAO_REALIZADO = ['Faltou', 'Desistiu', 'Reagendado'];
+  const ESCALA_AVALIACAO = [
+    { v: 1, label: 'Muito abaixo do esperado' }, { v: 2, label: 'Abaixo' }, { v: 3, label: 'Dentro do esperado' },
+    { v: 4, label: 'Acima' }, { v: 5, label: 'Excelente' }
+  ];
+  // 4 pilares (versão enxuta da rubrica original de 16 itens — 1 nota por
+  // pilar em vez de 1 nota por item individual).
+  const PILARES = [
+    { campo: 'pontuacaoComportamento', label: 'Comportamento e Postura' },
+    { campo: 'pontuacaoAtendimento', label: 'Aspectos de Atendimento' },
+    { campo: 'pontuacaoCultura', label: 'Alinhamento com a Cultura Organizacional' },
+    { campo: 'pontuacaoEngajamento', label: 'Engajamento, Participação e Interesse' }
+  ];
 
   function badgeStatusOnboarding(status) {
     if (status === 'Realizado') return '<span class="badge b2">Realizado</span>';
@@ -73,12 +86,20 @@
     return res;
   }
 
+  function media(arr, campo) {
+    const vals = arr.map(o => o[campo]).filter(v => v !== null && v !== undefined && v !== '');
+    if (!vals.length) return null;
+    return vals.reduce((s, v) => s + Number(v), 0) / vals.length;
+  }
+
   function renderListView(el) {
     const all = D().onboarding || [];
     const total = all.length;
     const pendentes = all.filter(o => o.status === 'Pendente' || o.status === 'Agendado').length;
     const realizados = all.filter(o => o.status === 'Realizado').length;
     const naoRealizados = all.filter(o => o.status === 'Não realizado').length;
+    const horasTreinadas = all.reduce((s, o) => s + (Number(o.cargaHoraria) || 0), 0);
+    const notaFinalMedia = media(all, 'notaFinal');
     const lista = filtrarOnboarding();
 
     el.innerHTML = `
@@ -91,6 +112,12 @@
         ${HUB_UI.kpi('Pendentes/Agendados', U.fmtInt(pendentes), '', 'var(--warning)')}
         ${HUB_UI.kpi('Realizados', U.fmtInt(realizados), '', '#1baf7a')}
         ${HUB_UI.kpi('Não realizados', U.fmtInt(naoRealizados), '', naoRealizados > 0 ? 'var(--critical)' : '#1baf7a')}
+      </div>
+      <h3 style="font-size:13px;margin:6px 0 12px">Indicadores de treinamento</h3>
+      <div class="kpi-grid">
+        ${HUB_UI.kpi('Horas treinadas', U.fmt1(horasTreinadas) + 'h', 'soma de todos os registros', '#4a3aa7')}
+        ${HUB_UI.kpi('Nota final média', notaFinalMedia !== null ? U.fmt1(notaFinalMedia) : '—', 'de 0 a 10, dada pelo(a) treinador(a)', 'var(--p2)')}
+        ${PILARES.map(p => HUB_UI.kpi(p.label, (() => { const m = media(all, p.campo); return m !== null ? U.fmt1(m) : '—'; })(), 'nota média (1 a 5)', '#e87ba4')).join('')}
       </div>
       <div class="card full">
         <div class="toolbar">
@@ -181,6 +208,25 @@
         </div>
       </details>
 
+      <details class="blk" open>
+        <summary>Avaliação do Treinamento ${o.status === 'Realizado' ? '<span class="req">*</span>' : '<span class="hint">(obrigatória quando o Status for "Realizado")</span>'}</summary>
+        <div class="blk-body">
+          <p class="sub" style="color:var(--muted);font-size:11.5px;margin-bottom:10px">Escala por pilar: ${ESCALA_AVALIACAO.map(e => `${e.v} = ${e.label}`).join(' · ')}.</p>
+          ${PILARES.map(p => `
+            <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+              <div style="font-weight:600;font-size:13.5px">${U.escapeHtml(p.label)}</div>
+              <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px">
+                ${ESCALA_AVALIACAO.map(e => `<label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer">
+                  <input type="radio" name="of_${p.campo}" value="${e.v}" ${Number(o[p.campo]) === e.v ? 'checked' : ''} data-pilar="${p.campo}" ${dis}> ${e.v}
+                </label>`).join('')}
+              </div>
+            </div>`).join('')}
+          <div class="form-grid" style="margin-top:12px">
+            <div class="field"><label>Nota final do treinamento (0 a 10) ${o.status === 'Realizado' ? '<span class="req">*</span>' : ''}</label><input type="number" min="0" max="10" step="0.1" data-field="notaFinal" value="${o.notaFinal ?? ''}" placeholder="Ex: 8,5" ${dis}></div>
+          </div>
+        </div>
+      </details>
+
       ${!readOnly ? `<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
         <button class="btn btn-outline" id="of-cancelar" style="width:auto">Cancelar</button>
         <button class="btn btn-primary" id="of-salvar" style="width:auto">Salvar</button>
@@ -196,6 +242,7 @@
         const ev = inp.tagName === 'SELECT' ? 'change' : 'input';
         inp.addEventListener(ev, () => { obForm[inp.dataset.field] = inp.value; });
       });
+      el.querySelectorAll('[data-pilar]').forEach(inp => inp.addEventListener('change', () => { obForm[inp.dataset.pilar] = Number(inp.value); }));
       const statusSel = el.querySelector('#of_status');
       statusSel && statusSel.addEventListener('change', () => { obForm.status = statusSel.value; if (obForm.status !== 'Não realizado') { obForm.motivoNaoRealizado = ''; obForm.observacoes = ''; } renderFormView(el); });
       const motivoSel = el.querySelector('#of_motivo');
@@ -217,6 +264,10 @@
     if (o.status === 'Não realizado') {
       if (!o.motivoNaoRealizado) return fail('Selecione o Motivo.');
       if (!o.observacoes || !o.observacoes.trim()) return fail('Informe as Observações sobre este caso.');
+    }
+    if (o.status === 'Realizado') {
+      for (const p of PILARES) if (!o[p.campo]) return fail(`Avalie o pilar "${p.label}".`);
+      if (o.notaFinal === undefined || o.notaFinal === null || o.notaFinal === '') return fail('Informe a Nota final do treinamento.');
     }
 
     const btn = el.querySelector('#of-salvar');
