@@ -502,6 +502,66 @@ create index if not exists entrevistas_vaga_id_idx on public.entrevistas (vaga_i
 create index if not exists entrevistas_marca_idx on public.entrevistas (marca);
 create index if not exists entrevistas_data_idx on public.entrevistas (data);
 
+-- Módulo Treinamento e Desenvolvimento → Onboarding. Um registro é criado
+-- automaticamente (nunca à mão) quando alguém envia, na tela Candidatos, um
+-- candidato com resultado_final='Aprovado' cuja vaga já está 'Finalizada' —
+-- ver js/sections/candidatos.js (enviarParaOnboarding). Do agendamento até a
+-- avaliação de treinamento (rubrica de 16 itens, escala 1-5).
+create table if not exists public.onboarding (
+  id uuid primary key default gen_random_uuid(),
+  candidato_id text references public.candidatos(id) on delete set null,
+  candidato_nome text,
+  vaga_id text references public.vagas(id) on delete set null,
+  cargo text,
+  marca text,
+  departamento text,
+  unidade text,
+  nivel_vaga text,
+  data_prevista_admissao date,
+  status text not null default 'Pendente',
+  motivo_nao_realizado text,
+  data_onboarding date,
+  local text,
+  quantidade_passagens int,
+  tipo_transporte text,
+  valor_total_transporte numeric,
+  -- Rubrica de avaliação do treinamento (escala 1-5) — grupos: Comportamento
+  -- e Postura, Aspectos de Atendimento, Alinhamento com a Cultura
+  -- Organizacional, Engajamento/Participação/Interesse.
+  pontualidade int,
+  postura_profissional int,
+  respeito_interpessoal int,
+  controle_emocional int,
+  comunicacao_cliente int,
+  conhecimento_tecnico int,
+  simulacao_atendimento int,
+  resolucao_problemas int,
+  identificacao_valores int,
+  aderencia_politicas int,
+  postura_trabalho_equipe int,
+  participacao_ativa int,
+  interesse_conteudo int,
+  proatividade int,
+  absorcao_conteudo int,
+  receptividade_feedback int,
+  aptidao_funcao text,
+  nota_geral numeric,
+  pontos_fortes text,
+  pontos_desenvolvimento text,
+  plano_acao text,
+  observacoes_treinador text,
+  nome_treinador text,
+  data_treinamento date,
+  avaliacao_preenchida boolean not null default false,
+  enviado_por text,
+  enviado_em timestamptz,
+  criado_em timestamptz not null default now()
+);
+create index if not exists onboarding_candidato_id_idx on public.onboarding (candidato_id);
+create index if not exists onboarding_vaga_id_idx on public.onboarding (vaga_id);
+create index if not exists onboarding_marca_idx on public.onboarding (marca);
+create index if not exists onboarding_status_idx on public.onboarding (status);
+
 create table if not exists public.historico (
   id bigserial primary key,
   "timestamp" timestamptz not null default now(),
@@ -559,6 +619,7 @@ alter table public.twygo_conteudos enable row level security;
 alter table public.vagas enable row level security;
 alter table public.candidatos enable row level security;
 alter table public.entrevistas enable row level security;
+alter table public.onboarding enable row level security;
 alter table public.historico enable row level security;
 alter table public.solicitacoes enable row level security;
 alter table public.marcas enable row level security;
@@ -662,6 +723,32 @@ drop policy if exists entrevistas_write on public.entrevistas;
 create policy entrevistas_write on public.entrevistas for all
   using (public.has_permission('recrutamento.agenda') or public.has_permission('recrutamento.candidatos'))
   with check (public.has_permission('recrutamento.agenda') or public.has_permission('recrutamento.candidatos'));
+
+-- onboarding: leitura para quem administra o módulo (treinamento_dev.onboarding)
+-- OU para quem mexe em candidatos/vagas (precisam ver o badge "já enviado" /
+-- propagar a data prevista de admissão). Criação (insert) só acontece a
+-- partir da tela Candidatos — por isso pede recrutamento.candidatos OU
+-- treinamento_dev.onboarding. Edição do registro em si (status, avaliação)
+-- é do time de treinamento; a única escrita que vem de Recrutamento depois
+-- da criação é a sincronização de data_prevista_admissao a partir da vaga,
+-- por isso recrutamento.vagas também entra no update.
+drop policy if exists onboarding_select on public.onboarding;
+create policy onboarding_select on public.onboarding for select
+  using (
+    public.can_see(marca, departamento)
+    and (
+      public.has_permission('treinamento_dev.onboarding')
+      or public.has_permission('recrutamento.candidatos')
+      or public.has_permission('recrutamento.vagas')
+    )
+  );
+drop policy if exists onboarding_insert on public.onboarding;
+create policy onboarding_insert on public.onboarding for insert
+  with check (public.has_permission('recrutamento.candidatos') or public.has_permission('treinamento_dev.onboarding'));
+drop policy if exists onboarding_update on public.onboarding;
+create policy onboarding_update on public.onboarding for update
+  using (public.has_permission('treinamento_dev.onboarding') or public.has_permission('recrutamento.vagas'))
+  with check (public.has_permission('treinamento_dev.onboarding') or public.has_permission('recrutamento.vagas'));
 
 -- historico: leitura via recrutamento.historico; escrita (log automático de
 -- auditoria) liberada a qualquer usuário com alguma permissão de Recrutamento.
@@ -769,7 +856,8 @@ grant execute on function public.admin_truncate(text) to authenticated;
 --      "recrutamento.dashboard": true, "recrutamento.vagas": true,
 --      "recrutamento.candidatos": true, "recrutamento.agenda": true,
 --      "recrutamento.banco_talentos": true, "recrutamento.aprovacoes": true,
---      "recrutamento.historico": true, "admin.upload": true,
+--      "recrutamento.historico": true, "treinamento_dev.onboarding": true,
+--      "admin.upload": true,
 --      "admin.cadastros_recrutamento": true, "admin.usuarios": true
 --    }'::jsonb
 --    from auth.users

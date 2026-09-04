@@ -19,6 +19,7 @@
     'rec-dashboard': 'Dashboard — Recrutamento', 'rec-vagas': 'Controle de Vagas', 'rec-candidatos': 'Candidatos',
     'rec-agenda': 'Agenda de Entrevistas', 'rec-banco-talentos': 'Banco de Talentos', 'rec-aprovacoes': 'Aprovações',
     'rec-historico': 'Histórico',
+    'tre-onboarding': 'Onboarding',
     'adm-upload': 'Upload de Planilhas', 'adm-cadastros': 'Cadastros do Recrutamento', 'adm-usuarios': 'Cadastro de Acessos'
   };
 
@@ -33,13 +34,16 @@
     'rec-dashboard': 'recrutamento.dashboard', 'rec-vagas': 'recrutamento.vagas', 'rec-candidatos': 'recrutamento.candidatos',
     'rec-agenda': 'recrutamento.agenda', 'rec-banco-talentos': 'recrutamento.banco_talentos',
     'rec-aprovacoes': 'recrutamento.aprovacoes', 'rec-historico': 'recrutamento.historico',
+    'tre-onboarding': 'treinamento_dev.onboarding',
     'adm-upload': 'admin.upload', 'adm-cadastros': 'admin.cadastros_recrutamento', 'adm-usuarios': 'admin.usuarios'
   };
 
-  // Seções do módulo Recrutamento recarregam vagas/candidatos/entrevistas
-  // toda vez que são abertas — é isso que faz os dados aparecerem "em tempo
-  // real, de forma automática" sem upload (ver dal-recrutamento.js).
-  const RECRUIT_SECTIONS = new Set(['ind-recrutamento', 'rec-dashboard', 'rec-vagas', 'rec-candidatos', 'rec-agenda', 'rec-banco-talentos', 'rec-aprovacoes', 'rec-historico']);
+  // Seções do módulo Recrutamento (e Treinamento e Desenvolvimento, que
+  // compartilha as mesmas tabelas — ver dal-recrutamento.js) recarregam
+  // vagas/candidatos/entrevistas/onboarding toda vez que são abertas — é
+  // isso que faz os dados aparecerem "em tempo real, de forma automática"
+  // sem upload.
+  const RECRUIT_SECTIONS = new Set(['ind-recrutamento', 'rec-dashboard', 'rec-vagas', 'rec-candidatos', 'rec-agenda', 'rec-banco-talentos', 'rec-aprovacoes', 'rec-historico', 'tre-onboarding']);
 
   function sectionRenderer(name) {
     const f = getFilters();
@@ -61,6 +65,7 @@
       case 'rec-banco-talentos': return HUB_SECTIONS.renderBancoTalentos(el, f);
       case 'rec-aprovacoes': return HUB_SECTIONS.renderAprovacoes(el, f);
       case 'rec-historico': return HUB_SECTIONS.renderHistorico(el, f);
+      case 'tre-onboarding': return HUB_SECTIONS.renderOnboarding(el, f);
       case 'adm-upload': return HUB_ADMIN_UPLOAD.render(el);
       case 'adm-cadastros': return HUB_ADMIN_CADASTROS.render(el);
       case 'adm-usuarios': return HUB_ADMIN_USUARIOS.render(el);
@@ -112,6 +117,9 @@
     $('#fg-conteudo').style.display = showTwygo ? 'flex' : 'none';
     renderCurrentSection();
   }
+  // Exposto pra navegação entre módulos a partir de uma seção (ex.: botão
+  // "Abrir no Treinamento e Desenvolvimento" em Recrutamento → Candidatos).
+  window.HUB_GOTO_SECTION = goToSection;
 
   function populateDatalist(inputId, values) {
     const dl = document.getElementById('dl-' + inputId.replace(/^f-/, ''));

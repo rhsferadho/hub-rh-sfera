@@ -222,6 +222,8 @@
                 <td class="row-actions">
                   <button class="btn btn-outline btn-sm" data-editar="${c.id}">${canWrite() ? 'Editar' : 'Ver'}</button>
                   ${canWrite() ? `<button class="btn btn-danger btn-sm" data-excluir="${c.id}">${canApprove() ? 'Excluir' : 'Solicitar exclusão'}</button>` : ''}
+                  ${canWrite() && podeEnviarParaOnboarding(c) ? `<button class="btn btn-outline btn-sm" data-onboarding="${c.id}" title="Enviar para Onboarding">Onboarding</button>` : ''}
+                  ${candidatoJaEmOnboarding(c.id) ? '<span class="badge b2" title="Já está no Onboarding">Onboarding</span>' : ''}
                 </td>
               </tr>`;
             }).join('')}
@@ -253,6 +255,7 @@
     $('#cd-f-fim').addEventListener('change', e => { listState.filterDataFim = e.target.value; listState.page = 1; render(); });
     el.querySelectorAll('[data-editar]').forEach(b => b.addEventListener('click', () => openForm(b.dataset.editar)));
     el.querySelectorAll('[data-excluir]').forEach(b => b.addEventListener('click', () => acaoExcluirCandidato(b.dataset.excluir)));
+    el.querySelectorAll('[data-onboarding]').forEach(b => b.addEventListener('click', () => enviarParaOnboarding(b.dataset.onboarding)));
     $('#cd-export') && $('#cd-export').addEventListener('click', exportarCandidatosCSV);
     $('#cd-novo') && $('#cd-novo').addEventListener('click', () => openForm(null));
     $('#cd-prev').addEventListener('click', () => { if (listState.page > 1) { listState.page--; render(); } });
@@ -301,6 +304,41 @@
       } catch (err) { alert('Erro ao enviar solicitação: ' + err.message); return; }
       alert('Solicitação de exclusão enviada para aprovação.');
     }
+    await reloadAndRender();
+  }
+
+  // ================================================================
+  // ENVIAR PARA ONBOARDING (portado de candidatoJaEmOnboarding/
+  // podeEnviarParaOnboarding/enviarParaOnboarding, ~6840-6897) — só libera
+  // quando o candidato foi Aprovado e a vaga dele já foi Finalizada; cria o
+  // registro em `onboarding` (lido por Treinamento e Desenvolvimento →
+  // Onboarding) e nunca mais aparece disponível pra reenviar depois disso.
+  // ================================================================
+  function candidatoJaEmOnboarding(candidatoId) {
+    return (D().onboarding || []).find(o => o.candidatoId === candidatoId) || null;
+  }
+  function podeEnviarParaOnboarding(c) {
+    if (!c || c.resultadoFinal !== 'Aprovado') return false;
+    const vaga = (D().vagas || []).find(v => v.id === c.vagaId);
+    if (!vaga || vaga.status !== 'Finalizada') return false;
+    return !candidatoJaEmOnboarding(c.id);
+  }
+  async function enviarParaOnboarding(candidatoId) {
+    const c = (D().candidatos || []).find(x => x.id === candidatoId);
+    if (!c || !podeEnviarParaOnboarding(c)) { alert('Este candidato não pode ser enviado para onboarding no momento.'); return; }
+    if (!confirm(`Enviar ${c.nome} para o Onboarding?`)) return;
+    const vaga = (D().vagas || []).find(v => v.id === c.vagaId);
+    try {
+      await R.insertRow('onboarding', {
+        candidatoId: c.id, candidatoNome: c.nome, vagaId: c.vagaId, cargo: c.cargo, marca: c.marca,
+        departamento: c.departamento, unidade: vaga ? vaga.unidade : '', nivelVaga: c.nivelVaga,
+        dataPrevistaAdmissao: (vaga && vaga.dataPrevistaAdmissao) || c.dataAdmissao || '',
+        status: 'Pendente',
+        enviadoPor: (HUB_USER && (HUB_USER.nome || HUB_USER.email)) || 'Desconhecido',
+        enviadoEm: new Date().toISOString()
+      });
+      await R.logAcao({ acao: 'Onboarding', vagaId: c.vagaId, detalhes: `${c.nome} enviado(a) para Onboarding` });
+    } catch (err) { alert('Erro ao enviar para onboarding: ' + err.message); return; }
     await reloadAndRender();
   }
 
@@ -507,6 +545,14 @@
         </div>
       </details>
 
+      ${editingCandId && d.resultadoFinal === 'Aprovado' ? (() => {
+        const jaEnviado = candidatoJaEmOnboarding(editingCandId);
+        if (jaEnviado) return `<div class="msg ok" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>Enviado(a) para Onboarding.</span>${!readOnly ? `<button type="button" class="btn btn-outline btn-sm" id="cf-abrir-onboarding" style="width:auto">Abrir no Treinamento e Desenvolvimento</button>` : ''}</div>`;
+        const cAtual = (D().candidatos || []).find(x => x.id === editingCandId) || d;
+        if (!readOnly && podeEnviarParaOnboarding(cAtual)) return `<div class="field full"><button type="button" class="btn btn-primary" id="cf-enviar-onboarding" style="width:auto">Enviar para Onboarding</button></div>`;
+        return '';
+      })() : ''}
+
       ${d.resultadoFinal === 'Banco de Talentos' ? `<details class="blk" open>
         <summary>Cargos Possíveis</summary>
         <div class="blk-body">
@@ -688,6 +734,15 @@
     finalSel && finalSel.addEventListener('change', () => { d.resultadoFinal = finalSel.value; renderProgress(el); renderBody(el, readOnly); });
     const admInp = el.querySelector('#cf_dataAdmissao');
     admInp && admInp.addEventListener('change', () => { d.dataAdmissao = admInp.value; renderProgress(el); });
+
+    // Onboarding: enviar (recarrega e re-renderiza o form, que passa a mostrar
+    // o aviso "já enviado") ou navegar até o novo módulo Treinamento e
+    // Desenvolvimento (o link abre a lista — não há deep-link pro registro
+    // específico entre módulos nesta versão).
+    const btnEnviarOb = el.querySelector('#cf-enviar-onboarding');
+    btnEnviarOb && btnEnviarOb.addEventListener('click', () => editingCandId && enviarParaOnboarding(editingCandId));
+    const btnAbrirOb = el.querySelector('#cf-abrir-onboarding');
+    btnAbrirOb && btnAbrirOb.addEventListener('click', () => { if (window.HUB_GOTO_SECTION) HUB_GOTO_SECTION('tre-onboarding'); });
   }
 
   // ================================================================

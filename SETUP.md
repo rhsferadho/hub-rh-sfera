@@ -20,6 +20,7 @@ aqui). Siga os passos na ordem.
    - `profiles` — um registro por usuário do hub, com `perfil` (rótulo), `unidades`/`departamentos` liberados e `permissoes` (mapa de checkboxes granular).
    - As tabelas do módulo **Indicadores** (alimentadas por upload): `colaboradores`, `feedbacks`, `one_on_one`, `celebracoes`, `entrevista_pesquisa`, `entrevista_solicitacao`, `twygo_participantes`, `twygo_usuarios`, `twygo_conteudos`.
    - As tabelas do módulo **Recrutamento** (alimentadas pelas próprias telas do hub, sem upload): `vagas`, `candidatos`, `entrevistas`, `historico`, `solicitacoes`, além das listas mestre `marcas`, `unidades`, `cargos`, `etapas`, `fontes_captacao`, `portais`, `niveis_vaga`, `recrutadores`, `recrutamento_departamentos`.
+   - A tabela do módulo **Treinamento e Desenvolvimento**: `onboarding` — um registro é criado automaticamente quando um candidato aprovado (vaga já finalizada) é enviado para onboarding pela tela Candidatos; nunca é criada à mão.
    - Todas as tabelas já saem com Row Level Security configurada, incluindo `has_permission()` (lê o mapa de permissões de cada usuário) e `can_see()` (restringe por unidade/departamento, reaproveitado do Hub de Indicadores).
 
 ## 3. Desativar confirmação de e-mail
@@ -51,7 +52,8 @@ cadastrada, desative a confirmação por e-mail:
      "recrutamento.dashboard": true, "recrutamento.vagas": true,
      "recrutamento.candidatos": true, "recrutamento.agenda": true,
      "recrutamento.banco_talentos": true, "recrutamento.aprovacoes": true,
-     "recrutamento.historico": true, "admin.upload": true,
+     "recrutamento.historico": true, "treinamento_dev.onboarding": true,
+     "admin.upload": true,
      "admin.cadastros_recrutamento": true, "admin.usuarios": true
    }'::jsonb
    from auth.users

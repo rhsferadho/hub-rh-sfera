@@ -616,6 +616,18 @@
       await R.updateRow('vagas', vaga.id, dados);
       await Promise.all(logs);
 
+      // Data Prevista de Admissão mudou: propaga para os registros de
+      // Onboarding já abertos para esta vaga (Treinamento e Desenvolvimento
+      // → Onboarding) — portado de renderVagas/salvarEdicao ~5905-5929.
+      if (dados.dataPrevistaAdmissao !== undefined && dados.dataPrevistaAdmissao !== vaga.dataPrevistaAdmissao) {
+        const registrosOnboarding = (D().onboarding || []).filter(o => o.vagaId === vaga.id);
+        if (registrosOnboarding.length) {
+          await Promise.all(registrosOnboarding.map(o => R.updateRow('onboarding', o.id, { dataPrevistaAdmissao: dados.dataPrevistaAdmissao })
+            .catch(err => console.error('Erro ao sincronizar data prevista de admissão do onboarding:', err))));
+          await R.logAcao({ acao: 'Sincronização Data Admissão', vagaId: vaga.id, detalhes: `Nova data prevista de admissão (${dados.dataPrevistaAdmissao || '—'}) propagada para ${registrosOnboarding.length} registro(s) de onboarding.` });
+        }
+      }
+
       view = 'list';
       await reloadAndRender();
       if (solicitacaoCriada) alert('Alterações salvas. A mudança de status foi enviada para aprovação.');

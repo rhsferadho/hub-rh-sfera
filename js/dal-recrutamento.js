@@ -11,7 +11,11 @@
 // de mapeamento por campo) — funciona porque todo nome de coluna aqui segue
 // o padrão direto camelCase<->snake_case, sem abreviações especiais.
 (function () {
-  const RECRUIT_TABLES = ['vagas', 'candidatos', 'entrevistas'];
+  // `onboarding` entra aqui (não é uma tabela de "listas mestre") porque
+  // muda com a mesma frequência que vagas/candidatos/entrevistas e precisa
+  // recarregar toda vez que se entra em qualquer tela do módulo Recrutamento
+  // OU do módulo Treinamento e Desenvolvimento — ver RECRUIT_SECTIONS em app.js.
+  const RECRUIT_TABLES = ['vagas', 'candidatos', 'entrevistas', 'onboarding'];
   const MASTER_TABLES = ['marcas', 'unidades', 'cargos', 'etapas', 'fontes_captacao', 'portais', 'niveis_vaga', 'recrutadores', 'recrutamento_departamentos'];
 
   window.HUB_RECRUIT_DATA = window.HUB_RECRUIT_DATA || {};

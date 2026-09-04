@@ -33,6 +33,12 @@
       ]
     },
     {
+      group: 'treinamento_dev', groupLabel: 'Treinamento e Desenvolvimento', icon: '&#127891;',
+      items: [
+        { key: 'treinamento_dev.onboarding', label: 'Onboarding' }
+      ]
+    },
+    {
       group: 'administracao', groupLabel: 'Administração', icon: '&#9881;&#65039;',
       items: [
         { key: 'admin.upload', label: 'Upload de Planilhas (Indicadores)' },
