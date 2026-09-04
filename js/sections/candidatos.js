@@ -7,13 +7,10 @@
 // usam <details class="blk"> nativo em vez do toggleSection() customizado
 // do app original.
 //
-// Campo legado `etapaRH`: no app original ele é herdado do v1/v2 e não tem
-// mais nenhum <select> editável no formulário novo (v3) — fica sempre
-// 'Agendado(a)' (valor padrão) e é só carregado para a coluna existir no
-// banco (candidatoParaSupabase/candidatoDoSupabase). Por isso o filtro
-// "Todas etapas (RH)" da lista original (que filtrava por esse campo morto)
-// foi removido aqui — o mesmo dado, só que vivo, já existe no filtro
-// "Result. RH" (sobre resultadoRH).
+// Campo legado `etapaRH` do app original (v1/v2, sempre 'Agendado(a)' no v3,
+// sem nenhum <select> editável e sem coluna correspondente no schema deste
+// hub) foi removido daqui — o mesmo dado, só que vivo, já existe no filtro
+// "Result. RH" (sobre resultadoRh).
 (function () {
   const U = HUB_UTILS;
   const R = HUB_RECRUIT;
@@ -153,7 +150,7 @@
     if (listState.filterResultado !== 'todos') {
       res = listState.filterResultado === '__em_andamento__' ? res.filter(c => !c.resultadoFinal) : res.filter(c => c.resultadoFinal === listState.filterResultado);
     }
-    if (listState.filterResultadoRH !== 'todos') res = res.filter(c => c.resultadoRH === listState.filterResultadoRH);
+    if (listState.filterResultadoRH !== 'todos') res = res.filter(c => c.resultadoRh === listState.filterResultadoRH);
     if (listState.filterResultadoAnalise !== 'todos') res = res.filter(c => c.resultadoAnalise === listState.filterResultadoAnalise);
     if (listState.filterResultadoChecagem !== 'todos') res = res.filter(c => c.resultadoChecagem === listState.filterResultadoChecagem);
     if (listState.filterResultadoGestor !== 'todos') res = res.filter(c => c.resultadoGestor === listState.filterResultadoGestor);
@@ -207,7 +204,7 @@
           </tr></thead>
           <tbody>
             ${page.map(c => {
-              const rRH = c.resultadoRH || '', rAnal = c.resultadoAnalise || '', rCheck = c.resultadoChecagem || '', rGest = c.resultadoGestor || '';
+              const rRH = c.resultadoRh || '', rAnal = c.resultadoAnalise || '', rCheck = c.resultadoChecagem || '', rGest = c.resultadoGestor || '';
               const wa = linkWhatsApp(c.contato);
               return `<tr>
                 <td>${U.escapeHtml(c.id)}</td>
@@ -270,7 +267,7 @@
     const header = ['ID', 'Nome', 'Vaga ID', 'Cargo', 'Marca', 'Departamento', 'Nível', 'Recrutador', 'Data Entrevista', 'Horário', 'Contato', 'E-mail', '% FIT', 'Resultado RH', 'Motivo Reprovação', 'Resultado Análise', 'Resultado Checagem', 'Resultado Gestor', 'Resultado Final', 'Data Fechamento', 'Fonte', 'Data Admissão', 'Observações'];
     const rows = [header].concat((D().candidatos || []).map(c => [
       c.id, c.nome, c.vagaId, c.cargo, c.marca, c.departamento, c.nivelVaga, c.entrevistadoPor, c.dataEntrevista, c.horarioEntrevista,
-      c.contato, c.email, c.fitPct, c.resultadoRH, c.motivoReprovacao, c.resultadoAnalise, c.resultadoChecagem, c.resultadoGestor,
+      c.contato, c.email, c.fitPct, c.resultadoRh, c.motivoReprovacao, c.resultadoAnalise, c.resultadoChecagem, c.resultadoGestor,
       c.resultadoFinal, c.dataFechamento, c.fonteCaptacao, c.dataAdmissao, c.observacoes
     ]));
     baixarCSV(`candidatos_${U.todayISO()}.csv`, rows);
@@ -351,12 +348,12 @@
   // ================================================================
   function defaultCandForm() {
     return {
-      vagaId: '', nome: '', contato: '', email: '', linkedin: '', linkPandaPe: '',
-      dataEntrevista: U.todayISO(), horarioEntrevista: '', fitPct: 0, etapaRH: 'Agendado(a)', motivoReprovacao: '',
+      vagaId: '', nome: '', contato: '', email: '', linkedin: '', linkPandape: '',
+      dataEntrevista: U.todayISO(), horarioEntrevista: '', fitPct: 0, motivoReprovacao: '',
       analise: 'Pendente', motivoAnalise: '', dataAnalise: '', checagem: 'Pendente', dataChecagem: '',
       testePratico: 'Não aplicável', dataTestePratico: '', entrevistaGestor: '', dataEntrevistaGestor: '',
       entrevistaDiretoria: '', dataEntrevistaDiretoria: '',
-      etapaRHStatus: 'Pendente', resultadoRH: 'Em andamento', dataContatoRH: '', dataAgendadaRH: '',
+      etapaRhStatus: 'Pendente', resultadoRh: 'Em andamento', dataContatoRh: '', dataAgendadaRh: '',
       etapaAnaliseStatus: 'Pendente', resultadoAnalise: 'Em andamento', dataContatoAnalise: '', dataAgendadaAnalise: '',
       etapaChecagemStatus: 'Pendente', resultadoChecagem: 'Em andamento', dataContatoChecagem: '', dataAgendadaChecagem: '',
       etapaGestorStatus: 'Pendente', resultadoGestor: 'Em andamento', dataContatoGestor: '', dataAgendadaGestor: '', horarioGestor: '',
@@ -380,7 +377,7 @@
   }
 
   function computeAutoResultadoFinal(d) {
-    const resultados = [d.resultadoRH, d.resultadoAnalise, d.resultadoChecagem, d.resultadoGestor];
+    const resultados = [d.resultadoRh, d.resultadoAnalise, d.resultadoChecagem, d.resultadoGestor];
     if (resultados.includes('Banco de Talentos')) return 'Banco de Talentos';
     if (resultados.includes('Reprovado')) return 'Reprovado';
     return null;
@@ -418,7 +415,7 @@
     const d = candForm;
     const steps = ['Agendado', 'RH', 'Análise', 'Checagem', 'Gestor', 'Proposta', 'Admissão'];
     let idx = 0;
-    if (d.resultadoRH && d.resultadoRH !== 'Em andamento') idx = 1;
+    if (d.resultadoRh && d.resultadoRh !== 'Em andamento') idx = 1;
     if (d.resultadoAnalise && d.resultadoAnalise !== 'Em andamento') idx = Math.max(idx, 2);
     if (d.resultadoChecagem && d.resultadoChecagem !== 'Em andamento') idx = Math.max(idx, 3);
     if (d.resultadoGestor && d.resultadoGestor !== 'Em andamento') idx = Math.max(idx, 4);
@@ -446,7 +443,7 @@
       if (found) dup = `<div class="msg err" style="display:block;margin-bottom:14px">Possível duplicidade: já existe candidato com este e-mail/telefone — ${U.escapeHtml(found.nome)} (${found.id}).</div>`;
     }
 
-    const rhOk = d.resultadoRH === 'Aprovado';
+    const rhOk = d.resultadoRh === 'Aprovado';
     const analiseOk = rhOk && d.resultadoAnalise === 'Aprovado';
     const checagemOk = analiseOk && d.resultadoChecagem === 'Aprovado';
     const todasAprovadas = rhOk && analiseOk && checagemOk && d.resultadoGestor === 'Aprovado';
@@ -484,7 +481,7 @@
               </div>
             </div>
             <div class="field"><label>LinkedIn <span class="req">*</span></label><input data-field="linkedin" value="${U.escapeHtml(d.linkedin || '')}" placeholder="linkedin.com/in/..." ${dis}></div>
-            <div class="field"><label>Link PandaPé <span class="req">*</span></label><input data-field="linkPandaPe" value="${U.escapeHtml(d.linkPandaPe || '')}" placeholder="pandape.infojobs.com.br/..." ${dis}></div>
+            <div class="field"><label>Link PandaPé <span class="req">*</span></label><input data-field="linkPandape" value="${U.escapeHtml(d.linkPandape || '')}" placeholder="pandape.infojobs.com.br/..." ${dis}></div>
             <div class="field"><label>Fonte de Captação <span class="req">*</span></label><select data-field="fonteCaptacao" ${dis}>${selOpts(fontesAtivas(), d.fonteCaptacao)}</select></div>
             <div class="field"><label>Segmento da Última Empresa <span class="req">*</span></label><select data-field="segmentoUltimaEmpresa" ${dis}>${selOpts(SEGMENTOS_EMPRESA, d.segmentoUltimaEmpresa)}</select></div>
             <div class="field"><label>Gênero <span class="req">*</span></label><select data-field="genero" ${dis}>${selOpts(GENERO_OPCOES, d.genero)}</select></div>
@@ -512,7 +509,7 @@
         <div class="blk-body">
           <div class="form-grid">
             <div class="field"><label>Entrevistado por <span class="req">*</span></label><select data-field="entrevistadoPor" ${dis}>${selOpts(recrutadoresAtivos(), d.entrevistadoPor || (vaga && vaga.responsavel))}</select></div>
-            <div class="field"><label>Data do contato do RH <span class="req">*</span></label><input type="date" id="cf_dataContatoRH" value="${d.dataContatoRH || ''}" ${dis}></div>
+            <div class="field"><label>Data do contato do RH <span class="req">*</span></label><input type="date" id="cf_dataContatoRh" value="${d.dataContatoRh || ''}" ${dis}></div>
             <div class="field"><label>Data da entrevista <span class="req">*</span></label><input type="date" id="cf_dataEntrevista" value="${d.dataEntrevista || ''}" ${dis}></div>
             <div class="field"><label>Horário <span class="req">*</span></label><input type="time" data-field="horarioEntrevista" value="${U.escapeHtml(d.horarioEntrevista || '')}" ${dis}></div>
             <div class="field"><label>FIT Cultural (%)</label>
@@ -521,9 +518,9 @@
                 <span id="cf_fitVal" style="font-weight:700;min-width:42px;text-align:right">${d.fitPct || 0}%</span>
               </div>
             </div>
-            <div class="field"><label>Status da etapa</label><select data-field="etapaRHStatus" ${dis}>${selOpts(STATUS_ETAPA, d.etapaRHStatus || 'Pendente', 'Pendente')}</select></div>
-            <div class="field"><label>Resultado</label><select id="cf_resultadoRH" ${dis}>${selOpts(RESULTADO_ETAPA_DETALHE, d.resultadoRH || 'Em andamento', 'Em andamento')}</select></div>
-            <div class="field full"><div class="sla-note">${frasSLAEtapa(d.dataContatoRH, d.dataEntrevista || d.dataAgendadaRH)}</div></div>
+            <div class="field"><label>Status da etapa</label><select data-field="etapaRhStatus" ${dis}>${selOpts(STATUS_ETAPA, d.etapaRhStatus || 'Pendente', 'Pendente')}</select></div>
+            <div class="field"><label>Resultado</label><select id="cf_resultadoRh" ${dis}>${selOpts(RESULTADO_ETAPA_DETALHE, d.resultadoRh || 'Em andamento', 'Em andamento')}</select></div>
+            <div class="field full"><div class="sla-note">${frasSLAEtapa(d.dataContatoRh, d.dataEntrevista || d.dataAgendadaRh)}</div></div>
           </div>
         </div>
       </details>
@@ -709,16 +706,16 @@
     }));
 
     // Datas de contato/agendada por etapa (RH + Análise/Checagem/Gestor): valida
-    // ordem, atualiza nota de SLA. RH usa ids próprios (dataContatoRH/dataEntrevista)
+    // ordem, atualiza nota de SLA. RH usa ids próprios (dataContatoRh/dataEntrevista)
     // por herdar o layout do app original; as demais usam a classe genérica.
-    const dContatoRH = el.querySelector('#cf_dataContatoRH'), dEntrevista = el.querySelector('#cf_dataEntrevista');
+    const dContatoRH = el.querySelector('#cf_dataContatoRh'), dEntrevista = el.querySelector('#cf_dataEntrevista');
     function syncRHSla() {
-      d.dataContatoRH = dContatoRH.value; d.dataEntrevista = dEntrevista.value; d.dataAgendadaRH = dEntrevista.value;
+      d.dataContatoRh = dContatoRH.value; d.dataEntrevista = dEntrevista.value; d.dataAgendadaRh = dEntrevista.value;
       // Bloco RH é sempre o primeiro .sla-note do formulário (os blocos de
       // Análise/Checagem/Gestor só existem depois que a etapa anterior é
       // aprovada — ver renderBody).
       const slaEls = el.querySelectorAll('.sla-note');
-      if (slaEls[0]) slaEls[0].innerHTML = frasSLAEtapa(d.dataContatoRH, d.dataEntrevista);
+      if (slaEls[0]) slaEls[0].innerHTML = frasSLAEtapa(d.dataContatoRh, d.dataEntrevista);
     }
     dContatoRH && dContatoRH.addEventListener('change', syncRHSla);
     dEntrevista && dEntrevista.addEventListener('change', syncRHSla);
@@ -743,8 +740,8 @@
     el.querySelectorAll('.cf-etapa-resultado').forEach(sel => sel.addEventListener('change', () => {
       d[sel.dataset.field] = sel.value; renderProgress(el); renderBody(el, readOnly);
     }));
-    const rhResSel = el.querySelector('#cf_resultadoRH');
-    rhResSel && rhResSel.addEventListener('change', () => { d.resultadoRH = rhResSel.value; renderProgress(el); renderBody(el, readOnly); });
+    const rhResSel = el.querySelector('#cf_resultadoRh');
+    rhResSel && rhResSel.addEventListener('change', () => { d.resultadoRh = rhResSel.value; renderProgress(el); renderBody(el, readOnly); });
 
     // Resultado Final manual + admissão
     const finalSel = el.querySelector('#cf_resultadoFinal');
@@ -776,7 +773,7 @@
     if (!d.nome || !d.nome.trim()) return fail('Informe o nome do candidato.');
     if (!d.email || !d.email.trim()) return fail('Informe o e-mail do candidato.');
 
-    const obrig = [['contato', 'Telefone / WhatsApp'], ['linkedin', 'LinkedIn'], ['linkPandaPe', 'Link PandaPé'],
+    const obrig = [['contato', 'Telefone / WhatsApp'], ['linkedin', 'LinkedIn'], ['linkPandape', 'Link PandaPé'],
       ['fonteCaptacao', 'Fonte de Captação'], ['segmentoUltimaEmpresa', 'Segmento da Última Empresa'],
       ['genero', 'Gênero'], ['faixaEtaria', 'Faixa Etária'], ['escolaridade', 'Escolaridade'],
       ['estuda', 'Está estudando atualmente?'], ['estadoCivil', 'Estado Civil'], ['temFilhos', 'Tem filhos?']];
@@ -785,27 +782,27 @@
     if (d.temFilhos === 'Sim' && !d.quantidadeFilhos) return fail('Informe quantos filhos o candidato tem.');
 
     if (!d.entrevistadoPor) return fail('Informe quem entrevistou o candidato (Entrevista RH).');
-    if (!d.dataContatoRH) return fail('Informe a Data do contato do RH.');
+    if (!d.dataContatoRh) return fail('Informe a Data do contato do RH.');
     if (!d.dataEntrevista) return fail('Informe a Data da entrevista (RH).');
     if (!d.horarioEntrevista) return fail('Informe o Horário da entrevista (RH).');
 
-    if (d.resultadoRH === 'Aprovado') {
+    if (d.resultadoRh === 'Aprovado') {
       if (!d.dataContatoAnalise) return fail('Informe a Data de contato da Etapa Análise Documental.');
       if (!d.dataAgendadaAnalise) return fail('Informe a Data agendada da Etapa Análise Documental.');
     }
-    if (d.resultadoRH === 'Aprovado' && d.resultadoAnalise === 'Aprovado') {
+    if (d.resultadoRh === 'Aprovado' && d.resultadoAnalise === 'Aprovado') {
       if (!d.dataContatoChecagem) return fail('Informe a Data de contato da Etapa Checagem.');
       if (!d.dataAgendadaChecagem) return fail('Informe a Data agendada da Etapa Checagem.');
     }
-    if (d.resultadoRH === 'Aprovado' && d.resultadoAnalise === 'Aprovado' && d.resultadoChecagem === 'Aprovado') {
+    if (d.resultadoRh === 'Aprovado' && d.resultadoAnalise === 'Aprovado' && d.resultadoChecagem === 'Aprovado') {
       if (!d.dataContatoGestor) return fail('Informe a Data de contato da Etapa Entrevista Gestor.');
       if (!d.dataAgendadaGestor) return fail('Informe a Data agendada da Etapa Entrevista Gestor.');
       if (!d.horarioGestor) return fail('Informe o Horário da Etapa Entrevista Gestor.');
     }
-    if (d.resultadoRH === 'Aprovado' && d.resultadoAnalise === 'Aprovado' && d.resultadoChecagem === 'Aprovado' && d.resultadoGestor === 'Aprovado' && !d.resultadoFinal) {
+    if (d.resultadoRh === 'Aprovado' && d.resultadoAnalise === 'Aprovado' && d.resultadoChecagem === 'Aprovado' && d.resultadoGestor === 'Aprovado' && !d.resultadoFinal) {
       return fail('Todas as etapas foram aprovadas — selecione o Resultado Final.');
     }
-    const pares = [[d.dataContatoRH, d.dataAgendadaRH, 'RH'], [d.dataContatoAnalise, d.dataAgendadaAnalise, 'Análise'], [d.dataContatoChecagem, d.dataAgendadaChecagem, 'Checagem'], [d.dataContatoGestor, d.dataAgendadaGestor, 'Gestor']];
+    const pares = [[d.dataContatoRh, d.dataAgendadaRh, 'RH'], [d.dataContatoAnalise, d.dataAgendadaAnalise, 'Análise'], [d.dataContatoChecagem, d.dataAgendadaChecagem, 'Checagem'], [d.dataContatoGestor, d.dataAgendadaGestor, 'Gestor']];
     for (const [c, a, n] of pares) if (c && a && a < c) return fail(`Etapa ${n}: data agendada anterior à data de contato.`);
 
     const auto = computeAutoResultadoFinal(d);
@@ -827,7 +824,7 @@
       if (existente.data !== d.dataEntrevista || existente.horario !== d.horarioEntrevista || existente.recrutador !== d.entrevistadoPor) {
         await R.updateRow('entrevistas', existente.id, { data: d.dataEntrevista || existente.data, horario: d.horarioEntrevista || existente.horario, recrutador: d.entrevistadoPor || existente.recrutador });
       }
-    } else if (d.etapaRHStatus !== 'Concluída' && d.dataEntrevista && d.horarioEntrevista) {
+    } else if (d.etapaRhStatus !== 'Concluída' && d.dataEntrevista && d.horarioEntrevista) {
       await R.insertRow('entrevistas', {
         candidatoId: editingCandId, candidatoNome: d.nome, vagaId: d.vagaId, cargo: d.cargo, marca: d.marca,
         recrutador: d.entrevistadoPor, etapa: 'Entrevista (RH)', data: d.dataEntrevista, horario: d.horarioEntrevista,

@@ -99,10 +99,10 @@
   function candidatosDaVaga(vagaId) { return (D().candidatos || []).filter(c => c.vagaId === vagaId); }
   function contarCandsDaVaga(id) { return candidatosDaVaga(id).length; }
   function contarEntrevistadosDaVaga(id) {
-    return candidatosDaVaga(id).filter(c => c.etapaRHStatus === 'Concluída' || (c.resultadoRH && c.resultadoRH !== 'Em andamento')).length;
+    return candidatosDaVaga(id).filter(c => c.etapaRhStatus === 'Concluída' || (c.resultadoRh && c.resultadoRh !== 'Em andamento')).length;
   }
   function contarReprovadosDaVaga(id) {
-    return candidatosDaVaga(id).filter(c => c.resultadoFinal === 'Reprovado' || c.resultadoRH === 'Reprovado' || c.resultadoAnalise === 'Reprovado' || c.resultadoChecagem === 'Reprovado' || c.resultadoGestor === 'Reprovado').length;
+    return candidatosDaVaga(id).filter(c => c.resultadoFinal === 'Reprovado' || c.resultadoRh === 'Reprovado' || c.resultadoAnalise === 'Reprovado' || c.resultadoChecagem === 'Reprovado' || c.resultadoGestor === 'Reprovado').length;
   }
   // resultadoFinal usa RESULTADO_FINAL_V2 no formulário novo (['Aprovado',
   // 'Reprovado','Desistente','Banco de Talentos']) — "Desistente", não mais
@@ -129,7 +129,7 @@
     if (!cands.length) return null;
     const c = cands[0];
     const map = {
-      RH: ['dataContatoRH', 'dataAgendadaRH'], Analise: ['dataContatoAnalise', 'dataAgendadaAnalise'],
+      RH: ['dataContatoRh', 'dataAgendadaRh'], Analise: ['dataContatoAnalise', 'dataAgendadaAnalise'],
       Checagem: ['dataContatoChecagem', 'dataAgendadaChecagem'], Gestor: ['dataContatoGestor', 'dataAgendadaGestor']
     };
     const pair = map[etapa];
@@ -284,7 +284,7 @@
                 <td>${U.escapeHtml(v.etapa || '')}</td>
                 <td>${sla}d</td>
                 <td>${badgeStatusSLA(ss)}</td>
-                <td style="max-width:150px;white-space:normal">${v.motivoSLAText ? U.escapeHtml(v.motivoSLAText) : '<span style="color:var(--muted)">—</span>'}</td>
+                <td style="max-width:150px;white-space:normal">${v.motivoSlaText ? U.escapeHtml(v.motivoSlaText) : '<span style="color:var(--muted)">—</span>'}</td>
                 <td>${formatFitCel(mediaFitDaVaga(v.id))}</td>
                 <td>${formatFitCel(fitContratadoDaVaga(v))}</td>
                 <td style="text-align:center">${contarCandsDaVaga(v.id)}</td>
@@ -447,7 +447,7 @@
         <div class="field" id="ev_wrap_pessoaSubstituida" style="${v.tipoMovimentacao === 'Substituição' ? '' : 'display:none'}"><label>Pessoa Substituída</label><input id="ev_pessoaSubstituida" value="${U.escapeHtml(v.pessoaSubstituida || '')}" ${disabled}></div>
         <div class="field"><label>Tipo de Recrutamento</label><select id="ev_tipoRecrutamento" ${disabled}>${selOpts(TIPOS_RECRUT, v.tipoRecrutamento)}</select></div>
         <div class="field"><label>Etapa da Vaga</label><select id="ev_etapa" ${disabled}>${selOpts(etapasAtivas(), v.etapa)}</select></div>
-        <div class="field"><label>Motivo SLA <span class="hint">${slaExpirada ? '' : '(só quando SLA expirar)'}</span></label><select id="ev_motivoSLA" ${slaExpirada ? disabled : 'disabled'}>${selOpts(MOTIVOS_SLA, v.motivoSLA)}</select></div>
+        <div class="field"><label>Motivo SLA <span class="hint">${slaExpirada ? '' : '(só quando SLA expirar)'}</span></label><select id="ev_motivoSla" ${slaExpirada ? disabled : 'disabled'}>${selOpts(MOTIVOS_SLA, v.motivoSla)}</select></div>
         <div class="field"><label>Data do Congelamento</label><input type="date" id="ev_dataCongelamento" value="${v.dataCongelamento || ''}" ${disabled}></div>
         <div class="field"><label>Data do Retorno</label><input type="date" id="ev_dataRetorno" value="${v.dataRetorno || ''}" ${disabled}></div>
         <div class="field"><label>Data do Cancelamento</label><input type="date" id="ev_dataCancelamento" value="${v.dataCancelamento || ''}" ${disabled}></div>
@@ -457,7 +457,7 @@
         <div class="field"><label>Última Divulgação</label><input type="date" id="ev_ultimaDivulgacao" value="${v.ultimaDivulgacao || ''}" ${disabled}></div>
         <div class="field"><label>Data Última Divulgação</label><input type="date" id="ev_dataUltimaDivulgacao" value="${v.dataUltimaDivulgacao || ''}" ${disabled}></div>
         <div class="field"><label>Nº Inscrições Recebidas</label><input type="number" min="0" id="ev_numInscricoes" value="${v.numInscricoes || 0}" ${disabled}></div>
-        <div class="field full"><label>Motivo SLA (texto livre) <span class="hint">${slaExpirada ? '' : '(só quando SLA expirar)'}</span></label><input id="ev_motivoSLAText" value="${U.escapeHtml(v.motivoSLAText || '')}" ${slaExpirada ? disabled : 'disabled'}></div>
+        <div class="field full"><label>Motivo SLA (texto livre) <span class="hint">${slaExpirada ? '' : '(só quando SLA expirar)'}</span></label><input id="ev_motivoSlaText" value="${U.escapeHtml(v.motivoSlaText || '')}" ${slaExpirada ? disabled : 'disabled'}></div>
         <div class="field"><label>% FIT</label><input type="number" min="0" max="100" id="ev_fitPct" value="${v.fitPct || 0}" ${disabled}></div>
         <div class="field"><label>Fonte</label><select id="ev_fonte" ${disabled}>${selOpts(fontesAtivas(), v.fonte)}</select></div>
         <div class="field"><label>Quem Indicou</label><input id="ev_quemIndicou" value="${U.escapeHtml(v.quemIndicou || '')}" ${disabled}></div>
@@ -520,11 +520,11 @@
       nivelVaga: get('nivelVaga'), solicitante: get('solicitante'), cargo: get('cargo'), sigilosa: get('sigilosa'),
       tipoVaga: get('tipoVaga'), responsavel: get('responsavel'), status: get('status'), tipoMovimentacao: get('tipoMovimentacao'),
       motivoAumento: get('motivoAumento'), pessoaSubstituida: get('pessoaSubstituida'), tipoRecrutamento: get('tipoRecrutamento'),
-      etapa: get('etapa'), motivoSLA: get('motivoSLA'), dataCongelamento: get('dataCongelamento'), dataRetorno: get('dataRetorno'),
+      etapa: get('etapa'), motivoSla: get('motivoSla'), dataCongelamento: get('dataCongelamento'), dataRetorno: get('dataRetorno'),
       dataCancelamento: get('dataCancelamento'), dataFechamento: get('dataFechamento'), dataInicio: get('dataInicio'),
       dataPrevistaAdmissao: get('dataPrevistaAdmissao'), ultimaDivulgacao: get('ultimaDivulgacao'),
       dataUltimaDivulgacao: get('dataUltimaDivulgacao'), numInscricoes: parseInt(get('numInscricoes')) || 0,
-      motivoSLAText: get('motivoSLAText'), fitPct: parseInt(get('fitPct')) || 0, fonte: get('fonte'), quemIndicou: get('quemIndicou'),
+      motivoSlaText: get('motivoSlaText'), fitPct: parseInt(get('fitPct')) || 0, fonte: get('fonte'), quemIndicou: get('quemIndicou'),
       finalistas: finalistasSelecionados.join(', '), contratado: contratadosSelecionados.join(', '),
       observacoes: get('observacoes'), portaisAtivos: portaisSel
     };
@@ -569,7 +569,7 @@
     cargo: 'Cargo', sigilosa: 'Sigilosa', tipoVaga: 'Tipo da Vaga', responsavel: 'Responsável',
     status: 'Status', tipoMovimentacao: 'Tipo de Movimentação', motivoAumento: 'Motivo Aumento',
     pessoaSubstituida: 'Pessoa Substituída', tipoRecrutamento: 'Tipo de Recrutamento', etapa: 'Etapa',
-    motivoSLA: 'Motivo SLA', motivoSLAText: 'Motivo SLA (texto)', dataCongelamento: 'Data Congelamento',
+    motivoSla: 'Motivo SLA', motivoSlaText: 'Motivo SLA (texto)', dataCongelamento: 'Data Congelamento',
     dataRetorno: 'Data Retorno', dataCancelamento: 'Data Cancelamento', dataFechamento: 'Data Fechamento',
     dataInicio: 'Data Início', ultimaDivulgacao: 'Última Divulgação', fitPct: '% FIT', fonte: 'Fonte',
     quemIndicou: 'Quem Indicou', finalistas: 'Finalistas', contratado: 'Contratado', observacoes: 'Observações',
@@ -714,7 +714,7 @@
       container.innerHTML = `
         <div class="form-grid">
           <div class="field"><label>Status da Vaga <span class="req">*</span></label><select id="nv_status">${selOpts(STATUS_VAGA, d.status)}</select></div>
-          <div class="field"><label>Motivo SLA <span class="hint">(só quando SLA expirar)</span></label><select id="nv_motivoSLA" disabled>${selOpts(MOTIVOS_SLA, d.motivoSLA)}</select></div>
+          <div class="field"><label>Motivo SLA <span class="hint">(só quando SLA expirar)</span></label><select id="nv_motivoSla" disabled>${selOpts(MOTIVOS_SLA, d.motivoSla)}</select></div>
           <div class="field"><label>Tipo de Recrutamento <span class="req">*</span></label><select id="nv_tipoRecrutamento">${selOpts(TIPOS_RECRUT, d.tipoRecrutamento)}</select></div>
           <div class="field"><label>Etapa da Vaga <span class="req">*</span></label><select id="nv_etapa">${selOpts(etapasAtivas(), d.etapa)}</select></div>
           <div class="field"><label>Fonte <span class="req">*</span></label><select id="nv_fonte">${selOpts(fontesAtivas(), d.fonte)}</select></div>
@@ -753,7 +753,7 @@
       });
     } else if (novaVagaStep === 2) {
       Object.assign(novaVagaDados, {
-        status: get('nv_status'), motivoSLA: get('nv_motivoSLA'), tipoRecrutamento: get('nv_tipoRecrutamento'), etapa: get('nv_etapa'),
+        status: get('nv_status'), motivoSla: get('nv_motivoSla'), tipoRecrutamento: get('nv_tipoRecrutamento'), etapa: get('nv_etapa'),
         fonte: get('nv_fonte'), quemIndicou: get('nv_quemIndicou'), numInscricoes: parseInt(get('nv_numInscricoes')) || 0,
         dataUltimaDivulgacao: get('nv_dataUltimaDivulgacao'),
         portaisAtivos: Array.from(container.querySelectorAll('[data-portal]:checked')).map(c => c.dataset.portal)
@@ -820,7 +820,7 @@
     try {
       const id = U.nextCode('VAG', (D().vagas || []).map(v => v.id));
       const vaga = {
-        id, dataAbertura: dados.dataAbertura || U.todayISO(), motivoSLA: dados.motivoSLA || '',
+        id, dataAbertura: dados.dataAbertura || U.todayISO(), motivoSla: dados.motivoSla || '',
         marca: dados.marca || '', departamento: dados.departamento || '', unidade: dados.unidade || '',
         nivelVaga: dados.nivelVaga || '', solicitante: dados.solicitante || '', cargo: dados.cargo || '',
         sigilosa: dados.sigilosa || 'Não', tipoVaga: dados.tipoVaga || 'Operacional', responsavel: dados.responsavel || '',
@@ -831,7 +831,7 @@
         dataFechamento: '', dataInicio: dados.dataInicio || '', dataPrevistaAdmissao: dados.dataPrevistaAdmissao || '',
         ultimaDivulgacao: dados.ultimaDivulgacao || '', dataUltimaDivulgacao: dados.dataUltimaDivulgacao || dados.ultimaDivulgacao || '',
         numInscricoes: parseInt(dados.numInscricoes) || 0, fontesDivulgadas: dados.portaisAtivos || [],
-        motivoSLAText: dados.motivoSLAText || '', fonte: dados.fonte || '', quemIndicou: dados.quemIndicou || '',
+        motivoSlaText: dados.motivoSlaText || '', fonte: dados.fonte || '', quemIndicou: dados.quemIndicou || '',
         observacoes: dados.observacoes || '', portaisAtivos: dados.portaisAtivos || []
       };
       await R.insertRow('vagas', vaga);

@@ -29,7 +29,7 @@
     const lista = [];
     candidatos.forEach(c => {
       const origens = [];
-      if (c.etapaRH === 'Banco de Talentos') origens.push('Etapa RH');
+      if (c.resultadoRh === 'Banco de Talentos') origens.push('Etapa RH');
       if (c.resultado === 'Banco de Talentos') origens.push('Resultado Final');
       if (c.resultadoFinal === 'Banco de Talentos') origens.push('Resultado Final');
       if (Array.isArray(c.tags) && c.tags.some(t => String(t).toLowerCase() === 'banco de talentos')) origens.push('Tag');

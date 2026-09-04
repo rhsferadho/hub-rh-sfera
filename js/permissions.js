@@ -63,8 +63,15 @@
 
   const PERFIL_LABELS = { admin: 'Administrador', gestor: 'Gestor', rh: 'RH' };
 
+  // perfil='admin' sempre enxerga tudo, mesmo que o mapa `permissoes`
+  // salvo esteja desatualizado em relação ao catálogo atual (ex.: a conta
+  // foi criada antes de uma permissão nova existir) — mesma regra de
+  // has_permission() no SQL (supabase-migration.sql), pra não haver telas
+  // que o backend libera pro admin mas o menu esconde.
   function hasPerm(user, key) {
-    return !!(user && user.permissoes && user.permissoes[key] === true);
+    if (!user) return false;
+    if (user.perfil === 'admin') return true;
+    return !!(user.permissoes && user.permissoes[key] === true);
   }
 
   function hasAnyPerm(user, keys) {
