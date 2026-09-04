@@ -20,10 +20,19 @@
     return `<div class="table-wrap"><table class="dt"><thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
   }
 
+  // Gestor: só enxerga o volume/status das vagas do próprio escopo (já
+  // restrito por unidade/departamento via RLS) e o andamento dos processos
+  // seletivos — nada de indicadores que meçam desempenho de recrutador(a)
+  // (SLA, taxa de conversão, no-show, fontes, rankings). RH e Administrador
+  // continuam vendo o dashboard completo, igual ao Sfera Recruiter original.
+  function visaoBasica() { return HUB_USER && HUB_USER.perfil === 'gestor'; }
+
   function renderRecrutamentoDashboard(el, f) {
     if (noDataGate(el, ['vagas'], canManage(), 'Cadastre vagas em Recrutamento → Controle de Vagas — os indicadores aparecem aqui automaticamente, sem upload.', HUB_RECRUIT_DATA)) return;
     const d = MR.recrutamentoMetrics(f);
     const k = d.kpis, sc = d.slaConsolidado, fc = d.fitConsolidado, c = d.charts, r = d.rankings;
+
+    if (visaoBasica()) { renderVisaoBasica(el, k, c); return; }
 
     el.innerHTML = `
       <div class="kpi-grid">
@@ -102,6 +111,39 @@
     if (c.entrevistasPorRecrutador.length) barChart('c-rc-entrrec', c.entrevistasPorRecrutador.map(x => x.label), c.entrevistasPorRecrutador.map(x => x.value));
     barChart('c-rc-entrdia', c.entrevistasProximos14.map(x => x.label), c.entrevistasProximos14.map(x => x.value));
     barChart('c-rc-aging', c.aging.map(x => x.label), c.aging.map(x => x.value), { horizontal: true });
+  }
+
+  // Visão básica (perfil gestor) — só volume/status de vagas e processos
+  // seletivos do escopo dele, sem nenhum indicador de produtividade de
+  // recrutador(a).
+  function renderVisaoBasica(el, k, c) {
+    el.innerHTML = `
+      <div class="insight info" style="margin-bottom:16px"><span class="ic">&#8505;&#65039;</span><span>Visão básica de Recrutamento — mostra as vagas e processos seletivos do seu escopo. Indicadores de produtividade do time de recrutamento ficam disponíveis só para RH e Administração.</span></div>
+      <div class="kpi-grid">
+        ${kpi('Vagas em aberto', U.fmtInt(k.emAberto), '', 'var(--p1)')}
+        ${kpi('Vagas em andamento', U.fmtInt(k.emAndamento), '', '#eda100')}
+        ${kpi('Finalizadas no mês', U.fmtInt(k.fechadasMes), '', '#1baf7a')}
+        ${kpi('Em admissão', U.fmtInt(k.emAdm), '', '#4a3aa7')}
+        ${kpi('Vagas congeladas', U.fmtInt(k.congeladas), '', k.congeladas > 0 ? 'var(--warning)' : '#1baf7a')}
+        ${kpi('Candidatos ativos', U.fmtInt(k.candAtivos), `média ${U.fmt1(k.candPorVaga)} por vaga aberta`, 'var(--p1)')}
+        ${kpi('Entrevistas (7 dias)', U.fmtInt(k.prox7), '', '#1baf7a')}
+      </div>
+      <div class="grid2">
+        ${card('Vagas abertas por marca', '&#127970;', c.porMarca.length ? '<div class="chart-h"><canvas id="c-rc-marca"></canvas></div>' : empty('Sem dados.'))}
+        ${card('Distribuição por status', '&#128202;', c.porStatus.length ? '<div class="chart-h"><canvas id="c-rc-status"></canvas></div>' : empty('Sem dados.'))}
+        ${card('Evolução mensal — abertas x fechadas', '&#128200;', c.evolucaoMensal.length ? '<div class="chart-h tall"><canvas id="c-rc-evolucao"></canvas></div>' : empty('Sem dados.'), { full: true })}
+        ${card('Funil — vagas por etapa', '&#128268;', '<div class="chart-h"><canvas id="c-rc-funil"></canvas></div>', { full: true })}
+      </div>`;
+
+    if (c.porMarca.length) barChart('c-rc-marca', c.porMarca.map(x => x.label), c.porMarca.map(x => x.value));
+    if (c.porStatus.length) doughnutChart('c-rc-status', c.porStatus.map(x => x.label), c.porStatus.map(x => x.value));
+    if (c.evolucaoMensal.length) {
+      lineChart('c-rc-evolucao', c.evolucaoMensal.map(x => x.label), [
+        { label: 'Abertas', data: c.evolucaoMensal.map(x => x.abertas) },
+        { label: 'Fechadas', data: c.evolucaoMensal.map(x => x.fechadas) }
+      ]);
+    }
+    barChart('c-rc-funil', c.funilPorEtapa.map(x => x.label), c.funilPorEtapa.map(x => x.value), { horizontal: true });
   }
 
   window.HUB_SECTIONS = window.HUB_SECTIONS || {};

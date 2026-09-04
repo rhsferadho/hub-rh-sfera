@@ -52,7 +52,8 @@ cadastrada, desative a confirmação por e-mail:
      "recrutamento.dashboard": true, "recrutamento.vagas": true,
      "recrutamento.candidatos": true, "recrutamento.agenda": true,
      "recrutamento.banco_talentos": true, "recrutamento.aprovacoes": true,
-     "recrutamento.historico": true, "treinamento_dev.onboarding": true,
+     "recrutamento.historico": true, "recrutamento.transferencia": true,
+     "treinamento_dev.onboarding": true,
      "admin.upload": true,
      "admin.cadastros_recrutamento": true, "admin.usuarios": true
    }'::jsonb

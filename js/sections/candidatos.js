@@ -36,6 +36,10 @@
   const TURNOS_ESTUDO = ['Manhã', 'Tarde', 'Noite', 'Integral'];
   const ESTADO_CIVIL_OPCOES = ['Solteiro(a)', 'Casado(a)', 'União Estável', 'Divorciado(a)', 'Viúvo(a)', 'Separado(a)'];
   const QUANTIDADE_FILHOS_OPCOES = Array.from({ length: 10 }, (_, i) => String(i + 1));
+  // Dados de transporte para o Onboarding — preenchidos aqui pelo(a)
+  // recrutador(a) ao aprovar o candidato (antes ficavam na tela de
+  // Onboarding, preenchidos pelo treinador).
+  const TIPOS_TRANSPORTE = ['Ônibus', 'Metrô', 'Van/Fretado', 'Aplicativo (Uber/99)', 'Veículo próprio', 'A pé', 'Outro'];
 
   function recrutadoresAtivos() { return R.activeNames('recrutadores'); }
   function fontesAtivas() { return R.activeNames('fontes_captacao'); }
@@ -358,7 +362,8 @@
       etapaGestorStatus: 'Pendente', resultadoGestor: 'Em andamento', dataContatoGestor: '', dataAgendadaGestor: '', horarioGestor: '',
       resultadoFinal: '', resultado: 'Em andamento', dataFechamento: '', fonteCaptacao: '', dataAdmissao: '',
       observacoes: '', tags: [], segmentoUltimaEmpresa: '', genero: '', faixaEtaria: '', distanciaKm: 0,
-      escolaridade: '', estuda: '', turnoEstudo: '', cargosPossiveis: [], estadoCivil: '', temFilhos: '', quantidadeFilhos: ''
+      escolaridade: '', estuda: '', turnoEstudo: '', cargosPossiveis: [], estadoCivil: '', temFilhos: '', quantidadeFilhos: '',
+      tipoTransporte: '', quantidadePassagens: 0, valorTotalTransporte: 0
     };
   }
 
@@ -544,6 +549,18 @@
           </div>
         </div>
       </details>
+
+      ${d.resultadoFinal === 'Aprovado' ? `<details class="blk" open>
+        <summary>Dados de Transporte para o Onboarding</summary>
+        <div class="blk-body">
+          <p class="sub" style="color:var(--muted);font-size:12px;margin-bottom:10px">Preenchido pelo(a) recrutador(a) ao aprovar o candidato — o treinador do Onboarding usa essa informação, mas não a edita.</p>
+          <div class="form-grid">
+            <div class="field"><label>Tipo de Transporte <span class="req">*</span></label><select data-field="tipoTransporte" ${dis}>${selOpts(TIPOS_TRANSPORTE, d.tipoTransporte)}</select></div>
+            <div class="field"><label>Quantidade de Passagens <span class="req">*</span></label><input type="number" min="0" data-field="quantidadePassagens" value="${d.quantidadePassagens || 0}" ${dis}></div>
+            <div class="field"><label>Valor Total em Transporte (R$) <span class="req">*</span></label><input type="number" min="0" step="0.01" data-field="valorTotalTransporte" value="${d.valorTotalTransporte || 0}" ${dis}></div>
+          </div>
+        </div>
+      </details>` : ''}
 
       ${editingCandId && d.resultadoFinal === 'Aprovado' ? (() => {
         const jaEnviado = candidatoJaEmOnboarding(editingCandId);
@@ -794,6 +811,11 @@
     const auto = computeAutoResultadoFinal(d);
     if (auto) d.resultadoFinal = auto;
     if (d.resultadoFinal === 'Reprovado' && !d.motivoReprovacao) return fail('Informe o Motivo da Reprovação para finalizar.');
+    if (d.resultadoFinal === 'Aprovado') {
+      if (!d.tipoTransporte) return fail('Informe o Tipo de Transporte em "Dados de Transporte para o Onboarding".');
+      if (d.quantidadePassagens === undefined || d.quantidadePassagens === null || d.quantidadePassagens === '') return fail('Informe a Quantidade de Passagens em "Dados de Transporte para o Onboarding".');
+      if (d.valorTotalTransporte === undefined || d.valorTotalTransporte === null || d.valorTotalTransporte === '') return fail('Informe o Valor Total em Transporte em "Dados de Transporte para o Onboarding".');
+    }
     return true;
   }
 

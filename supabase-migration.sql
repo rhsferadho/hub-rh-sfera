@@ -469,6 +469,13 @@ create table if not exists public.candidatos (
   estado_civil text,
   tem_filhos text,
   quantidade_filhos int,
+  -- Dados de transporte para o Onboarding: preenchidos pelo(a) recrutador(a)
+  -- no próprio cadastro do candidato quando resultado_final = 'Aprovado'
+  -- (antes ficavam na tela de Onboarding, preenchidos pelo treinador — mudou
+  -- de dono porque é o recrutador quem sabe essa logística ao fechar a vaga).
+  tipo_transporte text,
+  quantidade_passagens int,
+  valor_total_transporte numeric,
   criado_em timestamptz not null default now(),
   atualizado_em timestamptz not null default now()
 );
@@ -505,8 +512,11 @@ create index if not exists entrevistas_data_idx on public.entrevistas (data);
 -- Módulo Treinamento e Desenvolvimento → Onboarding. Um registro é criado
 -- automaticamente (nunca à mão) quando alguém envia, na tela Candidatos, um
 -- candidato com resultado_final='Aprovado' cuja vaga já está 'Finalizada' —
--- ver js/sections/candidatos.js (enviarParaOnboarding). Do agendamento até a
--- avaliação de treinamento (rubrica de 16 itens, escala 1-5).
+-- ver js/sections/candidatos.js (enviarParaOnboarding). Escopo enxuto por
+-- pedido explícito: só o essencial pro treinador agendar e registrar o
+-- resultado do treinamento — dados de transporte/logística ficam no
+-- cadastro do candidato (preenchidos pelo recrutador), e não há mais rubrica
+-- de avaliação de desempenho aqui.
 create table if not exists public.onboarding (
   id uuid primary key default gen_random_uuid(),
   candidato_id text references public.candidatos(id) on delete set null,
@@ -518,41 +528,13 @@ create table if not exists public.onboarding (
   unidade text,
   nivel_vaga text,
   data_prevista_admissao date,
-  status text not null default 'Pendente',
-  motivo_nao_realizado text,
   data_onboarding date,
   local text,
-  quantidade_passagens int,
-  tipo_transporte text,
-  valor_total_transporte numeric,
-  -- Rubrica de avaliação do treinamento (escala 1-5) — grupos: Comportamento
-  -- e Postura, Aspectos de Atendimento, Alinhamento com a Cultura
-  -- Organizacional, Engajamento/Participação/Interesse.
-  pontualidade int,
-  postura_profissional int,
-  respeito_interpessoal int,
-  controle_emocional int,
-  comunicacao_cliente int,
-  conhecimento_tecnico int,
-  simulacao_atendimento int,
-  resolucao_problemas int,
-  identificacao_valores int,
-  aderencia_politicas int,
-  postura_trabalho_equipe int,
-  participacao_ativa int,
-  interesse_conteudo int,
-  proatividade int,
-  absorcao_conteudo int,
-  receptividade_feedback int,
-  aptidao_funcao text,
-  nota_geral numeric,
-  pontos_fortes text,
-  pontos_desenvolvimento text,
-  plano_acao text,
-  observacoes_treinador text,
-  nome_treinador text,
-  data_treinamento date,
-  avaliacao_preenchida boolean not null default false,
+  modalidade text, -- 'Presencial' | 'Híbrido' | 'Online'
+  carga_horaria numeric, -- horas de treinamento
+  status text not null default 'Pendente', -- 'Pendente' | 'Agendado' | 'Realizado' | 'Não realizado'
+  motivo_nao_realizado text, -- 'Faltou' | 'Desistiu' | 'Reagendado' — só quando status='Não realizado'
+  observacoes text, -- detalhamento do treinador pro caso de motivo_nao_realizado
   enviado_por text,
   enviado_em timestamptz,
   criado_em timestamptz not null default now()
@@ -561,6 +543,49 @@ create index if not exists onboarding_candidato_id_idx on public.onboarding (can
 create index if not exists onboarding_vaga_id_idx on public.onboarding (vaga_id);
 create index if not exists onboarding_marca_idx on public.onboarding (marca);
 create index if not exists onboarding_status_idx on public.onboarding (status);
+
+-- ----------------------------------------------------------------------------
+-- 3.1 ATUALIZAÇÃO INCREMENTAL (idempotente — roda sem efeito em projeto novo,
+-- e traz um projeto já criado com a versão anterior desta migration pro
+-- formato atual). Move os dados de transporte do Onboarding pro cadastro do
+-- Candidato (preenchidos pelo recrutador, não mais pelo treinador) e troca a
+-- rubrica de avaliação de treinamento por um formulário enxuto.
+-- ----------------------------------------------------------------------------
+alter table public.candidatos add column if not exists tipo_transporte text;
+alter table public.candidatos add column if not exists quantidade_passagens int;
+alter table public.candidatos add column if not exists valor_total_transporte numeric;
+
+alter table public.onboarding add column if not exists modalidade text;
+alter table public.onboarding add column if not exists carga_horaria numeric;
+alter table public.onboarding add column if not exists observacoes text;
+alter table public.onboarding drop column if exists quantidade_passagens;
+alter table public.onboarding drop column if exists tipo_transporte;
+alter table public.onboarding drop column if exists valor_total_transporte;
+alter table public.onboarding drop column if exists pontualidade;
+alter table public.onboarding drop column if exists postura_profissional;
+alter table public.onboarding drop column if exists respeito_interpessoal;
+alter table public.onboarding drop column if exists controle_emocional;
+alter table public.onboarding drop column if exists comunicacao_cliente;
+alter table public.onboarding drop column if exists conhecimento_tecnico;
+alter table public.onboarding drop column if exists simulacao_atendimento;
+alter table public.onboarding drop column if exists resolucao_problemas;
+alter table public.onboarding drop column if exists identificacao_valores;
+alter table public.onboarding drop column if exists aderencia_politicas;
+alter table public.onboarding drop column if exists postura_trabalho_equipe;
+alter table public.onboarding drop column if exists participacao_ativa;
+alter table public.onboarding drop column if exists interesse_conteudo;
+alter table public.onboarding drop column if exists proatividade;
+alter table public.onboarding drop column if exists absorcao_conteudo;
+alter table public.onboarding drop column if exists receptividade_feedback;
+alter table public.onboarding drop column if exists aptidao_funcao;
+alter table public.onboarding drop column if exists nota_geral;
+alter table public.onboarding drop column if exists pontos_fortes;
+alter table public.onboarding drop column if exists pontos_desenvolvimento;
+alter table public.onboarding drop column if exists plano_acao;
+alter table public.onboarding drop column if exists observacoes_treinador;
+alter table public.onboarding drop column if exists nome_treinador;
+alter table public.onboarding drop column if exists data_treinamento;
+alter table public.onboarding drop column if exists avaliacao_preenchida;
 
 create table if not exists public.historico (
   id bigserial primary key,
@@ -856,7 +881,8 @@ grant execute on function public.admin_truncate(text) to authenticated;
 --      "recrutamento.dashboard": true, "recrutamento.vagas": true,
 --      "recrutamento.candidatos": true, "recrutamento.agenda": true,
 --      "recrutamento.banco_talentos": true, "recrutamento.aprovacoes": true,
---      "recrutamento.historico": true, "treinamento_dev.onboarding": true,
+--      "recrutamento.historico": true, "recrutamento.transferencia": true,
+--      "treinamento_dev.onboarding": true,
 --      "admin.upload": true,
 --      "admin.cadastros_recrutamento": true, "admin.usuarios": true
 --    }'::jsonb

@@ -18,7 +18,7 @@
     'ind-treinamentos': 'Treinamentos', 'ind-celebracoes': 'Celebrações',
     'rec-dashboard': 'Dashboard — Recrutamento', 'rec-vagas': 'Controle de Vagas', 'rec-candidatos': 'Candidatos',
     'rec-agenda': 'Agenda de Entrevistas', 'rec-banco-talentos': 'Banco de Talentos', 'rec-aprovacoes': 'Aprovações',
-    'rec-historico': 'Histórico',
+    'rec-historico': 'Histórico', 'rec-transferencia': 'Transferência de Vaga',
     'tre-onboarding': 'Onboarding',
     'adm-upload': 'Upload de Planilhas', 'adm-cadastros': 'Cadastros do Recrutamento', 'adm-usuarios': 'Cadastro de Acessos'
   };
@@ -34,6 +34,7 @@
     'rec-dashboard': 'recrutamento.dashboard', 'rec-vagas': 'recrutamento.vagas', 'rec-candidatos': 'recrutamento.candidatos',
     'rec-agenda': 'recrutamento.agenda', 'rec-banco-talentos': 'recrutamento.banco_talentos',
     'rec-aprovacoes': 'recrutamento.aprovacoes', 'rec-historico': 'recrutamento.historico',
+    'rec-transferencia': 'recrutamento.transferencia',
     'tre-onboarding': 'treinamento_dev.onboarding',
     'adm-upload': 'admin.upload', 'adm-cadastros': 'admin.cadastros_recrutamento', 'adm-usuarios': 'admin.usuarios'
   };
@@ -43,7 +44,7 @@
   // vagas/candidatos/entrevistas/onboarding toda vez que são abertas — é
   // isso que faz os dados aparecerem "em tempo real, de forma automática"
   // sem upload.
-  const RECRUIT_SECTIONS = new Set(['ind-recrutamento', 'rec-dashboard', 'rec-vagas', 'rec-candidatos', 'rec-agenda', 'rec-banco-talentos', 'rec-aprovacoes', 'rec-historico', 'tre-onboarding']);
+  const RECRUIT_SECTIONS = new Set(['ind-recrutamento', 'rec-dashboard', 'rec-vagas', 'rec-candidatos', 'rec-agenda', 'rec-banco-talentos', 'rec-aprovacoes', 'rec-historico', 'rec-transferencia', 'tre-onboarding']);
 
   function sectionRenderer(name) {
     const f = getFilters();
@@ -65,6 +66,7 @@
       case 'rec-banco-talentos': return HUB_SECTIONS.renderBancoTalentos(el, f);
       case 'rec-aprovacoes': return HUB_SECTIONS.renderAprovacoes(el, f);
       case 'rec-historico': return HUB_SECTIONS.renderHistorico(el, f);
+      case 'rec-transferencia': return HUB_SECTIONS.renderTransferencia(el, f);
       case 'tre-onboarding': return HUB_SECTIONS.renderOnboarding(el, f);
       case 'adm-upload': return HUB_ADMIN_UPLOAD.render(el);
       case 'adm-cadastros': return HUB_ADMIN_CADASTROS.render(el);

@@ -29,7 +29,8 @@
         { key: 'recrutamento.agenda', label: 'Agenda de Entrevistas' },
         { key: 'recrutamento.banco_talentos', label: 'Banco de Talentos' },
         { key: 'recrutamento.aprovacoes', label: 'Aprovações' },
-        { key: 'recrutamento.historico', label: 'Histórico' }
+        { key: 'recrutamento.historico', label: 'Histórico' },
+        { key: 'recrutamento.transferencia', label: 'Transferência de Vaga' }
       ]
     },
     {
