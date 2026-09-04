@@ -1,0 +1,758 @@
+// Cálculo dos indicadores de cada menu do módulo Indicadores a partir de
+// window.HUB_DATA (já carregado do Supabase) e do estado de filtros da barra
+// superior. O indicador de Recrutamento NÃO fica aqui — é calculado ao vivo
+// por metrics-recrutamento.js a partir das tabelas do módulo Recrutamento.
+(function () {
+  const U = HUB_UTILS;
+
+  function norm(s) { return U.normalizeText(s || '').trim(); }
+
+  // ------------------------------------------------------------------
+  // Filtro genérico: recebe as linhas de uma tabela + um "mapa" dizendo em
+  // quais campos daquela tabela estão data/unidade/departamento/pessoa(s)
+  // relevantes, e devolve só as linhas que batem com os filtros ativos.
+  // ------------------------------------------------------------------
+  function filterRows(rows, map, f) {
+    return rows.filter(r => {
+      if (map.date) {
+        const d = r[map.date];
+        if (f.start || f.end) {
+          if (!d) return false;
+          if (!U.inRange(d, f.start, f.end)) return false;
+        }
+      }
+      if (map.unidade && !U.matchesAny(r[map.unidade], f.unidade)) return false;
+      if (map.departamento && !U.matchesAny(r[map.departamento], f.departamento)) return false;
+      if (f.colaborador && map.pessoa) {
+        const fields = Array.isArray(map.pessoa) ? map.pessoa : [map.pessoa];
+        if (!fields.some(fld => U.normIncludes(r[fld], f.colaborador))) return false;
+      }
+      if (f.gestor && map.gestor) {
+        const fields = Array.isArray(map.gestor) ? map.gestor : [map.gestor];
+        if (!fields.some(fld => U.normIncludes(r[fld], f.gestor))) return false;
+      }
+      if (f.trilha && map.tipoConteudo && !U.normIncludes(r[map.tipoConteudo], f.trilha)) return false;
+      if (f.conteudo && map.conteudo && !U.normIncludes(r[map.conteudo], f.conteudo)) return false;
+      return true;
+    });
+  }
+
+  function countBy(rows, field) {
+    const m = new Map();
+    for (const r of rows) {
+      const k = r[field] || 'Não informado';
+      m.set(k, (m.get(k) || 0) + 1);
+    }
+    return Array.from(m.entries()).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value }));
+  }
+
+  function sumBy(rows, field, valueField) {
+    const m = new Map();
+    for (const r of rows) {
+      const k = r[field] || 'Não informado';
+      const v = Number(r[valueField]) || 0;
+      m.set(k, (m.get(k) || 0) + v);
+    }
+    return Array.from(m.entries()).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value }));
+  }
+
+  function avgBy(rows, field, valueField) {
+    const m = new Map();
+    for (const r of rows) {
+      const k = r[field] || 'Não informado';
+      if (!m.has(k)) m.set(k, { sum: 0, count: 0 });
+      const e = m.get(k);
+      e.sum += Number(r[valueField]) || 0;
+      e.count++;
+    }
+    return Array.from(m.entries())
+      .map(([label, e]) => ({ label, value: e.count ? e.sum / e.count : 0 }))
+      .sort((a, b) => b.value - a.value);
+  }
+
+  // ==================================================================
+  // COLABORADORES — headcount, dedupe de nomes ativos duplicados
+  // ==================================================================
+  function dedupeHeadcount(rows) {
+    // situacao Desligado nunca entra no headcount.
+    const candidatas = rows.filter(r => norm(r.situacao) !== 'desligado' && norm(r.situacao) !== '');
+    const byName = new Map();
+    for (const r of candidatas) {
+      const key = norm(r.nome_completo || r.nome);
+      if (!key) continue;
+      const atual = byName.get(key);
+      if (!atual) { byName.set(key, r); continue; }
+      const atualAtivo = norm(atual.situacao) === 'ativo';
+      const rAtivo = norm(r.situacao) === 'ativo';
+      if (rAtivo && !atualAtivo) { byName.set(key, r); continue; }
+      if (rAtivo === atualAtivo) {
+        const rDate = r.data_cadastro || r.data_admissao || '';
+        const aDate = atual.data_cadastro || atual.data_admissao || '';
+        if (rDate > aDate) byName.set(key, r);
+      }
+    }
+    return Array.from(byName.values());
+  }
+
+  function colaboradoresMetrics(f) {
+    const all = (HUB_DATA.colaboradores || []);
+    let rows = dedupeHeadcount(all);
+    rows = rows.filter(r => U.matchesAny(r.unidade, f.unidade));
+    rows = rows.filter(r => U.matchesAny(r.departamento, f.departamento));
+    if (f.gestor) rows = rows.filter(r => U.normIncludes(r.gestor_direto, f.gestor));
+    if (f.colaborador) rows = rows.filter(r => U.normIncludes(r.nome_completo, f.colaborador));
+
+    const ativos = rows.filter(r => norm(r.situacao) === 'ativo');
+    const desativados = rows.filter(r => norm(r.situacao) === 'desativado');
+
+    const hoje = U.todayISO();
+    const mesAtual = hoje.slice(5, 10);
+    const hojeOrd = ordinalOfMD(mesAtual);
+    const aniversariantes = rows
+      .filter(r => r.data_nascimento)
+      .map(r => ({ nome: r.nome_completo || r.nome, cargo: r.cargo, data: r.data_nascimento, md: r.data_nascimento.slice(5, 10), unidade: r.unidade, departamento: r.departamento }))
+      .map(r => {
+        let diff = ordinalOfMD(r.md) - hojeOrd;
+        if (diff < 0) diff += 365;
+        return Object.assign(r, { diasParaAniversario: diff });
+      })
+      .filter(r => r.diasParaAniversario < 30)
+      .sort((a, b) => a.diasParaAniversario - b.diasParaAniversario);
+
+    const tempoMedio = rows.length
+      ? rows.reduce((s, r) => s + (U.tenureMonths(r.data_admissao) || 0), 0) / rows.length
+      : 0;
+
+    return {
+      total: rows.length,
+      ativos: ativos.length,
+      desativados: desativados.length,
+      porUnidade: countBy(rows, 'unidade'),
+      porDepartamento: countBy(rows, 'departamento'),
+      porGestor: countBy(rows, 'gestor_direto'),
+      porSexo: countBy(rows, 'sexo'),
+      tempoMedioMeses: tempoMedio,
+      aniversariantes: aniversariantes.slice(0, 50),
+      lista: rows
+    };
+  }
+
+  function ordinalOfMD(md) {
+    const [m, d] = md.split('-').map(Number);
+    const dt = new Date(Date.UTC(2001, m - 1, d));
+    const start = new Date(Date.UTC(2001, 0, 1));
+    return Math.round((dt - start) / 86400000);
+  }
+
+  // ==================================================================
+  // ROTATIVIDADE — turnover geral/voluntário/involuntário, taxa, série temporal
+  // ==================================================================
+  function tipoDesligamento(r) {
+    const t = norm(r.desligamento_tipo);
+    if (t.includes('involunt')) return 'Involuntário';
+    if (t.includes('volunt')) return 'Voluntário';
+    return 'Não informado';
+  }
+
+  function daysBetween(startIso, endIso) {
+    if (!startIso || !endIso) return null;
+    const s = new Date(startIso + 'T00:00:00Z');
+    const e = new Date(endIso + 'T00:00:00Z');
+    return Math.round((e - s) / 86400000);
+  }
+
+  function headcountAt(rows, dateISO) {
+    return rows.filter(r => {
+      if (!r.data_admissao || r.data_admissao > dateISO) return false;
+      if (norm(r.situacao) !== 'desligado') return true;
+      const fim = r.ultimo_dia_trabalhado || r.data_admissao;
+      return fim > dateISO;
+    }).length;
+  }
+
+  function rotatividadeMetrics(f) {
+    let rows = HUB_DATA.colaboradores || [];
+    rows = rows.filter(r => U.matchesAny(r.unidade, f.unidade));
+    rows = rows.filter(r => U.matchesAny(r.departamento, f.departamento));
+    if (f.gestor) rows = rows.filter(r => U.normIncludes(r.gestor_direto, f.gestor));
+
+    const start = f.start || '2020-01-01';
+    const end = f.end || U.todayISO();
+
+    const desligados = rows.filter(r => norm(r.situacao) === 'desligado');
+    const desligadosPeriodo = desligados.filter(r => U.inRange(r.ultimo_dia_trabalhado || r.data_admissao, start, end));
+    const voluntarios = desligadosPeriodo.filter(r => tipoDesligamento(r) === 'Voluntário');
+    const involuntarios = desligadosPeriodo.filter(r => tipoDesligamento(r) === 'Involuntário');
+    // Turnover (rotatividade) considera admissões E desligamentos — mede a
+    // movimentação total do quadro. Taxa de desligamento considera só saídas.
+    const admitidosPeriodo = rows.filter(r => U.inRange(r.data_admissao, start, end));
+
+    // Turnover na experiência: dos admitidos no período, quantos também
+    // foram desligados dentro dos primeiros 90 dias (período de experiência
+    // do CLT, ~3 meses) — mede quem "entrou e saiu" antes de passar pela
+    // experiência, independente de a saída em si cair dentro do período.
+    const desligadosExperiencia = admitidosPeriodo.filter(r => {
+      if (norm(r.situacao) !== 'desligado') return false;
+      const dias = daysBetween(r.data_admissao, r.ultimo_dia_trabalhado || r.data_admissao);
+      return dias !== null && dias >= 0 && dias <= 90;
+    });
+    const taxaTurnoverExperiencia = admitidosPeriodo.length > 0 ? desligadosExperiencia.length / admitidosPeriodo.length : 0;
+
+    const meses = U.monthsBetween(start.slice(0, 7), end.slice(0, 7));
+    const serie = meses.map(mk => {
+      const monthStart = mk + '-01';
+      const hcInicio = headcountAt(rows, monthStart);
+      const desMes = desligados.filter(r => U.monthKey(r.ultimo_dia_trabalhado || r.data_admissao) === mk);
+      const admMes = rows.filter(r => U.monthKey(r.data_admissao) === mk);
+      const vol = desMes.filter(r => tipoDesligamento(r) === 'Voluntário').length;
+      const invol = desMes.filter(r => tipoDesligamento(r) === 'Involuntário').length;
+      const taxaDesligamento = hcInicio > 0 ? desMes.length / hcInicio : 0;
+      const taxaTurnover = hcInicio > 0 ? ((admMes.length + desMes.length) / 2) / hcInicio : 0;
+      return {
+        mes: mk, label: U.monthLabel(mk), headcountInicio: hcInicio,
+        desligamentos: desMes.length, admissoes: admMes.length,
+        voluntarios: vol, involuntarios: invol, taxaDesligamento, taxaTurnover
+      };
+    });
+
+    const hcMedioPeriodo = serie.length ? serie.reduce((s, m) => s + m.headcountInicio, 0) / serie.length : 0;
+    const taxaDesligamentoGeral = hcMedioPeriodo > 0 ? desligadosPeriodo.length / hcMedioPeriodo : 0;
+    const taxaVoluntaria = hcMedioPeriodo > 0 ? voluntarios.length / hcMedioPeriodo : 0;
+    const taxaInvoluntaria = hcMedioPeriodo > 0 ? involuntarios.length / hcMedioPeriodo : 0;
+    const taxaTurnoverGeral = hcMedioPeriodo > 0 ? ((admitidosPeriodo.length + desligadosPeriodo.length) / 2) / hcMedioPeriodo : 0;
+    const turnoverMedio = serie.length ? serie.reduce((s, m) => s + m.taxaTurnover, 0) / serie.length : 0;
+    const taxaDesligamentoMedia = serie.length ? serie.reduce((s, m) => s + m.taxaDesligamento, 0) / serie.length : 0;
+
+    const motivos = countBy(desligadosPeriodo, 'desligamento_motivo');
+    const cargosDesligados = countBy(desligadosPeriodo, 'cargo');
+    const listaDesligados = desligadosPeriodo
+      .map(r => ({
+        nome: r.nome_completo || r.nome, cargo: r.cargo, unidade: r.unidade, departamento: r.departamento,
+        data: r.ultimo_dia_trabalhado || r.data_admissao, tipo: tipoDesligamento(r), motivo: r.desligamento_motivo
+      }))
+      .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+
+    const insights = [];
+    if (desligadosPeriodo.length === 0) {
+      insights.push({ tipo: 'info', texto: 'Nenhum desligamento no período selecionado.' });
+    } else {
+      if (taxaDesligamentoGeral > 0.03) insights.push({ tipo: 'alerta', texto: `Taxa de desligamento de ${U.fmtPct(taxaDesligamentoGeral)} no período está acima do saudável para a maioria dos varejos (referência: até 3% a.m.). Priorize ações de retenção.` });
+      if (involuntarios.length > voluntarios.length) {
+        insights.push({ tipo: 'acao', texto: 'Desligamentos involuntários predominam: revise critérios de contratação, integração (onboarding) e acompanhamento de performance nos primeiros 90 dias.' });
+      } else if (voluntarios.length > 0) {
+        insights.push({ tipo: 'acao', texto: 'Desligamentos voluntários predominam: aprofunde a Entrevista de Desligamento e pesquisas de clima para identificar causas de saída e agir em remuneração, liderança ou carreira.' });
+      }
+      if (motivos[0]) insights.push({ tipo: 'info', texto: `Principal motivo de desligamento no período: "${motivos[0].label}" (${motivos[0].value} caso(s)).` });
+    }
+    if (admitidosPeriodo.length > 0) {
+      insights.push({
+        tipo: taxaTurnoverExperiencia > 0.2 ? 'alerta' : 'info',
+        texto: `Turnover na experiência: ${U.fmtPct(taxaTurnoverExperiencia)} dos admitidos no período saíram nos primeiros 3 meses (${desligadosExperiencia.length} de ${admitidosPeriodo.length}).`
+      });
+    }
+
+    return {
+      totalDesligados: desligadosPeriodo.length,
+      totalAdmitidos: admitidosPeriodo.length,
+      voluntarios: voluntarios.length,
+      involuntarios: involuntarios.length,
+      taxaTurnoverGeral, taxaVoluntaria, taxaInvoluntaria,
+      taxaDesligamentoGeral, turnoverMedio, taxaDesligamentoMedia,
+      taxaTurnoverExperiencia, totalDesligadosExperiencia: desligadosExperiencia.length,
+      serie, motivos, cargosDesligados, listaDesligados, insights
+    };
+  }
+
+  // ==================================================================
+  // ENTREVISTA DE DESLIGAMENTO
+  // ==================================================================
+  // Leitura tolerante do JSONB `respostas` (guarda cada resposta da pesquisa
+  // com a chave = cabeçalho original da planilha, \r\n e tudo). Mesma lógica
+  // de normalização de parsers.js (normHeader/pick), mas operando sobre o
+  // objeto já salvo no banco em vez de uma linha de planilha.
+  function normHeaderKey(h) {
+    return String(h == null ? '' : h).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  function respostaIndex(respostas) {
+    return Object.keys(respostas || {}).map(k => [normHeaderKey(k), k]);
+  }
+
+  // Tenta igualdade exata primeiro (cabeçalhos praticamente únicos na
+  // planilha real); só cai pra prefixo se não achar, e só com candidato longo
+  // o bastante pra não confundir perguntas diferentes que começam parecido.
+  function getResposta(entradas, respostas, candidate) {
+    const nc = normHeaderKey(candidate);
+    let hit = entradas.find(([nh]) => nh === nc);
+    if (!hit && nc.length > 30) hit = entradas.find(([nh]) => nh.startsWith(nc) || nc.startsWith(nh));
+    if (!hit) return null;
+    const v = respostas[hit[1]];
+    if (v === undefined || v === null) return null;
+    const s = String(v).trim();
+    return s === '' ? null : s;
+  }
+
+  // Várias perguntas da pesquisa são "marque até 2 opções" e chegam como um
+  // texto só com os itens separados por ";" — aqui viram itens independentes
+  // pra contagem no gráfico, em vez de uma combinação única.
+  function splitMulti(v) {
+    if (!v) return [];
+    return String(v).split(';').map(s => s.trim()).filter(Boolean);
+  }
+
+  function countAnswers(values, opts) {
+    opts = opts || {};
+    const m = new Map();
+    for (const v of values) {
+      if (!v) continue;
+      const items = opts.multi ? splitMulti(v) : [v];
+      for (const it of items) m.set(it, (m.get(it) || 0) + 1);
+    }
+    return Array.from(m.entries()).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value }));
+  }
+
+  function isPositivoValor(v, positivos) {
+    if (!positivos || !positivos.length || v == null) return false;
+    const nv = norm(v);
+    return positivos.some(p => norm(p) === nv);
+  }
+
+  // Configuração declarativa dos 11 índices da Entrevista de Desligamento —
+  // cada um lê uma coluna principal (pergunta fechada) da planilha real "34.
+  // Nova Entrevista de Desligamento.xlsx" e, quando não é "simples", abre um
+  // gráfico/lista de comentários complementar ao lado (coluna diferente
+  // conforme a resposta ter sido classificada como positiva ou negativa).
+  // outrosGatilho+colOutros cobrem os dois casos de detalhamento aninhado:
+  // Liderança Direta só abre um 3º nível ao clicar em "Outros (especifique)";
+  // Remuneração abre a qualquer clique no gráfico negativo (BU), sem gatilho.
+  const DESL_INDICES = [
+    {
+      key: 'drivers_atracao',
+      titulo: 'Drivers de Atração de Candidatos',
+      colPrincipal: 'Ao ingressar na Sfera Multifranquias o que mais lhe motivou a optar pela empresa foi:',
+      simples: true
+    },
+    {
+      key: 'transparencia_recrutamento',
+      titulo: 'Índice de Transparência no Recrutamento',
+      colPrincipal: 'As informações do Processo Seletivo, referente a remuneração, atribuições e benefícios, correspondem ao que foi aplicado?',
+      positivos: ['Sim'],
+      colPositiva: 'Como você avalia a clareza e a coerência das informações apresentadas durante o Processo Seletivo, especialmente em relação à remuneração, atribuições e benefícios?',
+      colNegativa: 'Por favor, descreva abaixo o que não foi passado corretamente durante o Processo Seletivo, referente a remuneração, atribuições e benefícios.'
+    },
+    {
+      key: 'satisfacao_contratacao',
+      titulo: 'Índice de Satisfação com o Processo de Contratação (DP)',
+      colPrincipal: 'As informações do Processo de Contratação, referente a remuneração, benefícios, jornada de trabalho, correspondem ao que foi aplicado?',
+      positivos: ['Sim'],
+      colPositiva: 'Se sim, como você avalia essa experiência no Processo de Contratação?',
+      colNegativa: 'Por favor, descreva abaixo o que não foi passado corretamente durante o Processo de Contratação, referente a remuneração, benefícios, jornada de trabalho, correspondem ao que foi aplicado?'
+    },
+    {
+      key: 'efetividade_onboarding',
+      titulo: 'Índice de Efetividade do Onboarding',
+      colPrincipal: 'Você considera o Onboarding e os treinamentos iniciais aderentes às tarefas desempenhadas?',
+      positivos: ['Sim'],
+      colPositiva: 'Se sim, como você avalia essa experiência no nosso Onboarding?',
+      colNegativa: 'Você poderia compartilhar quais aspectos do onboarding ou dos treinamentos iniciais não atenderam às demandas do seu dia a dia',
+      negativaMulti: true
+    },
+    {
+      key: 'percepcao_carga_treinamentos',
+      titulo: 'Índice de Percepção da Carga de Treinamentos',
+      colPrincipal: 'Como você avalia a quantidade de treinamentos obrigatórios durante sua permanência na empresa?',
+      positivos: ['Satisfatório', 'Adequada à função e rotina'],
+      colPositiva: 'Qual a opção que melhor representa sua experiência em relação aos treinamentos obrigatórios?',
+      colNegativa: 'O que poderia ser melhor em relação aos treinamentos obrigatórios?',
+      negativaMulti: true
+    },
+    {
+      key: 'qualidade_relacao_gestor',
+      titulo: 'Índice de Qualidade da Relação com o Gestor',
+      colPrincipal: 'Como avalia o relacionamento com seu gestor direto?',
+      positivos: ['Excelente, havia abertura, apoio e boa comunicação', 'Bom, com interações produtivas e respeitosas'],
+      colPositiva: 'Qual a opção que melhor representa seu relacionamento com seu gestor direto?',
+      colNegativa: 'Sinalize o que poderia ser melhor ou o que não era bom no relacionamento com seu gestor direto.',
+      negativaMulti: true
+    },
+    {
+      key: 'qualidade_lideranca_direta',
+      titulo: 'Índice de Qualidade da Liderança Direta',
+      colPrincipal: 'Como você considera a gestão do seu superior imediato?',
+      positivos: ['Boa, com direcionamentos claros e apoio adequado', 'Excelente, com liderança inspiradora e bem estruturada'],
+      colPositiva: 'Qual a opção que melhor representa a gestão do seu superior imediato?',
+      colNegativa: 'Você poderia detalhar por que considera a gestão do seu superior imediato insatisfatória?',
+      outrosGatilho: 'Outros (especifique)',
+      colOutros: 'Você poderia descrever com mais detalhes o motivo pelo qual considera a gestão do seu superior imediato insatisfatória?'
+    },
+    {
+      key: 'relacionamento_equipe',
+      titulo: 'Índice de Relacionamento com a Equipe',
+      colPrincipal: 'Como avalia o relacionamento com sua equipe?',
+      positivos: ['Excelente, havia colaboração, respeito e bom clima', 'Bom, com interações positivas e produtivas'],
+      colPositiva: 'Selecione a opção que melhor representa sua experiência.',
+      colNegativa: 'Sinalize quais aspectos do relacionamento com sua equipe você considera que poderiam ter sido melhores?',
+      negativaMulti: true
+    },
+    {
+      key: 'satisfacao_remuneracao',
+      titulo: 'Índice de Satisfação com a Remuneração',
+      colPrincipal: 'Como você classificaria os seguintes aspectos de nossa empresa em relação a REMUNERAÇÃO:',
+      positivos: ['Bom', 'Excelente'],
+      colPositiva: 'Se considera positiva, selecione a opção que melhor representa sua experiência:',
+      colNegativa: 'Você poderia detalhar por que considera a remuneração da empresa insatisfatória?',
+      negativaMulti: true,
+      // BV só é preenchida junto com BU (mesmas 191 respostas) — é o
+      // detalhamento em texto livre do motivo de insatisfação com a
+      // remuneração, então abre pra qualquer clique no gráfico negativo
+      // (BU), sem precisar de um gatilho específico como "Outros".
+      colOutros: 'Você poderia descrever com mais detalhes o motivo pelo qual considera a remuneração insatisfatória?'
+    },
+    {
+      key: 'satisfacao_beneficios',
+      titulo: 'Índice de Satisfação com os Benefícios',
+      colPrincipal: 'Como você classificaria os seguintes aspectos de nossa empresa em relação a BENEFÍCIOS onde:',
+      positivos: ['Bom', 'Excelente'],
+      colPositiva: 'Se considera positiva, selecione a opção que melhor representa sua experiência.',
+      colNegativa: 'Você poderia detalhar por que considera os benefícios da empresa insatisfatórios?'
+    },
+    {
+      key: 'percepcao_crescimento',
+      titulo: 'Índice de Percepção de Crescimento Profissional',
+      colPrincipal: 'Como você classificaria os seguintes aspectos de nossa empresa em relação a POSSIBILIDADE DE CRESCIMENTO onde:',
+      positivos: ['Bom', 'Excelente'],
+      colPositiva: 'Se considera positiva, selecione a opção que melhor representa sua experiência',
+      colNegativa: 'Você poderia detalhar por que considera a possibilidade de crescimento na empresa insatisfatória?'
+    }
+  ];
+
+  function buildIndiceDesligamento(cfg, rows) {
+    const linhas = rows.map(r => {
+      const entradas = respostaIndex(r.respostas);
+      const principal = getResposta(entradas, r.respostas, cfg.colPrincipal);
+      let bucket = null, secundaria = null, terciaria = null;
+      if (principal != null && !cfg.simples) {
+        bucket = isPositivoValor(principal, cfg.positivos) ? 'positivo' : 'negativo';
+        const col = bucket === 'positivo' ? cfg.colPositiva : cfg.colNegativa;
+        secundaria = getResposta(entradas, r.respostas, col);
+        if (bucket === 'negativo' && cfg.colOutros) terciaria = getResposta(entradas, r.respostas, cfg.colOutros);
+      }
+      return { principal, bucket, secundaria, terciaria, unidade: r.unidade, departamento: r.departamento };
+    }).filter(l => l.principal != null);
+
+    return {
+      key: cfg.key, titulo: cfg.titulo, simples: !!cfg.simples,
+      // Pergunta original da planilha — mostrada como subtítulo pra dar
+      // contexto do que o índice (nome dado pelo RH) está de fato medindo.
+      pergunta: cfg.colPrincipal,
+      perguntaPositiva: cfg.colPositiva || null,
+      perguntaNegativa: cfg.colNegativa || null,
+      negativaMulti: !!cfg.negativaMulti,
+      // outrosGatilho definido: terciária só abre se clicar nesse valor
+      // específico (ex.: "Outros (especifique)"). Sem gatilho, mas com
+      // colOutros: terciária abre pra qualquer clique no gráfico negativo
+      // (caso Remuneração — BV acompanha qualquer resposta de BU).
+      outrosGatilho: cfg.outrosGatilho || null,
+      temTerciaria: !!cfg.colOutros,
+      principal: countAnswers(linhas.map(l => l.principal)),
+      total: linhas.length,
+      linhas
+    };
+  }
+
+  function longTextValues(respostas) {
+    if (!respostas) return [];
+    return Object.values(respostas).filter(v => typeof v === 'string' && v.trim().length >= 25);
+  }
+
+  function bestComment(respostas) {
+    if (!respostas) return null;
+    const entries = Object.entries(respostas).filter(([, v]) => typeof v === 'string' && v.trim().length >= 15);
+    let best = null;
+    for (const [k, v] of entries) {
+      const nk = norm(k);
+      if (nk.includes('acrescentar') || nk.includes('sugest') || nk.includes('por qual motivo')) {
+        if (!best || v.length > best.length) best = v;
+      }
+    }
+    if (best) return best;
+    let longest = null;
+    for (const [, v] of entries) if (!longest || v.length > longest.length) longest = v;
+    return longest;
+  }
+
+  function isPositivo(r) { return norm(r.trabalharia_novamente).startsWith('sim'); }
+
+  function entrevistaMetrics(f) {
+    let pesquisa = HUB_DATA.entrevista_pesquisa || [];
+    let solicitacao = HUB_DATA.entrevista_solicitacao || [];
+
+    // O filtro de período aqui é por quando a ENTREVISTA foi respondida
+    // (não quando a pessoa se desligou — a pesquisa pode ser respondida bem
+    // depois do desligamento, então filtrar por data_desligamento excluía
+    // entrevistas de fato realizadas dentro do período escolhido).
+    pesquisa = pesquisa.map(r => Object.assign({}, r, { data_entrevista: r.data_conclusao || r.data_inicio }));
+    const map = { date: 'data_entrevista', unidade: 'unidade', departamento: 'departamento', pessoa: 'nome' };
+    pesquisa = filterRows(pesquisa, map, f);
+    const mapSol = { date: 'data_demissao', unidade: 'unidade', departamento: 'departamento', pessoa: 'nome' };
+    solicitacao = filterRows(solicitacao, mapSol, f);
+    // As duas abas de origem não trazem o nome do gestor direto, então o
+    // filtro "Gestor" da barra superior não se aplica a este menu.
+
+    const positivos = pesquisa.filter(isPositivo);
+    const negativos = pesquisa.filter(r => r.trabalharia_novamente && !isPositivo(r));
+
+    const npsValores = pesquisa.map(r => r.nps).filter(n => n !== null && n !== undefined);
+    const promotores = npsValores.filter(n => n >= 9).length;
+    const detratores = npsValores.filter(n => n <= 6).length;
+    const neutros = npsValores.length - promotores - detratores;
+    const nps = npsValores.length ? Math.round(((promotores - detratores) / npsValores.length) * 100) : null;
+    const npsDetalhe = {
+      total: npsValores.length, promotores, neutros, detratores,
+      pctPromotores: npsValores.length ? promotores / npsValores.length : 0,
+      pctNeutros: npsValores.length ? neutros / npsValores.length : 0,
+      pctDetratores: npsValores.length ? detratores / npsValores.length : 0
+    };
+
+    const textosPositivos = positivos.flatMap(r => longTextValues(r.respostas));
+    const textosNegativos = negativos.flatMap(r => longTextValues(r.respostas));
+
+    const indicesDesligamento = DESL_INDICES.map(cfg => buildIndiceDesligamento(cfg, pesquisa));
+
+    // Anonimizados: sem nome do respondente, só unidade/departamento pra dar contexto.
+    const comentariosPositivos = positivos.map(r => ({ unidade: r.unidade, departamento: r.departamento, texto: bestComment(r.respostas) })).filter(c => c.texto);
+    const comentariosNegativos = negativos.map(r => ({ unidade: r.unidade, departamento: r.departamento, texto: bestComment(r.respostas) })).filter(c => c.texto);
+
+    const nomesColaboradores = (HUB_DATA.colaboradores || []).map(r => r.nome_completo).filter(Boolean);
+    const pessoasCitadas = U.extractMentions(textosPositivos.concat(textosNegativos), nomesColaboradores).slice(0, 20);
+
+    const motivos = countBy(pesquisa, 'motivo_desligamento');
+    const submotivos = countBy(pesquisa, 'submotivo_desligamento');
+    // Pares motivo/submotivo (sem nomes) pra alimentar o drill-down ao clicar
+    // numa barra do gráfico de motivos.
+    const motivoSubmotivoPairs = pesquisa.map(r => ({ motivo: r.motivo_desligamento || 'Não informado', submotivo: r.submotivo_desligamento || 'Não informado' }));
+    const statusEntrevista = countBy(solicitacao, 'status_entrevista');
+    const tipoSolicitacao = countBy(solicitacao, 'tipo');
+
+    const insights = [];
+    if (pesquisa.length) {
+      const pctRetornaria = positivos.length / pesquisa.length;
+      insights.push({ tipo: 'info', texto: `${U.fmtPct(pctRetornaria)} dos respondentes trabalhariam novamente na empresa (${positivos.length} de ${pesquisa.length}).` });
+      if (nps !== null) insights.push({ tipo: nps < 0 ? 'alerta' : 'info', texto: `eNPS de desligados: ${nps}.` });
+      if (motivos[0]) insights.push({ tipo: 'info', texto: `Motivo de desligamento mais citado: "${motivos[0].label}" (${motivos[0].value}).` });
+      if (pessoasCitadas.length) insights.push({ tipo: 'info', texto: `Pessoas mais citadas nos depoimentos: ${pessoasCitadas.slice(0, 5).map(p => p.nome).join(', ')}.` });
+    } else {
+      insights.push({ tipo: 'info', texto: 'Nenhuma resposta de pesquisa de desligamento no período/filtro selecionado.' });
+    }
+    if (solicitacao.length) {
+      const naoRealizadas = solicitacao.filter(r => norm(r.status_entrevista) !== 'realizada').length;
+      if (naoRealizadas > 0) insights.push({ tipo: 'acao', texto: `${naoRealizadas} entrevista(s) de desligamento ainda não realizada(s) — recomenda-se contato para aplicação da pesquisa.` });
+    }
+
+    return {
+      totalRespostas: pesquisa.length,
+      totalSolicitacoes: solicitacao.length,
+      positivos: positivos.length, negativos: negativos.length,
+      nps, npsDetalhe, motivos, submotivos, motivoSubmotivoPairs, statusEntrevista, tipoSolicitacao,
+      comentariosPositivos, comentariosNegativos,
+      pessoasCitadas, insights, indicesDesligamento
+    };
+  }
+
+  // ==================================================================
+  // CELEBRAÇÕES / FEEDBACKS / 1:1 — volume por departamento e por gestor
+  // ==================================================================
+  function celebracoesMetrics(f) {
+    const map = { date: 'data', unidade: 'unidade', departamento: 'departamento', pessoa: ['colaborador_enviou', 'colaboradores_receberam'], gestor: 'colaborador_enviou' };
+    const rows = filterRows(HUB_DATA.celebracoes || [], map, f);
+    return {
+      total: rows.length,
+      curtidas: rows.reduce((s, r) => s + (r.curtidas || 0), 0),
+      comentarios: rows.reduce((s, r) => s + (r.comentarios || 0), 0),
+      porDepartamento: countBy(rows, 'departamento'),
+      porUnidade: countBy(rows, 'unidade'),
+      porGestor: countBy(rows.filter(r => norm(r.papel) === 'gestor'), 'colaborador_enviou'),
+      porRemetente: countBy(rows, 'colaborador_enviou').slice(0, 15),
+      serie: seriePorMes(rows, 'data')
+    };
+  }
+
+  function feedbacksMetrics(f) {
+    const map = { date: 'data', unidade: 'unidade', departamento: 'departamento', pessoa: ['de', 'para'], gestor: 'de' };
+    const rows = filterRows(HUB_DATA.feedbacks || [], map, f);
+    return {
+      total: rows.length,
+      porDepartamento: countBy(rows, 'departamento'),
+      porUnidade: countBy(rows, 'unidade'),
+      porGestor: countBy(rows, 'de').slice(0, 15),
+      porDestinatario: countBy(rows, 'para').slice(0, 15),
+      serie: seriePorMes(rows, 'data')
+    };
+  }
+
+  function oneOnOneMetrics(f) {
+    const map = { date: 'data_realizada', unidade: null, departamento: 'departamento', pessoa: ['lider', 'liderado'], gestor: 'lider' };
+    let rows = filterRows(HUB_DATA.one_on_one || [], map, f);
+    const realizados = rows.filter(r => norm(r.status) === 'realizado');
+    return {
+      total: rows.length,
+      realizados: realizados.length,
+      agendados: rows.filter(r => norm(r.status) === 'agendado').length,
+      porDepartamento: countBy(realizados, 'departamento'),
+      porGestor: countBy(realizados, 'lider').slice(0, 15),
+      serie: seriePorMes(realizados, 'data_realizada')
+    };
+  }
+
+  function seriePorMes(rows, field) {
+    const m = new Map();
+    for (const r of rows) {
+      const k = U.monthKey(r[field]);
+      if (!k) continue;
+      m.set(k, (m.get(k) || 0) + 1);
+    }
+    return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([mes, value]) => ({ mes, label: U.monthLabel(mes), value }));
+  }
+
+  // ==================================================================
+  // TREINAMENTOS (Twygo)
+  // ==================================================================
+  // Agrega pontuação/progresso por pessoa a partir das próprias inscrições —
+  // usado quando as planilhas opcionais de usuários/conteúdos não foram
+  // enviadas (o Twygo participantes sozinho já sustenta o menu inteiro).
+  function agregarPessoasDeParticipantes(participantes) {
+    const m = new Map();
+    for (const r of participantes) {
+      const key = norm(r.email) || norm(r.nome_completo);
+      if (!key) continue;
+      if (!m.has(key)) m.set(key, { nome_completo: r.nome_completo, pontuacao: 0, progressoSoma: 0, count: 0 });
+      const agg = m.get(key);
+      agg.pontuacao += r.pontuacao || 0;
+      agg.progressoSoma += r.progresso || 0;
+      agg.count++;
+    }
+    return Array.from(m.values()).map(a => ({ nome_completo: a.nome_completo, pontuacao: a.pontuacao, progresso: a.count ? a.progressoSoma / a.count : 0 }));
+  }
+
+  // Ranking de taxa de conclusão + progresso médio, agrupado por departamento
+  // ou por colaborador — usado nos "top 10" do menu Treinamentos.
+  function rankingConclusaoProgresso(rows, groupField) {
+    const m = new Map();
+    for (const r of rows) {
+      const k = r[groupField];
+      if (!k) continue;
+      if (!m.has(k)) m.set(k, { total: 0, concluidos: 0, progressoSoma: 0 });
+      const g = m.get(k);
+      g.total++;
+      if (norm(r.situacao).includes('conclu') || (r.progresso != null && r.progresso >= 1)) g.concluidos++;
+      g.progressoSoma += r.progresso || 0;
+    }
+    return Array.from(m.entries())
+      .map(([label, g]) => ({
+        label, total: g.total,
+        taxaConclusao: g.total ? g.concluidos / g.total : 0,
+        progressoMedio: g.total ? g.progressoSoma / g.total : 0
+      }))
+      .sort((a, b) => b.taxaConclusao - a.taxaConclusao || b.progressoMedio - a.progressoMedio);
+  }
+
+  function treinamentosMetrics(f) {
+    // Só considera quem está Ativo no ambiente Twygo — pedido explícito:
+    // desconsiderar qualquer pessoa/matrícula marcada como Inativo.
+    const participantesAtivos = (HUB_DATA.twygo_participantes || []).filter(r => norm(r.situacao_ambiente) !== 'inativo');
+    const usuariosAtivos = (HUB_DATA.twygo_usuarios || []).filter(r => norm(r.situacao) !== 'inativo');
+
+    const mapPart = { date: 'data_inscricao', unidade: 'unidade', departamento: 'departamento', pessoa: 'nome_completo', tipoConteudo: 'content_type', conteudo: 'content_title' };
+    let participantes = filterRows(participantesAtivos, mapPart, f);
+    // Só considera inscrição "Confirmada" — "Cancelada" (e qualquer outro
+    // status) distorce horas/progresso/conclusão, pedido explícito do RH.
+    participantes = participantes.filter(r => norm(r.situacao_inscricao).includes('confirmad'));
+
+    const mapUsu = { date: 'registrado_em', unidade: 'unidade', departamento: 'departamento', pessoa: 'nome_completo' };
+    const usuarios = filterRows(usuariosAtivos, mapUsu, f);
+    // Planilha de usuários é opcional — sem ela, deriva pontuação/progresso
+    // por pessoa direto das inscrições do Twygo.
+    const pessoas = usuarios.length ? usuarios : agregarPessoasDeParticipantes(participantes);
+
+    const isConcluido = r => norm(r.situacao).includes('conclu') || (r.progresso != null && r.progresso >= 1);
+    const concluidos = participantes.filter(isConcluido);
+    const naoIniciados = participantes.filter(r => !isConcluido(r) && (r.progresso || 0) === 0);
+    const emAndamento = participantes.filter(r => !isConcluido(r) && (r.progresso || 0) > 0);
+    const progressoMedio = participantes.length
+      ? participantes.reduce((s, r) => s + (r.progresso || 0), 0) / participantes.length
+      : 0;
+    // Soma direta de Carga Horária das inscrições confirmadas (ambiente
+    // ativo) — sem ponderar por progresso, conforme validado com o RH
+    // contra a soma da planilha real (1.417h).
+    const horasTotais = participantes.reduce((s, r) => s + (r.carga_horaria || 0), 0);
+
+    const topDepartamentos = rankingConclusaoProgresso(participantes, 'departamento').slice(0, 10);
+    // Cargo/departamento de cada pessoa (pega da primeira inscrição
+    // encontrada) só pra dar contexto na tabela do Top 10 colaboradores.
+    const cargoPorPessoa = new Map();
+    for (const r of participantes) {
+      if (r.nome_completo && !cargoPorPessoa.has(r.nome_completo)) {
+        cargoPorPessoa.set(r.nome_completo, { cargo: r.cargo, departamento: r.departamento });
+      }
+    }
+    const topColaboradores = rankingConclusaoProgresso(participantes, 'nome_completo').slice(0, 10)
+      .map(x => Object.assign({}, x, cargoPorPessoa.get(x.label)));
+
+    // Sem slice — a tela mostra todos os cursos num contêiner com rolagem.
+    const progressoPorCurso = avgBy(participantes, 'content_title', 'progresso');
+
+    let porColaborador = [];
+    if (f.colaborador) {
+      const cursos = participantes.filter(r => U.normEq(r.nome_completo, f.colaborador));
+      const pessoaAgregada = pessoas.find(u => U.normEq(u.nome_completo, f.colaborador));
+      porColaborador = {
+        cursos: cursos.map(c => ({
+          curso: c.content_title, situacao: c.situacao, progresso: c.progresso,
+          nota: c.nota, cargaHoraria: c.carga_horaria, dataInscricao: c.data_inscricao, ultimoAcesso: c.ultimo_acesso
+        })),
+        horasTotais: cursos.reduce((s, c) => s + (c.carga_horaria || 0), 0),
+        progressoGeral: pessoaAgregada ? pessoaAgregada.progresso : (cursos.length ? cursos.reduce((s, c) => s + (c.progresso || 0), 0) / cursos.length : null),
+        pontuacao: pessoaAgregada ? pessoaAgregada.pontuacao : (cursos.length ? cursos.reduce((s, c) => s + (c.pontuacao || 0), 0) : null),
+        cursosConcluidos: cursos.filter(c => norm(c.situacao).includes('conclu') || (c.progresso != null && c.progresso >= 1)).length,
+        totalCursos: cursos.length
+      };
+    }
+
+    return {
+      totalInscricoes: participantes.length,
+      totalConcluidos: concluidos.length,
+      totalNaoIniciados: naoIniciados.length,
+      totalEmAndamento: emAndamento.length,
+      taxaConclusao: participantes.length ? concluidos.length / participantes.length : 0,
+      progressoMedio, horasTotais,
+      totalUsuarios: pessoas.length,
+      pontuacaoMedia: pessoas.length ? pessoas.reduce((s, u) => s + (u.pontuacao || 0), 0) / pessoas.length : 0,
+      progressoPorCurso,
+      topDepartamentos, topColaboradores,
+      serie: seriePorMes(participantes, 'data_inscricao'),
+      porColaborador
+    };
+  }
+
+  // ==================================================================
+  // DASHBOARD — resumo dos principais indicadores de cada menu (menos
+  // Recrutamento, que é calculado ao vivo por metrics-recrutamento.js)
+  // ==================================================================
+  function dashboardMetrics(f) {
+    const colab = colaboradoresMetrics(f);
+    const rot = rotatividadeMetrics(f);
+    const entr = entrevistaMetrics(f);
+    const cel = celebracoesMetrics(f);
+    const fb = feedbacksMetrics(f);
+    const oo = oneOnOneMetrics(f);
+    const tr = treinamentosMetrics(f);
+    return { colab, rot, entr, cel, fb, oo, tr };
+  }
+
+  window.HUB_METRICS = {
+    filterRows, countBy, sumBy, avgBy, seriePorMes, countAnswers,
+    colaboradoresMetrics, rotatividadeMetrics, entrevistaMetrics,
+    celebracoesMetrics, feedbacksMetrics, oneOnOneMetrics, treinamentosMetrics,
+    dashboardMetrics
+  };
+})();

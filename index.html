@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hub Sfera</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231C7CEC'/%3E%3Ctext x='16' y='22' font-size='15' font-family='Arial' font-weight='bold' fill='white' text-anchor='middle'%3EHS%3C/text%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.0/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --p1:#1C7CEC; --p2:#0DBAFC; --p3:#7ED2F2; --ink:#000000;
+  --bg:#F1F4F8; --card:#ffffff; --border:#E2E8F0;
+  --text:#16181D; --text2:#52565E; --muted:#8A8F98;
+  --sidebar:#0B1220; --sidebar-active:rgba(28,124,236,.28);
+  --good:#0ca30c; --warning:#c98500; --serious:#ec835a; --critical:#d03b3b;
+  --radius:12px; --sw:266px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:'Ubuntu',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+h1,h2,h3,h4{font-weight:700;margin:0}
+p{margin:0}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#C9D0DA;border-radius:4px}
+
+/* ---------- Login ---------- */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0B1220 0%,var(--p1) 55%,var(--p2) 100%);padding:24px}
+#login-screen[hidden]{display:none}
+.login-card{background:var(--card);border-radius:20px;padding:40px 36px;width:400px;max-width:100%;box-shadow:0 30px 70px rgba(0,0,0,.35)}
+.login-brand{text-align:center;margin-bottom:28px}
+.login-brand .mark{width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--p1),var(--p2));display:grid;place-items:center;margin:0 auto 14px;color:#fff;font-weight:700;font-size:20px}
+.login-brand h1{font-size:20px;color:var(--text)}
+.login-brand p{font-size:13px;color:var(--muted);margin-top:4px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:6px}
+.field input{width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;color:var(--text)}
+.field input:focus{outline:none;border-color:var(--p1);box-shadow:0 0 0 3px rgba(28,124,236,.15)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;border:none;font-family:inherit;transition:filter .15s}
+.btn-primary{background:var(--p1);color:#fff;width:100%}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-primary:disabled{opacity:.6;cursor:default}
+.btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--text)}
+.btn-outline:hover{background:var(--bg)}
+.btn-sm{padding:7px 14px;font-size:12px}
+.btn-danger{background:#FFF5F5;color:var(--critical);border:1.5px solid #FED7D7}
+.msg{font-size:12.5px;margin-top:10px;padding:9px 11px;border-radius:8px;display:none}
+.msg.err{background:#FEF2F2;color:var(--critical);border:1px solid #FECACA;display:block}
+.msg.ok{background:#F0FFF4;color:#276749;border:1px solid #C6F6D5;display:block}
+.setup-hint{margin-top:16px;font-size:11.5px;color:var(--muted);line-height:1.5;text-align:center}
+
+/* ---------- App shell ---------- */
+#app-shell{display:flex;height:100vh}
+#app-shell[hidden]{display:none}
+.sidebar{width:var(--sw);background:var(--sidebar);flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto}
+.sb-brand{padding:22px 20px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sb-brand .mark{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--p1),var(--p2));display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0}
+.sb-brand h2{color:#fff;font-size:14.5px;line-height:1.25}
+.sb-brand span{color:rgba(255,255,255,.5);font-size:10.5px}
+.sb-user{padding:14px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.08)}
+.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--p1),var(--p2));display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;flex-shrink:0}
+.sb-user-info p{color:#fff;font-size:12.5px;font-weight:500}
+.sb-user-info span{color:rgba(255,255,255,.5);font-size:10.5px}
+.sb-nav{padding:6px 0 14px;flex:1}
+.sb-mod-title{padding:16px 20px 6px;color:rgba(255,255,255,.4);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;color:rgba(255,255,255,.62);cursor:pointer;font-size:13px;border-left:3px solid transparent;user-select:none}
+.nav-item:hover{background:rgba(255,255,255,.05);color:#fff}
+.nav-item.active{background:var(--sidebar-active);color:#fff;border-left-color:var(--p2)}
+.nav-item .ic{font-size:15px;width:20px;text-align:center}
+.nav-sep{height:1px;background:rgba(255,255,255,.07);margin:8px 20px}
+.sb-foot{padding:14px 20px;border-top:1px solid rgba(255,255,255,.08)}
+.sb-foot .btn{background:rgba(255,255,255,.08);color:#fff;width:100%;font-size:12px}
+.sb-foot .btn:hover{background:rgba(255,255,255,.16)}
+
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-width:0}
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:14px 26px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:5}
+.topbar h1{font-size:18px}
+#data-status{font-size:11.5px;color:var(--muted)}
+.pc{padding:22px 26px 40px;flex:1}
+
+.fbar{background:var(--card);border-radius:var(--radius);padding:14px 16px;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;border:1px solid var(--border)}
+.fg{display:flex;flex-direction:column;gap:4px;min-width:130px;flex:1;max-width:190px}
+.fg label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.fg select,.fg input{padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;color:var(--text);background:#fff}
+.fg select:focus,.fg input:focus{outline:none;border-color:var(--p1)}
+.fbar .btn-outline{align-self:flex-end}
+
+/* ---------- Multi-seleção (Unidade/Departamento) ---------- */
+.msel{position:relative}
+.msel-btn{width:100%;padding:8px 26px 8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;color:var(--text);background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%238A8F98'%3E%3Cpath d='M5.5 7.5l4.5 4.5 4.5-4.5' stroke='%238A8F98' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 8px center;background-size:14px;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msel-btn:focus{outline:none;border-color:var(--p1)}
+.msel-btn.placeholder{color:#8A8F98}
+.msel-btn.active{border-color:var(--p1);box-shadow:0 0 0 3px rgba(28,124,236,.12)}
+.msel-panel{position:absolute;top:calc(100% + 6px);left:0;min-width:240px;max-width:340px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 28px rgba(16,24,40,.14);z-index:20;padding:8px}
+.msel-panel[hidden]{display:none}
+.msel-search{width:100%;padding:7px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:12.5px;font-family:inherit;margin-bottom:6px}
+.msel-search:focus{outline:none;border-color:var(--p1)}
+.msel-actions{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px}
+.msel-actions button{background:none;border:none;color:var(--p1);font-size:11px;font-weight:700;cursor:pointer;padding:2px 4px;font-family:inherit}
+.msel-actions button:hover{text-decoration:underline}
+.msel-options{max-height:230px;overflow-y:auto}
+.msel-opt{display:flex;align-items:center;gap:8px;padding:6px 6px;border-radius:6px;font-size:12.5px;cursor:pointer;user-select:none}
+.msel-opt:hover{background:#F7F9FC}
+.msel-opt input{margin:0;flex-shrink:0}
+.msel-opt span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msel-empty{padding:10px 6px;font-size:12px;color:var(--muted);text-align:center}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:14px;margin-bottom:20px}
+.kpi{background:var(--card);border-radius:var(--radius);padding:16px 18px;border:1px solid var(--border);position:relative;overflow:hidden}
+.kpi:before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--bar,var(--p1))}
+.kpi .lbl{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.kpi .val{font-size:25px;font-weight:700;line-height:1.1}
+.kpi .sub{font-size:11px;color:var(--muted);margin-top:5px}
+
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:16px;margin-bottom:18px}
+.grid2-fixed{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+.card{background:var(--card);border-radius:var(--radius);padding:20px;border:1px solid var(--border)}
+.card.full{grid-column:1/-1}
+.card h3{font-size:13.5px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.chart-h{position:relative;height:280px}
+.chart-h.short{height:210px}
+.chart-h.tall{height:380px}
+.chart-scroll{max-height:480px;overflow-y:auto;overflow-x:hidden;border:1px solid var(--border);border-radius:8px;padding:6px 4px}
+.chart-scroll .chart-inner{position:relative;width:100%}
+
+.table-wrap{max-height:420px;overflow:auto;border-radius:10px;border:1px solid var(--border)}
+table.dt{width:100%;border-collapse:collapse;font-size:12px}
+table.dt th{position:sticky;top:0;background:#F7F9FC;padding:9px 12px;text-align:left;font-weight:700;color:var(--muted);text-transform:uppercase;font-size:9.5px;letter-spacing:.4px;border-bottom:2px solid var(--border)}
+table.dt td{padding:8px 12px;border-bottom:1px solid var(--border)}
+table.dt tr:hover td{background:#F7F9FC}
+
+.empty{text-align:center;padding:54px 20px;color:var(--muted)}
+.empty .ic{font-size:32px;display:block;margin-bottom:10px;opacity:.5}
+.empty p{font-size:13.5px}
+.empty .sub{font-size:11.5px;margin-top:4px}
+
+.badge{display:inline-flex;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700}
+.badge.b1{background:#EAF2FE;color:var(--p1)}
+.badge.b2{background:#E9FBF3;color:#0f8a4c}
+.badge.b3{background:#FDF0EE;color:var(--critical)}
+.badge.b4{background:#FFF6E5;color:var(--warning)}
+.badge.b5{background:#F1EEFB;color:#4a3aa7}
+
+.insight{display:flex;gap:10px;padding:11px 13px;border-radius:10px;margin-bottom:9px;font-size:12.5px;line-height:1.5;border:1px solid var(--border)}
+.insight .ic{font-size:15px;flex-shrink:0}
+.insight.alerta{background:#FFF5F0;border-color:#FEDCC5}
+.insight.acao{background:#EAF2FE;border-color:#CFE2FC}
+.insight.info{background:#F7F9FC}
+
+.comment{padding:10px 12px;border-radius:9px;background:#F7F9FC;border:1px solid var(--border);margin-bottom:8px;font-size:12px;line-height:1.5}
+.comment .meta{font-size:10.5px;color:var(--muted);margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+
+.scroll-box{max-height:380px;overflow-y:auto;padding-right:4px}
+
+.nps-scale{display:flex;border-radius:10px;overflow:hidden;height:56px;margin-bottom:20px;border:1px solid var(--border)}
+.nps-seg{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1px;color:#fff;overflow:hidden;transition:width .3s}
+.nps-seg .n{font-size:16px;font-weight:700;white-space:nowrap}
+.nps-seg .lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;opacity:.9;white-space:nowrap}
+.nps-seg.detrator{background:var(--critical)}
+.nps-seg.neutro{background:var(--warning)}
+.nps-seg.promotor{background:var(--good)}
+
+.tab-bar{display:flex;gap:2px;margin-bottom:16px;background:var(--card);border-radius:10px;padding:4px;border:1px solid var(--border);width:fit-content}
+.tab-btn{padding:8px 16px;border:none;background:transparent;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;border-radius:7px;font-family:inherit}
+.tab-btn.active{background:var(--p1);color:#fff}
+
+.sub-view{display:none}
+.sub-view.active{display:block}
+.section{display:none}
+.section.active{display:block}
+
+.upload-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px;margin-bottom:22px}
+.upload-card{background:var(--card);border-radius:var(--radius);padding:18px;border:2px dashed var(--border);text-align:center;position:relative;cursor:pointer}
+.upload-card:hover{border-color:var(--p1);background:#F7FAFF}
+.upload-card.ok{border-style:solid;border-color:#9AE6B4;background:#F0FFF4}
+.upload-card.busy{opacity:.7}
+.upload-card .ic{font-size:24px;margin-bottom:6px;display:block}
+.upload-card h4{font-size:12.5px;margin-bottom:4px}
+.upload-card p{font-size:10.5px;color:var(--muted)}
+.upload-card input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.upload-card .status{font-size:10.5px;font-weight:600;margin-top:8px;min-height:14px}
+.upload-card .status.ok-t{color:#0f8a4c}
+.upload-card .status.err-t{color:var(--critical)}
+.progress{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px}
+.progress > div{height:100%;background:var(--p1);width:0%;transition:width .2s}
+
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-grid .full{grid-column:1/-1}
+.checks{display:flex;flex-wrap:wrap;gap:6px;max-height:150px;overflow-y:auto;border:1.5px solid var(--border);border-radius:8px;padding:8px}
+.chk{display:flex;align-items:center;gap:5px;font-size:11.5px;padding:4px 8px;border-radius:6px;background:#F7F9FC;cursor:pointer}
+.chk input{margin:0}
+
+.perm-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:10px 0 16px}
+.perm-group{border:1.5px solid var(--border);border-radius:10px;padding:12px}
+.perm-group h4{font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.perm-preset-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.perm-preset-bar button{padding:6px 13px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:11.5px;font-family:inherit;cursor:pointer;color:var(--text2)}
+.perm-preset-bar button:hover{border-color:var(--p1);color:var(--p1)}
+
+@media (max-width:900px){
+  .sidebar{display:none}
+  .grid2{grid-template-columns:1fr}
+  .grid2-fixed{grid-template-columns:1fr}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .form-grid{grid-template-columns:1fr}
+}
+
+/* ---------- Recrutamento: Vagas / Candidatos / Agenda (js/sections/vagas.js, candidatos.js, agenda.js) ---------- */
+.field select,.field textarea{width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;color:var(--text);background:#fff}
+.field select:focus,.field textarea:focus{outline:none;border-color:var(--p1);box-shadow:0 0 0 3px rgba(28,124,236,.15)}
+.field textarea{resize:vertical}
+.field.compact{margin-bottom:10px}
+.field.compact input,.field.compact select{padding:8px 10px;font-size:12.5px;border-radius:8px}
+.field .req{color:var(--critical)}
+.field .hint{font-size:10.5px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0}
+
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.toolbar input[type=text],.toolbar input[type=date],.toolbar select{padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;color:var(--text);background:#fff}
+.toolbar input[type=text]{min-width:190px;flex:1 1 190px}
+
+.tag-list{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:30px}
+.tag-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;background:#EAF2FE;color:var(--p1);font-size:11.5px;font-weight:600;white-space:nowrap}
+.tag-chip .x{cursor:pointer;font-weight:900;opacity:.55}
+.tag-chip .x:hover{opacity:1}
+
+.wa-link{color:#1baf7a;font-weight:700;text-decoration:none;font-size:11.5px;white-space:nowrap}
+.wa-link:hover{text-decoration:underline}
+
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}
+.fit-dot{display:inline-block;width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+.stepper{display:flex;align-items:flex-start;gap:0;margin-bottom:18px}
+.stepper .step{display:flex;flex-direction:column;align-items:center;gap:6px;flex:0 0 auto;width:110px}
+.stepper .step .dot{width:26px;height:26px;border-radius:50%;background:var(--border);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700}
+.stepper .step.active .dot{background:var(--p1);color:#fff}
+.stepper .step.done .dot{background:#1baf7a;color:#fff}
+.stepper .step .lbl{font-size:10.5px;color:var(--muted);font-weight:600;text-align:center}
+.stepper .step.active .lbl{color:var(--text)}
+.stepper .line{flex:1;height:2px;background:var(--border);margin-top:13px}
+
+.progress-steps{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px}
+.progress-steps .ps{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:56px}
+.progress-steps .ps .dot{width:20px;height:20px;border-radius:50%;background:var(--border);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
+.progress-steps .ps.active .dot{background:var(--p1);color:#fff}
+.progress-steps .ps.done .dot{background:#1baf7a;color:#fff}
+.progress-steps .ps .lbl{font-size:9px;color:var(--muted);text-align:center}
+
+.fit-bar-track{flex:1;height:8px;background:var(--border);border-radius:5px;overflow:hidden;min-width:50px}
+.fit-bar-fill{height:100%;border-radius:5px}
+
+.lock-note{padding:12px 14px;border-radius:10px;background:#F7F9FC;border:1px dashed var(--border);color:var(--muted);font-size:12px}
+.sla-note{padding:9px 12px;border-radius:8px;background:#EAF2FE;font-size:12px;color:var(--text2)}
+
+details.blk{border:1.5px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
+details.blk > summary{background:#F7F9FC;padding:11px 16px;font-size:12.5px;font-weight:700;cursor:pointer;list-style:none}
+details.blk > summary::-webkit-details-marker{display:none}
+details.blk > summary:before{content:'▸ ';color:var(--muted)}
+details.blk[open] > summary:before{content:'▾ '}
+details.blk > .blk-body{padding:16px}
+
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal-head{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;text-align:center;padding:4px 0}
+.cal-cell{border:1px solid var(--border);border-radius:8px;padding:6px;min-height:92px;background:#fff}
+.cal-cell.out{opacity:.4}
+.cal-cell.today{border-color:var(--p1);background:#F7FAFF}
+.cal-cell .num{font-size:11px;font-weight:700;margin-bottom:4px}
+.ev-chip{font-size:9.5px;padding:3px 6px;border-radius:6px;margin-bottom:3px;cursor:pointer;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;border:none;width:100%;text-align:left;font-family:inherit}
+.ev-more{font-size:9.5px;color:var(--muted);text-align:center}
+
+.interview-card{border:1.5px solid var(--border);border-left-width:4px;border-radius:10px;padding:12px 14px;margin-bottom:10px;cursor:pointer}
+.interview-card:hover{background:#F7F9FC}
+.interview-card .hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.interview-card .time{font-weight:700;font-size:13px}
+.interview-card .cand{font-weight:600;font-size:13px;margin-bottom:4px}
+.interview-card .meta{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px;font-size:11px;color:var(--text2)}
+.legend .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="mark">HS</div>
+      <h1>Hub Sfera</h1>
+      <p>Indicadores &amp; Recrutamento</p>
+    </div>
+    <form id="login-form">
+      <div class="field">
+        <label>E-mail</label>
+        <input type="email" id="login-email" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label>Senha</label>
+        <input type="password" id="login-pass" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary" id="login-btn">Entrar</button>
+      <div class="msg err" id="login-msg"></div>
+    </form>
+    <div class="setup-hint" id="setup-hint"></div>
+  </div>
+</div>
+
+<div id="app-shell" hidden>
+  <div class="sidebar">
+    <div class="sb-brand">
+      <div class="mark">HS</div>
+      <div><h2>Hub Sfera</h2><span>Indicadores &amp; Recrutamento</span></div>
+    </div>
+    <div class="sb-user">
+      <div class="avatar" id="user-avatar">U</div>
+      <div class="sb-user-info"><p id="user-name">—</p><span id="user-role">—</span></div>
+    </div>
+    <div class="sb-nav" id="sb-nav">
+      <div class="sb-mod-title" data-group="indicadores">Indicadores</div>
+      <div class="nav-item" data-section="dashboard"><span class="ic">&#128202;</span>Dashboard</div>
+      <div class="nav-item" data-section="ind-headcount"><span class="ic">&#128101;</span>Headcount</div>
+      <div class="nav-item" data-section="ind-recrutamento"><span class="ic">&#128188;</span>Recrutamento</div>
+      <div class="nav-item" data-section="ind-rotatividade"><span class="ic">&#128260;</span>Rotatividade</div>
+      <div class="nav-item" data-section="ind-desligamento"><span class="ic">&#128682;</span>Entrevista Desligamento</div>
+      <div class="nav-item" data-section="ind-feedbacks"><span class="ic">&#128172;</span>Feedbacks</div>
+      <div class="nav-item" data-section="ind-oneonone"><span class="ic">&#129309;</span>1:1</div>
+      <div class="nav-item" data-section="ind-treinamentos"><span class="ic">&#128218;</span>Treinamentos</div>
+      <div class="nav-item" data-section="ind-celebracoes"><span class="ic">&#127881;</span>Celebrações</div>
+
+      <div class="sb-mod-title" data-group="recrutamento">Recrutamento</div>
+      <div class="nav-item" data-section="rec-dashboard"><span class="ic">&#128202;</span>Dashboard</div>
+      <div class="nav-item" data-section="rec-vagas"><span class="ic">&#128188;</span>Controle de Vagas</div>
+      <div class="nav-item" data-section="rec-candidatos"><span class="ic">&#128100;</span>Candidatos</div>
+      <div class="nav-item" data-section="rec-agenda"><span class="ic">&#128197;</span>Agenda de Entrevistas</div>
+      <div class="nav-item" data-section="rec-banco-talentos"><span class="ic">&#127942;</span>Banco de Talentos</div>
+      <div class="nav-item" data-section="rec-aprovacoes"><span class="ic">&#9989;</span>Aprovações</div>
+      <div class="nav-item" data-section="rec-historico"><span class="ic">&#128203;</span>Histórico</div>
+
+      <div class="sb-mod-title" data-group="administracao">Administração</div>
+      <div class="nav-item" data-section="adm-upload"><span class="ic">&#11014;&#65039;</span>Upload de Planilhas</div>
+      <div class="nav-item" data-section="adm-cadastros"><span class="ic">&#128203;</span>Cadastros do Recrutamento</div>
+      <div class="nav-item" data-section="adm-usuarios"><span class="ic">&#9881;&#65039;</span>Cadastro de Acessos</div>
+    </div>
+    <div class="sb-foot"><button class="btn" id="btn-logout">&#9211; Sair</button></div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h1 id="page-title">Dashboard</h1>
+      <span id="data-status"></span>
+    </div>
+    <div class="pc">
+      <div class="fbar" id="filter-bar">
+        <div class="fg"><label>Data início</label><input type="date" id="f-start"></div>
+        <div class="fg"><label>Data fim</label><input type="date" id="f-end"></div>
+        <div class="fg"><label>Unidade</label>
+          <div class="msel" id="msel-unidade">
+            <button type="button" class="msel-btn placeholder" id="msel-unidade-btn">Todas</button>
+            <div class="msel-panel" id="msel-unidade-panel" hidden>
+              <input type="text" class="msel-search" id="msel-unidade-search" placeholder="Buscar..." autocomplete="off">
+              <div class="msel-actions"><button type="button" data-act="all">Selecionar todas</button><button type="button" data-act="clear">Limpar</button></div>
+              <div class="msel-options" id="msel-unidade-options"></div>
+            </div>
+          </div>
+        </div>
+        <div class="fg"><label>Departamento</label>
+          <div class="msel" id="msel-departamento">
+            <button type="button" class="msel-btn placeholder" id="msel-departamento-btn">Todos</button>
+            <div class="msel-panel" id="msel-departamento-panel" hidden>
+              <input type="text" class="msel-search" id="msel-departamento-search" placeholder="Buscar..." autocomplete="off">
+              <div class="msel-actions"><button type="button" data-act="all">Selecionar todos</button><button type="button" data-act="clear">Limpar</button></div>
+              <div class="msel-options" id="msel-departamento-options"></div>
+            </div>
+          </div>
+        </div>
+        <div class="fg"><label>Gestor</label><input type="text" id="f-gestor" list="dl-gestor" placeholder="Todos" autocomplete="off"><datalist id="dl-gestor"></datalist></div>
+        <div class="fg"><label>Colaborador</label><input type="text" id="f-colaborador" list="dl-colaborador" placeholder="Todos" autocomplete="off"><datalist id="dl-colaborador"></datalist></div>
+        <div class="fg" id="fg-trilha" style="display:none"><label>Trilha/Curso (tipo)</label><input type="text" id="f-trilha" list="dl-trilha" placeholder="Todos" autocomplete="off"><datalist id="dl-trilha"></datalist></div>
+        <div class="fg" id="fg-conteudo" style="display:none"><label>Conteúdo</label><input type="text" id="f-conteudo" list="dl-conteudo" placeholder="Todos" autocomplete="off"><datalist id="dl-conteudo"></datalist></div>
+        <button class="btn btn-outline btn-sm" id="btn-clear-filters">Limpar filtros</button>
+      </div>
+
+      <div class="section" id="sec-dashboard"></div>
+      <div class="section" id="sec-ind-headcount"></div>
+      <div class="section" id="sec-ind-recrutamento"></div>
+      <div class="section" id="sec-ind-rotatividade"></div>
+      <div class="section" id="sec-ind-desligamento"></div>
+      <div class="section" id="sec-ind-feedbacks"></div>
+      <div class="section" id="sec-ind-oneonone"></div>
+      <div class="section" id="sec-ind-treinamentos"></div>
+      <div class="section" id="sec-ind-celebracoes"></div>
+      <div class="section" id="sec-rec-dashboard"></div>
+      <div class="section" id="sec-rec-vagas"></div>
+      <div class="section" id="sec-rec-candidatos"></div>
+      <div class="section" id="sec-rec-agenda"></div>
+      <div class="section" id="sec-rec-banco-talentos"></div>
+      <div class="section" id="sec-rec-aprovacoes"></div>
+      <div class="section" id="sec-rec-historico"></div>
+      <div class="section" id="sec-adm-upload"></div>
+      <div class="section" id="sec-adm-cadastros"></div>
+      <div class="section" id="sec-adm-usuarios"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/permissions.js"></script>
+<script src="js/ui-charts.js"></script>
+<script src="js/parsers.js"></script>
+<script src="js/dal-indicadores.js"></script>
+<script src="js/dal-recrutamento.js"></script>
+<script src="js/metrics-indicadores.js"></script>
+<script src="js/metrics-recrutamento.js"></script>
+<script src="js/sections/indicadores.js"></script>
+<script src="js/sections/recrutamento-dashboard.js"></script>
+<script src="js/sections/vagas.js"></script>
+<script src="js/sections/candidatos.js"></script>
+<script src="js/sections/agenda.js"></script>
+<script src="js/sections/banco-talentos.js"></script>
+<script src="js/sections/aprovacoes.js"></script>
+<script src="js/sections/historico.js"></script>
+<script src="js/admin/upload.js"></script>
+<script src="js/admin/cadastros.js"></script>
+<script src="js/admin/usuarios.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
