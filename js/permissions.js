@@ -30,13 +30,15 @@
         { key: 'recrutamento.banco_talentos', label: 'Banco de Talentos' },
         { key: 'recrutamento.aprovacoes', label: 'Aprovações' },
         { key: 'recrutamento.historico', label: 'Histórico' },
-        { key: 'recrutamento.transferencia', label: 'Transferência de Vaga' }
+        { key: 'recrutamento.transferencia', label: 'Transferência de Vaga' },
+        { key: 'recrutamento.parecer_gestor', label: 'Parecer do Gestor' }
       ]
     },
     {
       group: 'treinamento_dev', groupLabel: 'Treinamento e Desenvolvimento', icon: '&#127891;',
       items: [
-        { key: 'treinamento_dev.onboarding', label: 'Onboarding' }
+        { key: 'treinamento_dev.onboarding', label: 'Onboarding' },
+        { key: 'treinamento_dev.visita_loja', label: 'Visita em Loja' }
       ]
     },
     {
@@ -58,7 +60,7 @@
   const PRESETS = {
     admin: ALL_KEYS,
     rh: ALL_KEYS.filter(k => k !== 'admin.usuarios'),
-    gestor: CATALOG.find(g => g.group === 'indicadores').items.map(i => i.key)
+    gestor: CATALOG.find(g => g.group === 'indicadores').items.map(i => i.key).concat(['recrutamento.parecer_gestor'])
   };
 
   const PERFIL_LABELS = { admin: 'Administrador', gestor: 'Gestor', rh: 'RH' };

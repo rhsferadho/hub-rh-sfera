@@ -65,7 +65,10 @@ p{margin:0}
 .sb-user-info p{color:#fff;font-size:12.5px;font-weight:500}
 .sb-user-info span{color:rgba(255,255,255,.5);font-size:10.5px}
 .sb-nav{padding:6px 0 14px;flex:1}
-.sb-mod-title{padding:16px 20px 6px;color:rgba(255,255,255,.4);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px}
+.sb-mod-title{padding:16px 20px 6px;color:rgba(255,255,255,.4);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none}
+.sb-mod-title::after{content:'\25BE';font-size:11px;transition:transform .15s}
+.sb-mod-title.collapsed::after{transform:rotate(-90deg)}
+.nav-item.sb-collapsed{display:none!important}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;color:rgba(255,255,255,.62);cursor:pointer;font-size:13px;border-left:3px solid transparent;user-select:none}
 .nav-item:hover{background:rgba(255,255,255,.05);color:#fff}
 .nav-item.active{background:var(--sidebar-active);color:#fff;border-left-color:var(--p2)}
@@ -126,10 +129,12 @@ p{margin:0}
 .chart-scroll{max-height:480px;overflow-y:auto;overflow-x:hidden;border:1px solid var(--border);border-radius:8px;padding:6px 4px}
 .chart-scroll .chart-inner{position:relative;width:100%}
 
+.table-scroll-top{overflow-x:auto;overflow-y:hidden;height:14px;margin-bottom:2px}
+.table-scroll-top>div{height:1px}
 .table-wrap{max-height:420px;overflow:auto;border-radius:10px;border:1px solid var(--border)}
 table.dt{width:100%;border-collapse:collapse;font-size:12px}
-table.dt th{position:sticky;top:0;background:#F7F9FC;padding:9px 12px;text-align:left;font-weight:700;color:var(--muted);text-transform:uppercase;font-size:9.5px;letter-spacing:.4px;border-bottom:2px solid var(--border)}
-table.dt td{padding:8px 12px;border-bottom:1px solid var(--border)}
+table.dt th{position:sticky;top:0;background:#F7F9FC;padding:9px 12px;text-align:left;font-weight:700;color:var(--muted);text-transform:uppercase;font-size:9.5px;letter-spacing:.4px;border-bottom:2px solid var(--border);white-space:nowrap}
+table.dt td{padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
 table.dt tr:hover td{background:#F7F9FC}
 
 .empty{text-align:center;padding:54px 20px;color:var(--muted)}
@@ -337,9 +342,11 @@ details.blk > .blk-body{padding:16px}
       <div class="nav-item" data-section="rec-aprovacoes"><span class="ic">&#9989;</span>Aprovações</div>
       <div class="nav-item" data-section="rec-historico"><span class="ic">&#128203;</span>Histórico</div>
       <div class="nav-item" data-section="rec-transferencia"><span class="ic">&#128257;</span>Transferência de Vaga</div>
+      <div class="nav-item" data-section="rec-parecer-gestor"><span class="ic">&#128221;</span>Parecer do Gestor</div>
 
       <div class="sb-mod-title" data-group="treinamento_dev">Treinamento e Desenvolvimento</div>
       <div class="nav-item" data-section="tre-onboarding"><span class="ic">&#127891;</span>Onboarding</div>
+      <div class="nav-item" data-section="tre-visita-loja"><span class="ic">&#127978;</span>Visita em Loja</div>
 
       <div class="sb-mod-title" data-group="administracao">Administração</div>
       <div class="nav-item" data-section="adm-upload"><span class="ic">&#11014;&#65039;</span>Upload de Planilhas</div>
@@ -402,7 +409,9 @@ details.blk > .blk-body{padding:16px}
       <div class="section" id="sec-rec-aprovacoes"></div>
       <div class="section" id="sec-rec-historico"></div>
       <div class="section" id="sec-rec-transferencia"></div>
+      <div class="section" id="sec-rec-parecer-gestor"></div>
       <div class="section" id="sec-tre-onboarding"></div>
+      <div class="section" id="sec-tre-visita-loja"></div>
       <div class="section" id="sec-adm-upload"></div>
       <div class="section" id="sec-adm-cadastros"></div>
       <div class="section" id="sec-adm-usuarios"></div>
@@ -418,6 +427,14 @@ details.blk > .blk-body{padding:16px}
 <script src="js/parsers.js"></script>
 <script src="js/dal-indicadores.js"></script>
 <script src="js/dal-recrutamento.js"></script>
+<script src="js/pareceres/comum.js"></script>
+<script src="js/pareceres/vd-comum.js"></script>
+<script src="js/pareceres/modelo-hering.js"></script>
+<script src="js/pareceres/modelo-levis.js"></script>
+<script src="js/pareceres/modelo-boticario-loja.js"></script>
+<script src="js/pareceres/modelo-boticario-vd-er.js"></script>
+<script src="js/pareceres/modelo-boticario-vd-campo.js"></script>
+<script src="js/pareceres/modelo-boticario-vd-logistica.js"></script>
 <script src="js/metrics-indicadores.js"></script>
 <script src="js/metrics-recrutamento.js"></script>
 <script src="js/sections/indicadores.js"></script>
@@ -429,7 +446,9 @@ details.blk > .blk-body{padding:16px}
 <script src="js/sections/aprovacoes.js"></script>
 <script src="js/sections/historico.js"></script>
 <script src="js/sections/transferencia.js"></script>
+<script src="js/sections/parecer-gestor.js"></script>
 <script src="js/sections/onboarding.js"></script>
+<script src="js/sections/visita-loja.js"></script>
 <script src="js/admin/upload.js"></script>
 <script src="js/admin/cadastros.js"></script>
 <script src="js/admin/usuarios.js"></script>

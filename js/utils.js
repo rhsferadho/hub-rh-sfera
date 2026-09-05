@@ -196,10 +196,48 @@
     return `${prefix}-${year}-${String(max + 1).padStart(3, '0')}`;
   }
 
+  // Espelha uma barra de rolagem horizontal ACIMA de uma tabela larga
+  // (dentro de .table-wrap), sincronizada com a rolagem nativa de baixo —
+  // usado nas listas de Vagas/Candidatos para não obrigar o usuário a
+  // descer até o fim da lista só para achar a barra de rolagem lateral.
+  // Idempotente: pode ser chamado a cada render() sem duplicar listeners.
+  function wireTableTopScroll(rootEl) {
+    const wrap = rootEl.querySelector('.table-wrap');
+    if (!wrap) return;
+    const table = wrap.querySelector('table');
+    if (!table) return;
+    let top = rootEl.querySelector(':scope > .table-scroll-top') || wrap.previousElementSibling;
+    if (!top || !top.classList || !top.classList.contains('table-scroll-top')) {
+      top = document.createElement('div');
+      top.className = 'table-scroll-top';
+      top.innerHTML = '<div></div>';
+      wrap.parentNode.insertBefore(top, wrap);
+    }
+    const inner = top.firstElementChild;
+    inner.style.width = table.scrollWidth + 'px';
+    top.style.display = table.scrollWidth > wrap.clientWidth + 2 ? '' : 'none';
+    let syncing = false;
+    top.onscroll = () => { if (syncing) return; syncing = true; wrap.scrollLeft = top.scrollLeft; syncing = false; };
+    wrap.onscroll = () => { if (syncing) return; syncing = true; top.scrollLeft = wrap.scrollLeft; syncing = false; };
+  }
+
+  // Escala de cores do % FIT (Cultural/vaga), usada em vagas.js e
+  // candidatos.js — faixas definidas pelo usuário: quanto mais próximo de
+  // 100%, mais escuro o verde; abaixo de 65% já é vermelho/laranja.
+  function fitColor(pct) {
+    const v = Math.max(0, Math.min(100, pct || 0));
+    if (v >= 95) return '#1B5E20';
+    if (v >= 80) return '#4CAF50';
+    if (v >= 70) return '#8BC34A';
+    if (v >= 65) return '#FF9800';
+    if (v >= 60) return '#EF6C60';
+    return '#E53935';
+  }
+
   window.HUB_UTILS = {
     color, CHART_COLORS, STATUS_COLORS, todayISO, fmtDateBR, fmtInt, fmtPct, fmt1,
     inRange, monthKey, monthLabel, monthsBetween, ageYears, tenureMonths, tenureLabel,
     uniqueSorted, uniqueSortedNormalized, normalizeText, normEq, normIncludes, matchesAny, escapeHtml,
-    extractMentions, nextCode
+    extractMentions, nextCode, wireTableTopScroll, fitColor
   };
 })();

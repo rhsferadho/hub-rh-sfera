@@ -95,14 +95,13 @@
   }
   function fitBarHTML(fit) {
     const v = Math.max(0, Math.min(100, fit || 0));
-    let color = 'var(--critical)';
-    if (v >= 80) color = 'var(--good)'; else if (v >= 60) color = 'var(--warning)';
+    const color = U.fitColor(v);
     return `<div style="display:flex;align-items:center;gap:8px;min-width:120px">
       <div class="fit-bar-track"><div class="fit-bar-fill" style="width:${v}%;background:${color}"></div></div>
       <span style="font-weight:700;color:${color};font-size:11.5px">${v}%</span>
     </div>`;
   }
-  function fitDotColor(fit) { return fit >= 80 ? 'var(--good)' : (fit >= 60 ? 'var(--warning)' : 'var(--critical)'); }
+  function fitDotColor(fit) { return U.fitColor(fit); }
 
   // ---- Selo de vaga-cota PCD, propagado da vaga vinculada (mesmo símbolo
   // usado em vagas.js) para o nome do candidato, na lista e no formulário ----
@@ -310,6 +309,7 @@
         </div>`}
       </div>`;
     wireListEvents(el, totalPages);
+    U.wireTableTopScroll(el);
   }
 
   function wireListEvents(el, totalPages) {
@@ -589,14 +589,14 @@
             <div class="field"><label>Data do contato do RH <span class="req">*</span></label><input type="date" id="cf_dataContatoRh" value="${d.dataContatoRh || ''}" ${dis}></div>
             <div class="field"><label>Data da entrevista <span class="req">*</span></label><input type="date" id="cf_dataEntrevista" value="${d.dataEntrevista || ''}" ${dis}></div>
             <div class="field"><label>Horário <span class="req">*</span></label><input type="time" data-field="horarioEntrevista" value="${U.escapeHtml(d.horarioEntrevista || '')}" ${dis}></div>
-            <div class="field"><label>FIT Cultural (%)</label>
+            <div class="field"><label>FIT Cultural (%) <span class="req">*</span></label>
               <div style="display:flex;align-items:center;gap:10px">
                 <input type="range" min="0" max="100" id="cf_fit" value="${d.fitPct || 0}" style="flex:1" ${dis}>
                 <span id="cf_fitVal" style="font-weight:700;min-width:42px;text-align:right">${d.fitPct || 0}%</span>
               </div>
             </div>
-            <div class="field"><label>Status da etapa</label><select data-field="etapaRhStatus" ${dis}>${selOpts(STATUS_ETAPA, d.etapaRhStatus || 'Pendente', 'Pendente')}</select></div>
-            <div class="field"><label>Resultado</label><select id="cf_resultadoRh" ${dis}>${selOpts(RESULTADO_ETAPA_DETALHE, d.resultadoRh || 'Em andamento', 'Em andamento')}</select></div>
+            <div class="field"><label>Status da etapa <span class="req">*</span></label><select data-field="etapaRhStatus" ${dis}>${selOpts(STATUS_ETAPA, d.etapaRhStatus || 'Pendente', 'Pendente')}</select></div>
+            <div class="field"><label>Resultado <span class="req">*</span></label><select id="cf_resultadoRh" ${dis}>${selOpts(RESULTADO_ETAPA_DETALHE, d.resultadoRh || 'Em andamento', 'Em andamento')}</select></div>
             <div class="field full"><div class="sla-note">${frasSLAEtapa(d.dataContatoRh, d.dataEntrevista || d.dataAgendadaRh)}</div></div>
           </div>
         </div>
@@ -662,7 +662,7 @@
 
       <details class="blk" open>
         <summary>Observações Internas</summary>
-        <div class="blk-body"><div class="field full"><textarea data-field="observacoes" rows="4" placeholder="Observações visíveis apenas para o time de R&amp;S..." ${dis}>${U.escapeHtml(d.observacoes || '')}</textarea></div></div>
+        <div class="blk-body"><div class="field full"><label>Observações <span class="req">*</span></label><textarea data-field="observacoes" rows="4" placeholder="Observações visíveis apenas para o time de R&amp;S..." ${dis}>${U.escapeHtml(d.observacoes || '')}</textarea></div></div>
       </details>
     `;
     wireBodyEvents(el, readOnly);
@@ -676,15 +676,48 @@
           <div class="field"><label>Data de contato <span class="req">*</span></label><input type="date" class="cf-etapa-data" data-etapa="${key}" data-kind="contato" value="${d[cfg.contato] || ''}" ${dis}></div>
           <div class="field"><label>Data agendada <span class="req">*</span></label><input type="date" class="cf-etapa-data" data-etapa="${key}" data-kind="agendada" value="${d[cfg.agendada] || ''}" ${dis}></div>
           <div class="field full"><div class="sla-note" id="cf_sla_${key}">${frasSLAEtapa(d[cfg.contato], d[cfg.agendada])}</div></div>
-          <div class="field"><label>Status da etapa</label><select data-field="${cfg.etapaStatus}" ${dis}>${selOpts(STATUS_ETAPA, d[cfg.etapaStatus] || 'Pendente', 'Pendente')}</select></div>
+          <div class="field"><label>Status da etapa <span class="req">*</span></label><select data-field="${cfg.etapaStatus}" ${dis}>${selOpts(STATUS_ETAPA, d[cfg.etapaStatus] || 'Pendente', 'Pendente')}</select></div>
           <div class="field"><label>Resultado <span class="req">*</span></label><select class="cf-etapa-resultado" data-etapa="${key}" data-field="${cfg.resultado}" ${dis}>${selOpts(RESULTADO_ETAPA_DETALHE, d[cfg.resultado] || 'Em andamento', 'Em andamento')}</select></div>
-          <div class="field"><label>Detalhamento (opcional)</label><select data-field="${cfg.motivo}" ${dis}>${selOpts(cfg.motivos, d[cfg.motivo])}</select></div>
+          <div class="field"><label>Detalhamento <span class="req">*</span></label><select data-field="${cfg.motivo}" ${dis}>${selOpts(cfg.motivos, d[cfg.motivo])}</select></div>
         </div>
       </div>
     </details>`;
   }
 
+  // Modelo de parecer que o(a) gestor(a) vai preencher (ver
+  // js/pareceres/modelo-*.js e js/sections/parecer-gestor.js) — um registro
+  // pendente em `pareceres_gestor` é criado/atualizado assim que o(a)
+  // recrutador(a) escolhe o modelo aqui. Uma vez que o(a) gestor(a) já
+  // preencheu (status='Preenchido'), o campo trava — mudar o modelo depois
+  // disso não faz sentido, o parecer já virou um registro histórico.
+  function parecerGestorDoCandidato(candidatoId) {
+    const lista = (D()['pareceres_gestor'] || []).filter(p => p.candidatoId === candidatoId);
+    return lista.length ? lista[lista.length - 1] : null;
+  }
+  async function salvarModeloParecer(candidatoId, modelo) {
+    const c = (D().candidatos || []).find(x => x.id === candidatoId);
+    if (!c) return;
+    const existente = parecerGestorDoCandidato(candidatoId);
+    try {
+      if (existente && existente.status === 'Pendente') {
+        await R.updateRow('pareceres_gestor', existente.id, { modelo });
+      } else if (!existente) {
+        await R.insertRow('pareceres_gestor', {
+          id: U.nextCode('PG', (D()['pareceres_gestor'] || []).map(p => p.id)),
+          candidatoId: c.id, candidatoNome: c.nome, vagaId: c.vagaId, cargo: c.cargo,
+          marca: c.marca, departamento: c.departamento, modelo,
+          recrutador: (HUB_USER && (HUB_USER.nome || HUB_USER.email)) || 'Desconhecido',
+          status: 'Pendente', dados: {}
+        });
+      }
+    } catch (err) { alert('Erro ao definir o modelo de parecer: ' + err.message); }
+    await reloadAndRender();
+  }
+
   function renderGestorBlock(d, dis) {
+    const parecer = editingCandId ? parecerGestorDoCandidato(editingCandId) : null;
+    const modelos = Object.values(window.HUB_PARECER_MODELOS || {});
+    const modeloTravado = !!(parecer && parecer.status === 'Preenchido');
     return `<details class="blk" open>
       <summary>Etapa Entrevista Gestor — Agendamento e Resultado</summary>
       <div class="blk-body">
@@ -693,8 +726,15 @@
           <div class="field"><label>Data agendada <span class="req">*</span></label><input type="date" class="cf-etapa-data" data-etapa="gestor" data-kind="agendada" value="${d.dataAgendadaGestor || ''}" ${dis}></div>
           <div class="field"><label>Horário <span class="req">*</span></label><input type="time" data-field="horarioGestor" value="${U.escapeHtml(d.horarioGestor || '')}" ${dis}></div>
           <div class="field full"><div class="sla-note" id="cf_sla_gestor">${frasSLAEtapa(d.dataContatoGestor, d.dataAgendadaGestor)}</div></div>
-          <div class="field"><label>Status da etapa</label><select data-field="etapaGestorStatus" ${dis}>${selOpts(STATUS_ETAPA, d.etapaGestorStatus || 'Pendente', 'Pendente')}</select></div>
+          <div class="field"><label>Status da etapa <span class="req">*</span></label><select data-field="etapaGestorStatus" ${dis}>${selOpts(STATUS_ETAPA, d.etapaGestorStatus || 'Pendente', 'Pendente')}</select></div>
           <div class="field"><label>Resultado <span class="req">*</span></label><select class="cf-etapa-resultado" data-etapa="gestor" data-field="resultadoGestor" ${dis}>${selOpts(RESULTADO_ETAPA_DETALHE, d.resultadoGestor || 'Em andamento', 'Em andamento')}</select></div>
+          ${editingCandId ? `<div class="field full"><label>Modelo de parecer que o(a) gestor(a) vai preencher ${modeloTravado ? '<span class="hint">(já preenchido — não pode trocar)</span>' : ''}</label>
+            <select id="cf-modelo-parecer" ${dis || modeloTravado ? 'disabled' : ''}>
+              <option value="">Selecione o modelo...</option>
+              ${modelos.map(m => `<option value="${m.id}" ${parecer && parecer.modelo === m.id ? 'selected' : ''}>${U.escapeHtml(m.nome)}</option>`).join('')}
+            </select>
+            ${parecer ? `<div class="hint" style="margin-top:4px">Status do parecer: ${parecer.status === 'Preenchido' ? 'Preenchido' : 'Pendente — aparece na tela Parecer do Gestor'}</div>` : ''}
+          </div>` : `<div class="field full"><div class="hint">Salve o candidato antes de escolher o modelo de parecer.</div></div>`}
         </div>
       </div>
     </details>`;
@@ -820,6 +860,14 @@
     const rhResSel = el.querySelector('#cf_resultadoRh');
     rhResSel && rhResSel.addEventListener('change', () => { d.resultadoRh = rhResSel.value; renderProgress(el); renderBody(el, readOnly); });
 
+    // Modelo de parecer do gestor: grava direto em pareceres_gestor (fora do
+    // fluxo normal de "Salvar" do candidato) e recarrega, no mesmo molde do
+    // botão "Enviar para Onboarding" logo abaixo.
+    const modeloParecerSel = el.querySelector('#cf-modelo-parecer');
+    modeloParecerSel && modeloParecerSel.addEventListener('change', () => {
+      if (modeloParecerSel.value) salvarModeloParecer(editingCandId, modeloParecerSel.value);
+    });
+
     // Resultado Final manual + admissão
     const finalSel = el.querySelector('#cf_resultadoFinal');
     finalSel && finalSel.addEventListener('change', () => { d.resultadoFinal = finalSel.value; renderProgress(el); renderBody(el, readOnly); });
@@ -862,25 +910,38 @@
     if (!d.dataContatoRh) return fail('Informe a Data do contato do RH.');
     if (!d.dataEntrevista) return fail('Informe a Data da entrevista (RH).');
     if (!d.horarioEntrevista) return fail('Informe o Horário da entrevista (RH).');
+    if (!d.fitPct) return fail('Informe o FIT Cultural (%) da Entrevista RH.');
+    if (!d.etapaRhStatus) return fail('Selecione o Status da etapa da Entrevista RH.');
+    if (!d.resultadoRh) return fail('Selecione o Resultado da Entrevista RH.');
 
     if (d.resultadoRh === 'Aprovado') {
       if (!d.dataContatoAnalise) return fail('Informe a Data de contato da Etapa Análise Documental.');
       if (!d.dataAgendadaAnalise) return fail('Informe a Data agendada da Etapa Análise Documental.');
+      if (!d.etapaAnaliseStatus) return fail('Selecione o Status da etapa Análise Documental.');
+      if (!d.resultadoAnalise) return fail('Selecione o Resultado da Etapa Análise Documental.');
+      if (!d.motivoAnalise) return fail('Selecione o Detalhamento da Etapa Análise Documental.');
     }
     if (d.resultadoRh === 'Aprovado' && d.resultadoAnalise === 'Aprovado') {
       if (!d.dataContatoChecagem) return fail('Informe a Data de contato da Etapa Checagem.');
       if (!d.dataAgendadaChecagem) return fail('Informe a Data agendada da Etapa Checagem.');
+      if (!d.etapaChecagemStatus) return fail('Selecione o Status da etapa Checagem.');
+      if (!d.resultadoChecagem) return fail('Selecione o Resultado da Etapa Checagem.');
+      if (!d.motivoChecagem) return fail('Selecione o Detalhamento da Etapa Checagem.');
     }
     if (d.resultadoRh === 'Aprovado' && d.resultadoAnalise === 'Aprovado' && d.resultadoChecagem === 'Aprovado') {
       if (!d.dataContatoGestor) return fail('Informe a Data de contato da Etapa Entrevista Gestor.');
       if (!d.dataAgendadaGestor) return fail('Informe a Data agendada da Etapa Entrevista Gestor.');
       if (!d.horarioGestor) return fail('Informe o Horário da Etapa Entrevista Gestor.');
+      if (!d.etapaGestorStatus) return fail('Selecione o Status da etapa Entrevista Gestor.');
+      if (!d.resultadoGestor) return fail('Selecione o Resultado da Etapa Entrevista Gestor.');
     }
     if (d.resultadoRh === 'Aprovado' && d.resultadoAnalise === 'Aprovado' && d.resultadoChecagem === 'Aprovado' && d.resultadoGestor === 'Aprovado' && !d.resultadoFinal) {
       return fail('Todas as etapas foram aprovadas — selecione o Resultado Final.');
     }
     const pares = [[d.dataContatoRh, d.dataAgendadaRh, 'RH'], [d.dataContatoAnalise, d.dataAgendadaAnalise, 'Análise'], [d.dataContatoChecagem, d.dataAgendadaChecagem, 'Checagem'], [d.dataContatoGestor, d.dataAgendadaGestor, 'Gestor']];
     for (const [c, a, n] of pares) if (c && a && a < c) return fail(`Etapa ${n}: data agendada anterior à data de contato.`);
+
+    if (!d.observacoes || !d.observacoes.trim()) return fail('Preencha o campo "Observações" em Observações Internas.');
 
     const auto = computeAutoResultadoFinal(d);
     if (auto) d.resultadoFinal = auto;

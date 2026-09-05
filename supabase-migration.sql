@@ -552,6 +552,123 @@ create index if not exists onboarding_vaga_id_idx on public.onboarding (vaga_id)
 create index if not exists onboarding_marca_idx on public.onboarding (marca);
 create index if not exists onboarding_status_idx on public.onboarding (status);
 
+-- Módulo Treinamento e Desenvolvimento → Visita em Loja. Porta o formulário
+-- "Avaliação de Visita em Loja - O Boticário" (Microsoft Forms) — cada coluna
+-- é uma pergunta do formulário original; as perguntas condicionais
+-- ("ramificações") ficam null quando não se aplicam ao caso. Nomes de coluna
+-- seguem a conversão mecânica camelCase->snake_case usada em toda a base
+-- (dal-recrutamento.js) — ver js/sections/visita-loja.js para o texto
+-- completo de cada pergunta.
+create table if not exists public.visitas_loja (
+  id text primary key,
+  area text,
+  loja text,
+  data_visita date,
+  todos_presentes text, -- 'Sim' | 'Não'
+  colaboradores_ausentes text,
+  justificativa_ausencia text,
+  clima_equipe text, -- 'Ruim' | 'Regular' | 'Bom' | 'Excelente'
+  clima_melhorar text,
+  clima_exemplo text,
+  uniformizados text, -- 'Sim' | 'Não'
+  nao_uniformizados text,
+  justificativa_uniforme text,
+  postura_gerente text, -- 'Ruim' | 'Regular' | 'Bom' | 'Excelente'
+  postura_gerente_melhorar text,
+  postura_gerente_exemplo text,
+  postura_consultores text, -- 'Ruim' | 'Regular' | 'Bom' | 'Excelente'
+  postura_consultores_melhorar text,
+  postura_consultores_exemplo text,
+  iniciativa_time text, -- 'Ruim' | 'Regular' | 'Bom' | 'Excelente'
+  iniciativa_time_melhorar text,
+  iniciativa_time_exemplo text,
+  se_apresentam text, -- 'Sim' | 'Não'
+  nao_se_apresentam text,
+  perguntam_motivo text, -- 'Sim' | 'Não'
+  nao_perguntam_motivo text,
+  perguntam_nome text, -- 'Sim' | 'Não'
+  nao_perguntam_nome text,
+  momento_cpf text, -- 'Início' | 'Meio' | 'Fim' | 'Não perguntaram'
+  quais_nao_cpf_inicio text,
+  explicam_fidelidade text, -- 'Sim' | 'Não'
+  nao_explicam_fidelidade text,
+  incentivam_experimentar text, -- 'Sim' | 'Não'
+  nao_incentivam_experimentar text,
+  oferece_adicional text, -- 'Sim' | 'Não'
+  nao_oferece_adicional text,
+  borrifa_fragrancia text, -- 'Sim' | 'Não'
+  nao_borrifa_fragrancia text,
+  menciona_boti_recicla text, -- 'Sim' | 'Não'
+  nao_menciona_boti_recicla text,
+  etapas_experimentacao text, -- 'Sim' | 'Não' | 'Em parte'
+  etapas_experimentacao_falta text,
+  incentiva_beautybox text, -- 'Sim' | 'Não'
+  nao_incentiva_beautybox text,
+  entendeu_desejo text, -- 'Não' | 'Parcialmente' | 'Sim'
+  entendeu_desejo_melhorar text,
+  falou_preco_quando_perguntado text, -- 'Sim' | 'Não'
+  preco_nao_seguiram text,
+  criou_oportunidades text, -- 'Sim' | 'Não'
+  oportunidades_melhorar text,
+  aproveitou_acompanhante text, -- 'Sim' | 'Não'
+  acompanhante_melhorar text,
+  experimentar_premium text, -- 'Sim' | 'Não'
+  premium_melhorar text,
+  usou_pre_venda text, -- 'Sim' | 'Não'
+  pre_venda_melhorar text,
+  apresentou_alavancas text, -- 'Sim' | 'Não'
+  alavancas_melhorar text,
+  organizou_caixa_presente text, -- 'Sim' | 'Não'
+  caixa_presente_melhorar text,
+  ofereceu_acessorios_make text, -- 'Sim' | 'Não'
+  acessorios_melhorar text,
+  destacou_descontos text, -- 'Sim' | 'Não'
+  descontos_melhorar text,
+  mostrou_confianca text, -- 'Sim' | 'Não'
+  confianca_melhorar text,
+  nota_clima_engajamento numeric, -- 0 a 10
+  nota_botileza numeric, -- 0 a 10
+  nota_atendimento360 numeric, -- 0 a 10
+  nota_geral numeric, -- 0 a 10, opcional (única pergunta sem * no formulário original)
+  criado_por text,
+  criado_em timestamptz not null default now()
+);
+create index if not exists visitas_loja_area_idx on public.visitas_loja (area);
+create index if not exists visitas_loja_data_visita_idx on public.visitas_loja (data_visita);
+
+-- Parecer do Gestor: o(a) recrutador(a), ao agendar a Etapa Entrevista
+-- Gestor (ver renderGestorBlock em candidatos.js), escolhe qual dos 6
+-- modelos de parecer (Hering/Levi's/O Boticário Loja/O Boticário VD ER,
+-- Campo, Logística — ver js/pareceres/*.js) o(a) gestor(a) deve preencher.
+-- Isso cria aqui um registro com status='Pendente', que aparece como
+-- pendência (tarja amarela) na tela Recrutamento → Parecer do Gestor. Ao
+-- finalizar, o(a) gestor(a) grava as respostas em "dados" (jsonb — schema
+-- livre, decidido pelo modelo escolhido) e a tela também atualiza
+-- automaticamente candidatos.resultado_gestor/etapa_gestor_status/
+-- data_entrevista_gestor (ver js/sections/parecer-gestor.js).
+create table if not exists public.pareceres_gestor (
+  id text primary key,
+  candidato_id text references public.candidatos(id) on delete cascade,
+  candidato_nome text,
+  vaga_id text references public.vagas(id) on delete set null,
+  cargo text,
+  marca text,
+  departamento text,
+  modelo text not null, -- 'hering' | 'levis' | 'boticario_loja' | 'boticario_vd_er' | 'boticario_vd_campo' | 'boticario_vd_logistica'
+  recrutador text, -- quem agendou (preenchido na criação, pelo(a) recrutador(a))
+  status text not null default 'Pendente', -- 'Pendente' | 'Preenchido'
+  dados jsonb not null default '{}',
+  nivel_recomendacao int, -- 1 a 4 estrelas
+  parecer_final text, -- 'Aprovado(a) - Avançar no processo' | 'Aprovado(a) - Banco de Talentos' | 'Aprovado(a) - Indicação para outra filial' | 'Reprovado(a) - Não avançar no processo'
+  justificativa text,
+  preenchido_por text,
+  data_finalizacao timestamptz,
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+create index if not exists pareceres_gestor_candidato_id_idx on public.pareceres_gestor (candidato_id);
+create index if not exists pareceres_gestor_status_idx on public.pareceres_gestor (status);
+
 -- ----------------------------------------------------------------------------
 -- 3.1 ATUALIZAÇÃO INCREMENTAL (idempotente — roda sem efeito em projeto novo,
 -- e traz um projeto já criado com a versão anterior desta migration pro
@@ -660,6 +777,8 @@ alter table public.vagas enable row level security;
 alter table public.candidatos enable row level security;
 alter table public.entrevistas enable row level security;
 alter table public.onboarding enable row level security;
+alter table public.visitas_loja enable row level security;
+alter table public.pareceres_gestor enable row level security;
 alter table public.historico enable row level security;
 alter table public.solicitacoes enable row level security;
 alter table public.marcas enable row level security;
@@ -744,11 +863,20 @@ create policy candidatos_select on public.candidatos for select
       or public.has_permission('recrutamento.vagas') or public.has_permission('recrutamento.candidatos')
       or public.has_permission('recrutamento.agenda') or public.has_permission('recrutamento.banco_talentos')
       or public.has_permission('recrutamento.aprovacoes') or public.has_permission('recrutamento.historico')
+      or public.has_permission('recrutamento.parecer_gestor')
     )
   );
+-- recrutamento.parecer_gestor também entra aqui: quando o(a) gestor(a)
+-- termina de preencher o parecer (parecer-gestor.js), a tela grava o
+-- resultado (resultado_gestor/etapa_gestor_status/data_entrevista_gestor)
+-- direto na linha do candidato — como o RLS do Postgres não restringe por
+-- coluna, isso libera a linha inteira pra update por quem só tem essa
+-- permissão (mesmo trade-off já aceito em onboarding_update, que libera a
+-- tabela inteira via recrutamento.vagas só pra sincronizar 1 campo).
 drop policy if exists candidatos_write on public.candidatos;
 create policy candidatos_write on public.candidatos for all
-  using (public.has_permission('recrutamento.candidatos')) with check (public.has_permission('recrutamento.candidatos'));
+  using (public.has_permission('recrutamento.candidatos') or public.has_permission('recrutamento.parecer_gestor'))
+  with check (public.has_permission('recrutamento.candidatos') or public.has_permission('recrutamento.parecer_gestor'));
 
 drop policy if exists entrevistas_select on public.entrevistas;
 create policy entrevistas_select on public.entrevistas for select
@@ -789,6 +917,45 @@ drop policy if exists onboarding_update on public.onboarding;
 create policy onboarding_update on public.onboarding for update
   using (public.has_permission('treinamento_dev.onboarding') or public.has_permission('recrutamento.vagas'))
   with check (public.has_permission('treinamento_dev.onboarding') or public.has_permission('recrutamento.vagas'));
+
+-- visitas_loja: usa a "área" (Juiz de Fora/Rio de Janeiro/Interior de MG...)
+-- como equivalente de unidade no can_see() — mesmo truque pragmático já
+-- usado em onboarding (que reaproveita a coluna marca). Um(a) gestor(a) sem
+-- unidades específicas cadastradas continua vendo tudo (can_see trata lista
+-- vazia como "sem restrição"); quem tem unidades cadastradas só verá visitas
+-- se essas unidades coincidirem com o texto da área.
+drop policy if exists visitas_loja_select on public.visitas_loja;
+create policy visitas_loja_select on public.visitas_loja for select
+  using (public.can_see(area, 'Treinamento e Desenvolvimento') and public.has_permission('treinamento_dev.visita_loja'));
+drop policy if exists visitas_loja_insert on public.visitas_loja;
+create policy visitas_loja_insert on public.visitas_loja for insert
+  with check (public.has_permission('treinamento_dev.visita_loja'));
+drop policy if exists visitas_loja_update on public.visitas_loja;
+create policy visitas_loja_update on public.visitas_loja for update
+  using (public.has_permission('treinamento_dev.visita_loja'))
+  with check (public.has_permission('treinamento_dev.visita_loja'));
+
+-- pareceres_gestor: mesmo padrão de escopo de candidatos/vagas
+-- (can_see(marca, departamento)). Leitura liberada tanto para quem tem
+-- recrutamento.parecer_gestor (o(a) gestor(a) que vai preencher) quanto
+-- para recrutamento.candidatos (o(a) recrutador(a) que agendou, para
+-- acompanhar/trocar o modelo antes do preenchimento). Criação só pelo(a)
+-- recrutador(a); atualização (preenchimento) por qualquer um dos dois perfis
+-- — o próprio front-end só mostra o formulário editável pra quem tem
+-- recrutamento.parecer_gestor.
+drop policy if exists pareceres_gestor_select on public.pareceres_gestor;
+create policy pareceres_gestor_select on public.pareceres_gestor for select
+  using (
+    public.can_see(marca, departamento)
+    and (public.has_permission('recrutamento.parecer_gestor') or public.has_permission('recrutamento.candidatos'))
+  );
+drop policy if exists pareceres_gestor_insert on public.pareceres_gestor;
+create policy pareceres_gestor_insert on public.pareceres_gestor for insert
+  with check (public.has_permission('recrutamento.candidatos'));
+drop policy if exists pareceres_gestor_update on public.pareceres_gestor;
+create policy pareceres_gestor_update on public.pareceres_gestor for update
+  using (public.has_permission('recrutamento.parecer_gestor') or public.has_permission('recrutamento.candidatos'))
+  with check (public.has_permission('recrutamento.parecer_gestor') or public.has_permission('recrutamento.candidatos'));
 
 -- historico: leitura via recrutamento.historico; escrita (log automático de
 -- auditoria) liberada a qualquer usuário com alguma permissão de Recrutamento.
@@ -897,7 +1064,8 @@ grant execute on function public.admin_truncate(text) to authenticated;
 --      "recrutamento.candidatos": true, "recrutamento.agenda": true,
 --      "recrutamento.banco_talentos": true, "recrutamento.aprovacoes": true,
 --      "recrutamento.historico": true, "recrutamento.transferencia": true,
---      "treinamento_dev.onboarding": true,
+--      "recrutamento.parecer_gestor": true,
+--      "treinamento_dev.onboarding": true, "treinamento_dev.visita_loja": true,
 --      "admin.upload": true,
 --      "admin.cadastros_recrutamento": true, "admin.usuarios": true
 --    }'::jsonb

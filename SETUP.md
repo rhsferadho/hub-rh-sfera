@@ -21,6 +21,7 @@ aqui). Siga os passos na ordem.
    - As tabelas do módulo **Indicadores** (alimentadas por upload): `colaboradores`, `feedbacks`, `one_on_one`, `celebracoes`, `entrevista_pesquisa`, `entrevista_solicitacao`, `twygo_participantes`, `twygo_usuarios`, `twygo_conteudos`.
    - As tabelas do módulo **Recrutamento** (alimentadas pelas próprias telas do hub, sem upload): `vagas`, `candidatos`, `entrevistas`, `historico`, `solicitacoes`, além das listas mestre `marcas`, `unidades`, `cargos`, `etapas`, `fontes_captacao`, `portais`, `niveis_vaga`, `recrutadores`, `recrutamento_departamentos`.
    - A tabela do módulo **Treinamento e Desenvolvimento**: `onboarding` — um registro é criado automaticamente quando um candidato aprovado (vaga já finalizada) é enviado para onboarding pela tela Candidatos; nunca é criada à mão.
+   - `pareceres_gestor` — um registro é criado automaticamente quando o(a) recrutador(a) escolhe, na Etapa Entrevista Gestor da tela Candidatos, qual dos 6 modelos de parecer (Hering/Levi's/O Boticário Loja/O Boticário VD ER, Campo e Logística) o(a) gestor(a) deve preencher; nunca é criada à mão.
    - Todas as tabelas já saem com Row Level Security configurada, incluindo `has_permission()` (lê o mapa de permissões de cada usuário) e `can_see()` (restringe por unidade/departamento, reaproveitado do Hub de Indicadores).
 
 ## 3. Desativar confirmação de e-mail
@@ -53,7 +54,8 @@ cadastrada, desative a confirmação por e-mail:
      "recrutamento.candidatos": true, "recrutamento.agenda": true,
      "recrutamento.banco_talentos": true, "recrutamento.aprovacoes": true,
      "recrutamento.historico": true, "recrutamento.transferencia": true,
-     "treinamento_dev.onboarding": true,
+     "recrutamento.parecer_gestor": true,
+     "treinamento_dev.onboarding": true, "treinamento_dev.visita_loja": true,
      "admin.upload": true,
      "admin.cadastros_recrutamento": true, "admin.usuarios": true
    }'::jsonb

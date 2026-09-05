@@ -18,8 +18,8 @@
     'ind-treinamentos': 'Treinamentos', 'ind-celebracoes': 'Celebrações',
     'rec-dashboard': 'Dashboard — Recrutamento', 'rec-vagas': 'Controle de Vagas', 'rec-candidatos': 'Candidatos',
     'rec-agenda': 'Agenda de Entrevistas', 'rec-banco-talentos': 'Banco de Talentos', 'rec-aprovacoes': 'Aprovações',
-    'rec-historico': 'Histórico', 'rec-transferencia': 'Transferência de Vaga',
-    'tre-onboarding': 'Onboarding',
+    'rec-historico': 'Histórico', 'rec-transferencia': 'Transferência de Vaga', 'rec-parecer-gestor': 'Parecer do Gestor',
+    'tre-onboarding': 'Onboarding', 'tre-visita-loja': 'Visita em Loja',
     'adm-upload': 'Upload de Planilhas', 'adm-cadastros': 'Cadastros do Recrutamento', 'adm-usuarios': 'Cadastro de Acessos'
   };
 
@@ -34,8 +34,8 @@
     'rec-dashboard': 'recrutamento.dashboard', 'rec-vagas': 'recrutamento.vagas', 'rec-candidatos': 'recrutamento.candidatos',
     'rec-agenda': 'recrutamento.agenda', 'rec-banco-talentos': 'recrutamento.banco_talentos',
     'rec-aprovacoes': 'recrutamento.aprovacoes', 'rec-historico': 'recrutamento.historico',
-    'rec-transferencia': 'recrutamento.transferencia',
-    'tre-onboarding': 'treinamento_dev.onboarding',
+    'rec-transferencia': 'recrutamento.transferencia', 'rec-parecer-gestor': 'recrutamento.parecer_gestor',
+    'tre-onboarding': 'treinamento_dev.onboarding', 'tre-visita-loja': 'treinamento_dev.visita_loja',
     'adm-upload': 'admin.upload', 'adm-cadastros': 'admin.cadastros_recrutamento', 'adm-usuarios': 'admin.usuarios'
   };
 
@@ -44,7 +44,7 @@
   // vagas/candidatos/entrevistas/onboarding toda vez que são abertas — é
   // isso que faz os dados aparecerem "em tempo real, de forma automática"
   // sem upload.
-  const RECRUIT_SECTIONS = new Set(['ind-recrutamento', 'rec-dashboard', 'rec-vagas', 'rec-candidatos', 'rec-agenda', 'rec-banco-talentos', 'rec-aprovacoes', 'rec-historico', 'rec-transferencia', 'tre-onboarding']);
+  const RECRUIT_SECTIONS = new Set(['ind-recrutamento', 'rec-dashboard', 'rec-vagas', 'rec-candidatos', 'rec-agenda', 'rec-banco-talentos', 'rec-aprovacoes', 'rec-historico', 'rec-transferencia', 'rec-parecer-gestor', 'tre-onboarding', 'tre-visita-loja']);
 
   function sectionRenderer(name) {
     const f = getFilters();
@@ -67,7 +67,9 @@
       case 'rec-aprovacoes': return HUB_SECTIONS.renderAprovacoes(el, f);
       case 'rec-historico': return HUB_SECTIONS.renderHistorico(el, f);
       case 'rec-transferencia': return HUB_SECTIONS.renderTransferencia(el, f);
+      case 'rec-parecer-gestor': return HUB_SECTIONS.renderParecerGestor(el, f);
       case 'tre-onboarding': return HUB_SECTIONS.renderOnboarding(el, f);
+      case 'tre-visita-loja': return HUB_SECTIONS.renderVisitaLoja(el, f);
       case 'adm-upload': return HUB_ADMIN_UPLOAD.render(el);
       case 'adm-cadastros': return HUB_ADMIN_CADASTROS.render(el);
       case 'adm-usuarios': return HUB_ADMIN_USUARIOS.render(el);
@@ -308,6 +310,25 @@
 
   function wireNav() {
     $$('.nav-item').forEach(item => item.addEventListener('click', () => goToSection(item.dataset.section)));
+    wireModuleToggle();
+  }
+
+  // Clique no título do módulo (Indicadores/Recrutamento/Treinamento e
+  // Desenvolvimento/Administração) oculta/mostra os itens daquele grupo —
+  // usa uma classe própria (.sb-collapsed) em vez de mexer no style.display
+  // que applyPermissionsToNav() já usa para ocultar por permissão, então os
+  // dois controles não se atropelam.
+  function wireModuleToggle() {
+    $$('.sb-mod-title').forEach(title => {
+      title.addEventListener('click', () => {
+        const collapsed = title.classList.toggle('collapsed');
+        let el = title.nextElementSibling;
+        while (el && el.classList.contains('nav-item')) {
+          el.classList.toggle('sb-collapsed', collapsed);
+          el = el.nextElementSibling;
+        }
+      });
+    });
   }
 
   // Esconde cada item de menu sem permissão, e o título do módulo inteiro se

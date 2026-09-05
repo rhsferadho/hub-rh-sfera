@@ -70,9 +70,7 @@
   function formatFitCel(fit) {
     if (fit === null || fit === undefined) return '<span style="color:var(--muted)">—</span>';
     const v = Math.max(0, Math.min(100, fit));
-    let cor = 'var(--critical)';
-    if (v >= 80) cor = 'var(--good)'; else if (v >= 60) cor = 'var(--warning)';
-    return `<span style="font-weight:700;color:${cor}">${v}%</span>`;
+    return `<span style="font-weight:700;color:${U.fitColor(v)}">${v}%</span>`;
   }
   function formatSLACel(dias) {
     if (dias === null || dias === undefined) return '<span style="color:var(--muted)">—</span>';
@@ -318,7 +316,7 @@
                 <td>${formatFitCel(fitContratadoDaVaga(v))}</td>
                 <td>${sla}d</td>
                 <td>${badgeStatusSLA(ss)}</td>
-                <td style="max-width:150px;white-space:normal">${v.motivoSlaText ? U.escapeHtml(v.motivoSlaText) : '<span style="color:var(--muted)">—</span>'}</td>
+                <td>${v.motivoSlaText ? U.escapeHtml(v.motivoSlaText) : '<span style="color:var(--muted)">—</span>'}</td>
                 <td>${formatSLACel(slaEtapaCandidatoUltimo(v.id, 'RH'))}</td>
                 <td>${formatSLACel(slaEtapaCandidatoUltimo(v.id, 'Analise'))}</td>
                 <td>${formatSLACel(slaEtapaCandidatoUltimo(v.id, 'Checagem'))}</td>
@@ -330,7 +328,7 @@
                 <td style="text-align:center">${contarReprovadosDaVaga(v.id)}</td>
                 <td style="text-align:center">${contarDesistentesDaVaga(v.id)}</td>
                 <td>${v.dataUltimaDivulgacao ? U.fmtDateBR(v.dataUltimaDivulgacao) : (v.ultimaDivulgacao ? U.fmtDateBR(v.ultimaDivulgacao) : '<span style="color:var(--muted)">—</span>')}</td>
-                <td style="max-width:180px;white-space:normal">${fontesArr.length ? fontesArr.map(f => `<span class="tag-chip">${U.escapeHtml(f)}</span>`).join(' ') : '<span style="color:var(--muted)">—</span>'}</td>
+                <td>${fontesArr.length ? fontesArr.map(f => `<span class="tag-chip">${U.escapeHtml(f)}</span>`).join(' ') : '<span style="color:var(--muted)">—</span>'}</td>
                 <td>${U.escapeHtml(v.tipoVaga || '')}</td>
                 <td style="text-align:center">${resumo.totalObs + resumo.totalCands === 0 ? '<span style="color:var(--muted)">—</span>' : `<button class="btn btn-outline btn-sm" data-obs="${v.id}" title="Ver observações">${resumo.totalObs} obs · ${resumo.totalCands} cand.</button>`}</td>
                 <td class="row-actions">
@@ -352,6 +350,7 @@
         </div>`}
       </div>`;
     wireListEvents(el, totalPages);
+    U.wireTableTopScroll(el);
   }
 
   function wireListEvents(el, totalPages) {
@@ -499,20 +498,20 @@
         <div class="field"><label>Data de Fechamento</label><input type="date" id="ev_dataFechamento" value="${v.dataFechamento || ''}" ${disabled}></div>
         <div class="field"><label>Data de Início</label><input type="date" id="ev_dataInicio" value="${v.dataInicio || ''}" ${disabled}></div>
         <div class="field"><label>Data Prevista de Admissão</label><input type="date" id="ev_dataPrevistaAdmissao" value="${v.dataPrevistaAdmissao || ''}" ${disabled}></div>
-        <div class="field"><label>Última Divulgação</label><input type="date" id="ev_ultimaDivulgacao" value="${v.ultimaDivulgacao || ''}" ${disabled}></div>
+        <div class="field"><label>Última Divulgação <span class="req" id="ev_req_ultimaDivulgacao" style="${v.status === 'Finalizada' ? '' : 'display:none'}">*</span></label><input type="date" id="ev_ultimaDivulgacao" value="${v.ultimaDivulgacao || ''}" ${disabled}></div>
         <div class="field"><label>Data Última Divulgação</label><input type="date" id="ev_dataUltimaDivulgacao" value="${v.dataUltimaDivulgacao || ''}" ${disabled}></div>
         <div class="field"><label>Nº Inscrições Recebidas</label><input type="number" min="0" id="ev_numInscricoes" value="${v.numInscricoes || 0}" ${disabled}></div>
         <div class="field full"><label>Motivo SLA (texto livre) <span class="hint">${slaExpirada ? '' : '(só quando SLA expirar)'}</span></label><input id="ev_motivoSlaText" value="${U.escapeHtml(v.motivoSlaText || '')}" ${slaExpirada ? disabled : 'disabled'}></div>
-        <div class="field"><label>% FIT</label><input type="number" min="0" max="100" id="ev_fitPct" value="${v.fitPct || 0}" ${disabled}></div>
-        <div class="field"><label>Fonte</label><select id="ev_fonte" ${disabled}>${selOpts(fontesAtivas(), v.fonte)}</select></div>
-        <div class="field"><label>Quem Indicou</label><input id="ev_quemIndicou" value="${U.escapeHtml(v.quemIndicou || '')}" ${disabled}></div>
+        <div class="field"><label>% FIT <span class="req" id="ev_req_fitPct" style="${v.status === 'Finalizada' ? '' : 'display:none'}">*</span></label><input type="number" min="0" max="100" id="ev_fitPct" value="${v.fitPct || 0}" ${disabled}></div>
+        <div class="field"><label>Fonte <span class="req" id="ev_req_fonte" style="${v.status === 'Finalizada' ? '' : 'display:none'}">*</span></label><select id="ev_fonte" ${disabled}>${selOpts(fontesAtivas(), v.fonte)}</select></div>
+        <div class="field"><label>Quem Indicou <span class="req" id="ev_req_quemIndicou" style="${v.status === 'Finalizada' ? '' : 'display:none'}">*</span></label><input id="ev_quemIndicou" value="${U.escapeHtml(v.quemIndicou || '')}" ${disabled}></div>
         <div class="field full"><label>Finalistas</label><div class="tag-list" id="ev_finalistasList">${finalistasListHTML(v.id)}</div></div>
         <div class="field full"><label>Contratado(a) <span class="hint">(aprovados na Entrevista Gestor)</span></label><div class="tag-list" id="ev_contratadoList">${contratadoListHTML(v.id)}</div></div>
         <div class="field full">
           <label>Portais ativos</label>
           <div class="checks">${portaisAtivosLista().map(p => `<label class="chk"><input type="checkbox" data-portal="${U.escapeHtml(p)}" ${(v.portaisAtivos || []).includes(p) ? 'checked' : ''} ${disabled}>${U.escapeHtml(p)}</label>`).join('')}</div>
         </div>
-        <div class="field full"><label>Observações</label><textarea id="ev_observacoes" rows="3" ${disabled}>${U.escapeHtml(v.observacoes || '')}</textarea></div>
+        <div class="field full"><label>Observações <span class="req">*</span></label><textarea id="ev_observacoes" rows="3" ${disabled}>${U.escapeHtml(v.observacoes || '')}</textarea></div>
       </div>`;
   }
 
@@ -684,6 +683,17 @@
     });
     const cotaSel = el.querySelector('#ev_cota');
     cotaSel && cotaSel.addEventListener('change', () => { el.querySelector('#ev_wrap_tipoCota').style.display = cotaSel.value === 'Sim' ? '' : 'none'; });
+    // Fonte/Quem Indicou/Última Divulgação/% FIT só passam a ser obrigatórios
+    // quando a vaga é Finalizada (ver salvarEdicao) — o asterisco acompanha
+    // a mudança de status em tempo real, sem precisar salvar para aparecer.
+    const statusSel = el.querySelector('#ev_status');
+    statusSel && statusSel.addEventListener('change', () => {
+      const fin = statusSel.value === 'Finalizada';
+      ['fonte', 'quemIndicou', 'ultimaDivulgacao', 'fitPct'].forEach(campo => {
+        const reqEl = el.querySelector('#ev_req_' + campo);
+        if (reqEl) reqEl.style.display = fin ? '' : 'none';
+      });
+    });
     el.addEventListener('change', e => {
       if (e.target.id === 'vg-finalista-add' && e.target.value) {
         if (!finalistasSelecionados.includes(e.target.value)) finalistasSelecionados.push(e.target.value);
@@ -722,11 +732,18 @@
     const msg = el.querySelector('#ev-msg');
     msg.style.display = 'none';
     const dados = coletarFormVaga(el, 'ev_');
-    if (!dados.dataAbertura || !dados.marca || !dados.cargo || !dados.responsavel || !dados.status) {
+    if (!dados.dataAbertura || !dados.marca || !dados.cargo || !dados.responsavel || !dados.status || !dados.observacoes) {
       msg.textContent = 'Preencha os campos obrigatórios marcados com *.'; msg.style.display = 'block'; return;
     }
     if (dados.cota === 'Sim' && !dados.tipoCota) {
       msg.textContent = 'Selecione o Tipo de Cota (a vaga foi marcada como cota).'; msg.style.display = 'block'; return;
+    }
+    // Campos opcionais no cadastro (fonte, quem indicou, última divulgação,
+    // % FIT) tornam-se obrigatórios assim que o status muda para Finalizada
+    // — mesma regra do wizard de Nova Vaga (validarStep).
+    if (dados.status === 'Finalizada') {
+      const obrigFinal = [['fonte', 'Fonte'], ['quemIndicou', 'Quem Indicou'], ['ultimaDivulgacao', 'Última Divulgação'], ['fitPct', '% FIT']];
+      for (const [c, l] of obrigFinal) if (!dados[c]) { msg.textContent = `Preencha o campo "${l}" — obrigatório para finalizar a vaga.`; msg.style.display = 'block'; return; }
     }
     const btn = el.querySelector('#ev-salvar');
     btn.disabled = true; btn.textContent = 'Salvando...';
@@ -864,23 +881,22 @@
           <div class="field"><label>Motivo SLA <span class="hint">(só quando SLA expirar)</span></label><select id="nv_motivoSla" disabled>${selOpts(MOTIVOS_SLA, d.motivoSla)}</select></div>
           <div class="field"><label>Tipo de Recrutamento <span class="req">*</span></label><select id="nv_tipoRecrutamento">${selOpts(TIPOS_RECRUT, d.tipoRecrutamento)}</select></div>
           <div class="field"><label>Etapa da Vaga <span class="req">*</span></label><select id="nv_etapa">${selOpts(etapasAtivas(), d.etapa)}</select></div>
-          <div class="field"><label>Fonte <span class="req">*</span></label><select id="nv_fonte">${selOpts(fontesAtivas(), d.fonte)}</select></div>
-          <div class="field"><label>Quem Indicou <span class="req">*</span></label><input id="nv_quemIndicou" value="${U.escapeHtml(d.quemIndicou || '')}"></div>
           <div class="field"><label>Nº de Inscrições Recebidas <span class="req">*</span></label><input type="number" min="0" id="nv_numInscricoes" value="${d.numInscricoes || 0}"></div>
-          <div class="field"><label>Última Divulgação <span class="req">*</span></label><input type="date" id="nv_dataUltimaDivulgacao" value="${d.dataUltimaDivulgacao || ''}"></div>
           <div class="field full">
             <label>Portais ativos <span class="req">*</span> <span class="hint">(selecione ao menos um)</span></label>
             <div class="checks">${portaisAtivosLista().map(p => `<label class="chk"><input type="checkbox" data-portal="${U.escapeHtml(p)}" ${(d.portaisAtivos || []).includes(p) ? 'checked' : ''}>${U.escapeHtml(p)}</label>`).join('')}</div>
           </div>
         </div>`;
     } else if (novaVagaStep === 3) {
+      const finalizadaAgora = d.status === 'Finalizada';
+      const reqFin = finalizadaAgora ? '<span class="req">*</span>' : '';
       container.innerHTML = `
         <div class="form-grid">
-          <div class="field"><label>Data de Abertura <span class="req">*</span></label><input type="date" id="nv_dataAbertura" value="${d.dataAbertura || U.todayISO()}"></div>
-          <div class="field"><label>Data de Início prevista <span class="req">*</span></label><input type="date" id="nv_dataInicio" value="${d.dataInicio || ''}"></div>
           <div class="field"><label>Data Prevista de Admissão <span class="req">*</span></label><input type="date" id="nv_dataPrevistaAdmissao" value="${d.dataPrevistaAdmissao || ''}"></div>
-          <div class="field"><label>Última Divulgação <span class="req">*</span></label><input type="date" id="nv_ultimaDivulgacao" value="${d.ultimaDivulgacao || ''}"></div>
-          <div class="field"><label>% FIT <span class="req">*</span></label><input type="number" min="0" max="100" id="nv_fitPct" value="${d.fitPct || 0}"></div>
+          <div class="field"><label>Última Divulgação ${reqFin}</label><input type="date" id="nv_ultimaDivulgacao" value="${d.ultimaDivulgacao || ''}"></div>
+          <div class="field"><label>Fonte ${reqFin}</label><select id="nv_fonte">${selOpts(fontesAtivas(), d.fonte)}</select></div>
+          <div class="field"><label>Quem Indicou ${reqFin}</label><input id="nv_quemIndicou" value="${U.escapeHtml(d.quemIndicou || '')}"></div>
+          <div class="field"><label>% FIT ${reqFin}</label><input type="number" min="0" max="100" id="nv_fitPct" value="${d.fitPct || 0}"></div>
           <div class="field full"><label>Observações <span class="req">*</span></label><textarea id="nv_observacoes" rows="4" placeholder="Observações sobre a vaga...">${U.escapeHtml(d.observacoes || '')}</textarea></div>
         </div>`;
     }
@@ -902,14 +918,13 @@
     } else if (novaVagaStep === 2) {
       Object.assign(novaVagaDados, {
         status: get('nv_status'), motivoSla: get('nv_motivoSla'), tipoRecrutamento: get('nv_tipoRecrutamento'), etapa: get('nv_etapa'),
-        fonte: get('nv_fonte'), quemIndicou: get('nv_quemIndicou'), numInscricoes: parseInt(get('nv_numInscricoes')) || 0,
-        dataUltimaDivulgacao: get('nv_dataUltimaDivulgacao'),
+        numInscricoes: parseInt(get('nv_numInscricoes')) || 0,
         portaisAtivos: Array.from(container.querySelectorAll('[data-portal]:checked')).map(c => c.dataset.portal)
       });
     } else if (novaVagaStep === 3) {
       Object.assign(novaVagaDados, {
-        dataAbertura: get('nv_dataAbertura'), dataInicio: get('nv_dataInicio'), dataPrevistaAdmissao: get('nv_dataPrevistaAdmissao'),
-        ultimaDivulgacao: get('nv_ultimaDivulgacao'), fitPct: parseInt(get('nv_fitPct')) || 0,
+        dataPrevistaAdmissao: get('nv_dataPrevistaAdmissao'), ultimaDivulgacao: get('nv_ultimaDivulgacao'),
+        fonte: get('nv_fonte'), quemIndicou: get('nv_quemIndicou'), fitPct: parseInt(get('nv_fitPct')) || 0,
         finalistas: finalistasSelecionados.join(', '), contratado: contratadosSelecionados.join(', '), observacoes: get('nv_observacoes')
       });
     }
@@ -935,14 +950,19 @@
       if (d.tipoMovimentacao === 'Substituição' && !d.pessoaSubstituida) { showNvMsg(el, 'Preencha o campo "Pessoa Substituída".'); return false; }
       if (d.cota === 'Sim' && !d.tipoCota) { showNvMsg(el, 'Selecione o Tipo de Cota.'); return false; }
     } else if (novaVagaStep === 2) {
-      const obrig = [['status', 'Status da Vaga'], ['tipoRecrutamento', 'Tipo de Recrutamento'], ['etapa', 'Etapa da Vaga'],
-        ['fonte', 'Fonte'], ['quemIndicou', 'Quem Indicou'], ['dataUltimaDivulgacao', 'Última Divulgação']];
+      const obrig = [['status', 'Status da Vaga'], ['tipoRecrutamento', 'Tipo de Recrutamento'], ['etapa', 'Etapa da Vaga']];
       for (const [c, l] of obrig) if (!d[c]) { showNvMsg(el, `Preencha o campo "${l}".`); return false; }
       if (!d.portaisAtivos || !d.portaisAtivos.length) { showNvMsg(el, 'Selecione ao menos um Portal ativo.'); return false; }
     } else if (novaVagaStep === 3) {
-      const obrig = [['dataAbertura', 'Data de Abertura'], ['dataInicio', 'Data de Início prevista'],
-        ['dataPrevistaAdmissao', 'Data Prevista de Admissão'], ['ultimaDivulgacao', 'Última Divulgação'], ['observacoes', 'Observações']];
+      const obrig = [['dataPrevistaAdmissao', 'Data Prevista de Admissão'], ['observacoes', 'Observações']];
       for (const [c, l] of obrig) if (!d[c]) { showNvMsg(el, `Preencha o campo "${l}".`); return false; }
+      // Campos liberados como opcionais no cadastro (fonte, quem indicou, última
+      // divulgação, % FIT) passam a ser obrigatórios quando a vaga já nasce
+      // com status Finalizada — mesma regra aplicada na edição (salvarEdicao).
+      if (d.status === 'Finalizada') {
+        const obrigFinal = [['fonte', 'Fonte'], ['quemIndicou', 'Quem Indicou'], ['ultimaDivulgacao', 'Última Divulgação'], ['fitPct', '% FIT']];
+        for (const [c, l] of obrigFinal) if (!d[c]) { showNvMsg(el, `Preencha o campo "${l}" — obrigatório para vaga Finalizada.`); return false; }
+      }
     }
     return true;
   }
