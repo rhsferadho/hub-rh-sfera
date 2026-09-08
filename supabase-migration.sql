@@ -711,7 +711,12 @@ create table if not exists public.pareceres_gestor (
 );
 create index if not exists pareceres_gestor_candidato_id_idx on public.pareceres_gestor (candidato_id);
 create index if not exists pareceres_gestor_status_idx on public.pareceres_gestor (status);
-create unique index if not exists pareceres_gestor_link_token_idx on public.pareceres_gestor (link_token) where link_token is not null;
+-- O índice único de link_token só é criado mais abaixo, na seção 3.1 — não
+-- aqui, porque em bancos que já tinham pareceres_gestor de uma versão
+-- anterior desta migration (create table if not exists é no-op nesse caso)
+-- a coluna link_token só existe depois do ALTER TABLE ADD COLUMN daquela
+-- seção. Criar o índice aqui quebraria com "column link_token does not
+-- exist" em qualquer banco que já rodou esta migration antes.
 
 -- ----------------------------------------------------------------------------
 -- 3.1 ATUALIZAÇÃO INCREMENTAL (idempotente — roda sem efeito em projeto novo,
