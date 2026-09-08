@@ -214,7 +214,7 @@
   // filtro quanto pra fazer Departamento/Colaborador reagirem ao que já está
   // selecionado em Unidade (e Departamento, no caso de Colaborador). Só
   // cobre as tabelas de Indicadores — o filtro de unidade/departamento das
-  // telas de Recrutamento é resolvido dentro do próprio módulo (vaga.marca).
+  // telas de Recrutamento é resolvido dentro do próprio módulo (vaga.unidade).
   function filterSources() {
     return [
       { rows: HUB_DATA.colaboradores || [], u: 'unidade', d: 'departamento', n: 'nome_completo' },

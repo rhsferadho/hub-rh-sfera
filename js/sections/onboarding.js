@@ -127,7 +127,7 @@
         ${lista.length === 0 ? HUB_UI.empty('Nenhum registro de onboarding.', 'Candidatos aprovados em vagas finalizadas aparecem aqui depois de enviados para o Onboarding, em Recrutamento → Candidatos.') : `
         <div class="table-wrap"><table class="dt">
           <thead><tr>
-            <th>Candidato</th><th>Vaga</th><th>Cargo</th><th>Marca</th><th>Data Prevista Admissão</th>
+            <th>Candidato</th><th>Vaga</th><th>Cargo</th><th>Unidade</th><th>Data Prevista Admissão</th>
             <th>Data Onboarding</th><th>Modalidade</th><th>Status</th><th></th>
           </tr></thead>
           <tbody>
@@ -135,7 +135,7 @@
               <td>${U.escapeHtml(o.candidatoNome || '')}</td>
               <td>${U.escapeHtml(o.vagaId || '')}</td>
               <td>${U.escapeHtml(o.cargo || '')}</td>
-              <td>${U.escapeHtml(o.marca || '')}</td>
+              <td>${U.escapeHtml(o.unidade || '')}</td>
               <td>${o.dataPrevistaAdmissao ? U.fmtDateBR(o.dataPrevistaAdmissao) : '—'}</td>
               <td>${o.dataOnboarding ? U.fmtDateBR(o.dataOnboarding) : '—'}</td>
               <td>${U.escapeHtml(o.modalidade || '—')}</td>
@@ -184,7 +184,7 @@
 
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-        <div><h2 style="font-size:16px">Onboarding — ${U.escapeHtml(o.candidatoNome || '')}</h2><p class="sub" style="color:var(--muted);font-size:12px;margin-top:2px">${U.escapeHtml(o.cargo || '')} — ${U.escapeHtml(o.marca || '')} · Vaga ${U.escapeHtml(o.vagaId || '')}</p></div>
+        <div><h2 style="font-size:16px">Onboarding — ${U.escapeHtml(o.candidatoNome || '')}</h2><p class="sub" style="color:var(--muted);font-size:12px;margin-top:2px">${U.escapeHtml(o.cargo || '')} — ${U.escapeHtml(o.unidade || '')} · Vaga ${U.escapeHtml(o.vagaId || '')}</p></div>
         <button class="btn btn-outline btn-sm" id="of-voltar">‹ Voltar para a lista</button>
       </div>
 

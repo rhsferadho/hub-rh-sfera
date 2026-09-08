@@ -200,7 +200,7 @@
         <span>${U.escapeHtml(e.cargo || '')}</span>
         <span>${U.escapeHtml(e.etapa || '')}${e.tipoEntrevista ? ' · ' + U.escapeHtml(e.tipoEntrevista) : ''}</span>
         <span>${U.escapeHtml(e.recrutador || '')}</span>
-        <span>${U.escapeHtml(e.marca || '')}</span>
+        <span>${U.escapeHtml(e.unidade || '')}</span>
       </div>
       ${conflito ? '<div style="font-size:11px;color:var(--warning);font-weight:700;margin-top:6px">⚠ Conflito de horário</div>' : ''}
     </div>`;
@@ -326,7 +326,7 @@
     const readOnly = !canWrite();
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-        <div><h2 style="font-size:16px">Entrevista — ${U.escapeHtml(e.candidatoNome || '')}</h2><p class="sub" style="color:var(--muted);font-size:12px;margin-top:2px">${U.escapeHtml(e.vagaId || '')} · ${U.escapeHtml(e.cargo || '')} (${U.escapeHtml(e.marca || '')})</p></div>
+        <div><h2 style="font-size:16px">Entrevista — ${U.escapeHtml(e.candidatoNome || '')}</h2><p class="sub" style="color:var(--muted);font-size:12px;margin-top:2px">${U.escapeHtml(e.vagaId || '')} · ${U.escapeHtml(e.cargo || '')} (${U.escapeHtml(e.unidade || '')})</p></div>
         <button class="btn btn-outline btn-sm" id="ed-voltar">‹ Voltar para a agenda</button>
       </div>
       <div class="card full">
@@ -334,7 +334,7 @@
           <div class="field"><label>Candidato</label><input value="${U.escapeHtml(e.candidatoNome || '')}" readonly style="background:var(--bg)"></div>
           <div class="field"><label>Vaga</label><input value="${U.escapeHtml(e.vagaId || '')}" readonly style="background:var(--bg)"></div>
           <div class="field"><label>Cargo</label><input value="${U.escapeHtml(e.cargo || '')}" readonly style="background:var(--bg)"></div>
-          <div class="field"><label>Marca</label><input value="${U.escapeHtml(e.marca || '')}" readonly style="background:var(--bg)"></div>
+          <div class="field"><label>Unidade</label><input value="${U.escapeHtml(e.unidade || '')}" readonly style="background:var(--bg)"></div>
           <div class="field"><label>Recrutador(a)</label><input value="${U.escapeHtml(e.recrutador || '')}" readonly style="background:var(--bg)"></div>
           <div class="field"><label>Etapa</label><input value="${U.escapeHtml(e.etapa || '')}" readonly style="background:var(--bg)"></div>
           <div class="field"><label>Data / Horário</label><input value="${U.fmtDateBR(e.data)} às ${U.escapeHtml(e.horario || '')}" readonly style="background:var(--bg)"></div>

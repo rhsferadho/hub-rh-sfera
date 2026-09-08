@@ -12,7 +12,7 @@
   function canManage() { return HUB_PERMISSIONS.hasPerm(HUB_USER, 'recrutamento.vagas'); }
 
   function vagaRankRow(v, valueLabel) {
-    return `<tr><td>${U.escapeHtml(v.cargo || '')}</td><td>${U.escapeHtml(v.id)} · ${U.escapeHtml(v.marca || '')}</td><td>${valueLabel}</td></tr>`;
+    return `<tr><td>${U.escapeHtml(v.cargo || '')}</td><td>${U.escapeHtml(v.id)} · ${U.escapeHtml(v.unidade || '')}</td><td>${valueLabel}</td></tr>`;
   }
 
   function rankTable(rows, cols) {
@@ -70,7 +70,7 @@
 
       <div class="grid2">
         ${card('Alertas e ações recomendadas', '&#9888;&#65039;', insightsList(d.alertas), { full: true })}
-        ${card('Vagas abertas por marca', '&#127970;', c.porMarca.length ? '<div class="chart-h"><canvas id="c-rc-marca"></canvas></div>' : empty('Sem dados.'))}
+        ${card('Vagas abertas por unidade', '&#127970;', c.porUnidade.length ? '<div class="chart-h"><canvas id="c-rc-unidade"></canvas></div>' : empty('Sem dados.'))}
         ${card('Distribuição por status', '&#128202;', c.porStatus.length ? '<div class="chart-h"><canvas id="c-rc-status"></canvas></div>' : empty('Sem dados.'))}
         ${card('Evolução mensal — abertas x fechadas', '&#128200;', c.evolucaoMensal.length ? '<div class="chart-h tall"><canvas id="c-rc-evolucao"></canvas></div>' : empty('Sem dados.'), { full: true })}
         ${card('SLA médio por recrutador(a)', '&#129504;', c.slaPorRecrutador.length ? '<div class="chart-h"><canvas id="c-rc-slarecrut"></canvas></div>' : empty('Sem dados.'))}
@@ -94,7 +94,7 @@
         ${card('Entrevistas por recrutador(a)', '&#127939;', topRows(r.topEntrevistasPorRecrutador, 'Entrevistas'))}
       </div>`;
 
-    if (c.porMarca.length) barChart('c-rc-marca', c.porMarca.map(x => x.label), c.porMarca.map(x => x.value));
+    if (c.porUnidade.length) barChart('c-rc-unidade', c.porUnidade.map(x => x.label), c.porUnidade.map(x => x.value));
     if (c.porStatus.length) doughnutChart('c-rc-status', c.porStatus.map(x => x.label), c.porStatus.map(x => x.value));
     if (c.evolucaoMensal.length) {
       lineChart('c-rc-evolucao', c.evolucaoMensal.map(x => x.label), [
@@ -129,13 +129,13 @@
         ${kpi('Entrevistas (7 dias)', U.fmtInt(k.prox7), '', '#1baf7a')}
       </div>
       <div class="grid2">
-        ${card('Vagas abertas por marca', '&#127970;', c.porMarca.length ? '<div class="chart-h"><canvas id="c-rc-marca"></canvas></div>' : empty('Sem dados.'))}
+        ${card('Vagas abertas por unidade', '&#127970;', c.porUnidade.length ? '<div class="chart-h"><canvas id="c-rc-unidade"></canvas></div>' : empty('Sem dados.'))}
         ${card('Distribuição por status', '&#128202;', c.porStatus.length ? '<div class="chart-h"><canvas id="c-rc-status"></canvas></div>' : empty('Sem dados.'))}
         ${card('Evolução mensal — abertas x fechadas', '&#128200;', c.evolucaoMensal.length ? '<div class="chart-h tall"><canvas id="c-rc-evolucao"></canvas></div>' : empty('Sem dados.'), { full: true })}
         ${card('Funil — vagas por etapa', '&#128268;', '<div class="chart-h"><canvas id="c-rc-funil"></canvas></div>', { full: true })}
       </div>`;
 
-    if (c.porMarca.length) barChart('c-rc-marca', c.porMarca.map(x => x.label), c.porMarca.map(x => x.value));
+    if (c.porUnidade.length) barChart('c-rc-unidade', c.porUnidade.map(x => x.label), c.porUnidade.map(x => x.value));
     if (c.porStatus.length) doughnutChart('c-rc-status', c.porStatus.map(x => x.label), c.porStatus.map(x => x.value));
     if (c.evolucaoMensal.length) {
       lineChart('c-rc-evolucao', c.evolucaoMensal.map(x => x.label), [

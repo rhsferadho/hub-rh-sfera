@@ -1,7 +1,7 @@
-// Administração → Cadastros do Recrutamento: CRUD das 9 listas mestre que
+// Administração → Cadastros do Recrutamento: CRUD das 8 listas mestre que
 // alimentam os formulários/filtros do módulo Recrutamento (Recrutadores,
-// Marcas, Unidades, Departamentos, Cargos, Etapas, Fontes de Captação,
-// Portais, Níveis de Vaga). Porta a parte de listas mestre de renderAdmin +
+// Unidades, Departamentos, Cargos, Etapas, Fontes de Captação, Portais,
+// Níveis de Vaga). Porta a parte de listas mestre de renderAdmin +
 // adminSectionHTML/adminSectionDepartamentosHTML + adicionarItemAdmin/
 // editarItemAdmin/removerItemAdmin do Sfera Recruiter original
 // (~linhas 8857-9425) — a gestão de usuários dessa mesma tela já está
@@ -9,7 +9,7 @@
 // não existe mais (gate real: admin.cadastros_recrutamento).
 //
 // Diferente do original (arrays simples de string em memória, removidos por
-// índice), aqui cada linha é {id, nome, ativo[, marca]} vinda do Supabase
+// índice), aqui cada linha é {id, nome, ativo[, unidade]} vinda do Supabase
 // (window.HUB_RECRUIT_DATA[table], carregada 1x no login — ver
 // dal-recrutamento.js). Não existe um "remover" de verdade: seguindo o
 // padrão de soft-delete por `ativo` já usado no `departamentos` do
@@ -17,18 +17,16 @@
 // "Ativar"), e nunca um delete físico — mais seguro para não quebrar vagas/
 // candidatos antigos que já referenciam o nome.
 //
-// Departamentos depende de Marca (não de Unidade, como no app original) —
-// a tabela `recrutamento_departamentos` tem uma coluna `marca`, que é o
-// campo comparado com "unidades liberadas" no cadastro de acessos (ver
-// js/admin/usuarios.js) — por isso o cascade aqui usa marcas, não unidades.
+// Não existe mais um cadastro de "Marca" — Departamentos cascateia a partir
+// de Unidade (a tabela `recrutamento_departamentos` tem uma coluna
+// `unidade`), igual à cascata usada na tela de vagas (js/sections/vagas.js).
 (function () {
   const U = HUB_UTILS;
 
   const TABS = [
     { key: 'recrutadores', table: 'recrutadores', label: 'Recrutadores', icon: '&#128100;' },
-    { key: 'marcas', table: 'marcas', label: 'Marcas', icon: '&#127991;&#65039;' },
     { key: 'unidades', table: 'unidades', label: 'Unidades', icon: '&#128205;' },
-    { key: 'departamentos', table: 'recrutamento_departamentos', label: 'Departamentos', icon: '&#127970;', dependsOnMarca: true },
+    { key: 'departamentos', table: 'recrutamento_departamentos', label: 'Departamentos', icon: '&#127970;', dependsOnUnidade: true },
     { key: 'cargos', table: 'cargos', label: 'Cargos', icon: '&#128188;' },
     { key: 'etapas', table: 'etapas', label: 'Etapas do Processo', icon: '&#128279;' },
     { key: 'fontes', table: 'fontes_captacao', label: 'Fontes de Captação', icon: '&#128225;' },
@@ -70,11 +68,11 @@
         <div class="card full">
           <h3><span>${cfg.icon}</span>${cfg.label} — ${rows.length} item(ns)</h3>
           ${rows.length ? `<div class="table-wrap"><table class="dt"><thead><tr>
-            <th>Nome</th>${cfg.dependsOnMarca ? '<th>Marca</th>' : ''}<th>Status</th><th></th>
+            <th>Nome</th>${cfg.dependsOnUnidade ? '<th>Unidade</th>' : ''}<th>Status</th><th></th>
           </tr></thead><tbody>
             ${rows.map(r => `<tr>
               <td>${U.escapeHtml(r.nome)}</td>
-              ${cfg.dependsOnMarca ? `<td>${U.escapeHtml(r.marca || '—')}</td>` : ''}
+              ${cfg.dependsOnUnidade ? `<td>${U.escapeHtml(r.unidade || '—')}</td>` : ''}
               <td><span class="badge ${r.ativo !== false ? 'b2' : 'b3'}">${r.ativo !== false ? 'Ativo' : 'Inativo'}</span></td>
               <td style="white-space:nowrap"><div class="row-actions">
                 <button class="btn btn-outline btn-sm" data-edit="${r.id}">Editar</button>
@@ -103,17 +101,17 @@
   function renderForm(el, cfg, rows) {
     const card = document.getElementById('cad-form-card');
     const isEdit = !!editingRow;
-    const r = editingRow || { nome: '', marca: '', ativo: true };
-    const marcasAtivas = HUB_RECRUIT.activeNames('marcas');
+    const r = editingRow || { nome: '', unidade: '', ativo: true };
+    const unidadesAtivas = HUB_RECRUIT.activeNames('unidades');
 
     card.innerHTML = `
       <h3>${isEdit ? 'Editar' : 'Novo(a)'} — ${cfg.label.replace(/s$/, '')}</h3>
       <form id="cad-form">
         <div class="field full"><label>Nome</label><input id="cad-nome" required value="${U.escapeHtml(r.nome)}"></div>
-        ${cfg.dependsOnMarca ? `<div class="field full"><label>Marca</label><select id="cad-marca" required>
-          <option value="">Selecione a marca...</option>
-          ${marcasAtivas.map(m => `<option value="${U.escapeHtml(m)}" ${r.marca === m ? 'selected' : ''}>${U.escapeHtml(m)}</option>`).join('')}
-        </select>${!marcasAtivas.length ? '<p class="sub" style="color:var(--muted);margin-top:6px">Cadastre ao menos uma marca ativa primeiro.</p>' : ''}</div>` : ''}
+        ${cfg.dependsOnUnidade ? `<div class="field full"><label>Unidade</label><select id="cad-unidade" required>
+          <option value="">Selecione a unidade...</option>
+          ${unidadesAtivas.map(m => `<option value="${U.escapeHtml(m)}" ${r.unidade === m ? 'selected' : ''}>${U.escapeHtml(m)}</option>`).join('')}
+        </select>${!unidadesAtivas.length ? '<p class="sub" style="color:var(--muted);margin-top:6px">Cadastre ao menos uma unidade ativa primeiro.</p>' : ''}</div>` : ''}
         <div style="display:flex;gap:10px;margin-top:6px">
           <button type="submit" class="btn btn-primary" style="width:auto">${isEdit ? 'Salvar alterações' : 'Adicionar'}</button>
           ${isEdit ? '<button type="button" class="btn btn-outline" id="cad-cancel">Cancelar</button>' : ''}
@@ -131,11 +129,11 @@
     const msg = document.getElementById('cad-msg');
     msg.style.display = 'none';
     const nome = document.getElementById('cad-nome').value.trim();
-    const marca = cfg.dependsOnMarca ? document.getElementById('cad-marca').value : undefined;
+    const unidade = cfg.dependsOnUnidade ? document.getElementById('cad-unidade').value : undefined;
     const isEdit = !!editingRow;
 
     if (!nome) { msg.textContent = 'Informe o nome.'; msg.style.display = 'block'; return; }
-    if (cfg.dependsOnMarca && !marca) { msg.textContent = 'Selecione a marca.'; msg.style.display = 'block'; return; }
+    if (cfg.dependsOnUnidade && !unidade) { msg.textContent = 'Selecione a unidade.'; msg.style.display = 'block'; return; }
 
     const duplicado = rows.find(r => U.normalizeText(r.nome) === U.normalizeText(nome) && (!isEdit || String(r.id) !== String(editingRow.id)));
     if (duplicado) {
@@ -150,12 +148,12 @@
 
     const payload = { nome, ativo: isEdit ? editingRow.ativo !== false : true };
     if (isEdit) payload.id = editingRow.id;
-    if (cfg.dependsOnMarca) payload.marca = marca;
+    if (cfg.dependsOnUnidade) payload.unidade = unidade;
 
     try {
       await HUB_RECRUIT.upsertMaster(cfg.table, payload);
       const user = (window.HUB_USER && (HUB_USER.nome || HUB_USER.email)) || 'Desconhecido';
-      await HUB_RECRUIT.logAcao({ acao: isEdit ? 'Admin - Edição de Cadastro' : 'Admin - Cadastro', detalhes: `${cfg.label}: ${nome}${cfg.dependsOnMarca ? ' (' + marca + ')' : ''} · por ${user}` });
+      await HUB_RECRUIT.logAcao({ acao: isEdit ? 'Admin - Edição de Cadastro' : 'Admin - Cadastro', detalhes: `${cfg.label}: ${nome}${cfg.dependsOnUnidade ? ' (' + unidade + ')' : ''} · por ${user}` });
       await HUB_RECRUIT.reloadMasterLists();
       editingRow = null;
       renderTab(el);
@@ -168,14 +166,14 @@
   }
 
   // Soft-delete/reativação: upsert reenviando o registro inteiro (id + nome
-  // [+ marca]) só com `ativo` invertido — nunca um delete físico, pra não
+  // [+ unidade]) só com `ativo` invertido — nunca um delete físico, pra não
   // quebrar vagas/candidatos já cadastrados com esse valor.
   async function toggleAtivo(el, cfg, row) {
     const ativar = row.ativo === false;
     if (!ativar && !confirm(`Desativar "${row.nome}"? Isso não afeta registros já cadastrados, só some das opções de novos cadastros.`)) return;
     try {
       const payload = { id: row.id, nome: row.nome, ativo: ativar };
-      if (cfg.dependsOnMarca) payload.marca = row.marca;
+      if (cfg.dependsOnUnidade) payload.unidade = row.unidade;
       await HUB_RECRUIT.upsertMaster(cfg.table, payload);
       const user = (window.HUB_USER && (HUB_USER.nome || HUB_USER.email)) || 'Desconhecido';
       await HUB_RECRUIT.logAcao({ acao: ativar ? 'Admin - Reativação de Cadastro' : 'Admin - Remoção', detalhes: `${cfg.label}: ${row.nome} · por ${user}` });

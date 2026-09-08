@@ -137,7 +137,7 @@
     const decisaoDireta = canDecideDireto();
 
     wrap.innerHTML = `<div class="table-wrap"><table class="dt"><thead><tr>
-      <th>Candidato</th><th>Vaga de origem</th><th>Cargo</th><th>Marca</th><th>Recrutador</th>
+      <th>Candidato</th><th>Vaga de origem</th><th>Cargo</th><th>Unidade</th><th>Recrutador</th>
       <th>% FIT</th><th>Origem</th><th>Cargos possíveis</th><th>Contato</th><th>Classificado em</th><th></th>
     </tr></thead><tbody>
       ${lista.map(c => {
@@ -153,7 +153,7 @@
           </td>
           <td>${U.escapeHtml(c.vagaId || '—')}</td>
           <td>${U.escapeHtml(c.cargo || '')}</td>
-          <td>${U.escapeHtml(c.marca || '')}</td>
+          <td>${U.escapeHtml(c.unidade || '')}</td>
           <td>${U.escapeHtml(c.entrevistadoPor || '—')}</td>
           <td>
             <div style="display:flex;align-items:center;gap:6px;min-width:120px">

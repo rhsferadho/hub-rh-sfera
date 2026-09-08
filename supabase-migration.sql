@@ -70,10 +70,8 @@ $$;
 -- cuja unidade/departamento estejam na lista liberada para ele (lista vazia =
 -- sem restrição naquele eixo). Reaproveitada tanto pelas tabelas de
 -- Indicadores (row_unidade = colaboradores.unidade, etc.) quanto pelas de
--- Recrutamento (row_unidade = vagas.marca — ver nota na seção 4 sobre por
--- que "marca" foi escolhida como campo de escopo ali, e não a coluna
--- "unidade" do Recrutamento nem necessariamente o mesmo domínio de valores
--- do "unidade" usado no módulo Indicadores).
+-- Recrutamento (row_unidade = vagas.unidade — não necessariamente o mesmo
+-- domínio de valores do "unidade" usado no módulo Indicadores).
 --
 -- unidade nula é sempre visível porque algumas tabelas (ex.: 1 on 1) nunca
 -- têm esse campo por natureza da planilha de origem — não tem o que restringir.
@@ -375,32 +373,35 @@ create index if not exists twygo_conteudos_nome_idx on public.twygo_conteudos (n
 --    hub, não por upload; são a MESMA fonte usada pelo indicador ao vivo
 --    "Indicadores → Recrutamento")
 --
--- NOTA IMPORTANTE sobre unidade/departamento: o Recrutamento tem DOIS campos
--- de escopo geográfico/organizacional que NÃO são a mesma coisa — "marca"
--- (a franquia/bandeira, ex.: "O Boticário", "Hering" — só 6 valores) e
--- "unidade" (um recorte mais granular usado só dentro do Recrutamento, ex.
--- "Boticário - Interior de MG" — 14 valores). Nenhum dos dois é
--- necessariamente igual, valor a valor, ao "unidade" já usado pelo módulo
--- Indicadores (colaboradores.unidade etc.) — não tive como confirmar isso
--- com os dados reais das duas planilhas/sistemas.
+-- NOTA sobre unidade/departamento: o Recrutamento usa "unidade" (ex.:
+-- "Boticário - Interior de MG", "Hering", "Escritório" — 15 valores, um por
+-- unidade cadastrada em Administração → Cadastros do Recrutamento) como eixo
+-- único de escopo geográfico/organizacional — não existe mais um campo
+-- "Marca" separado (removido: unidade + departamento já bastam para
+-- identificar uma vaga/candidato). Departamento cascateia a partir de
+-- Unidade (recrutamento_departamentos.unidade). Não é necessariamente o
+-- mesmo domínio de valores do "unidade" já usado pelo módulo Indicadores
+-- (colaboradores.unidade etc.) — não tive como confirmar isso com os dados
+-- reais dos dois sistemas.
 --
--- Escolha feita aqui: can_see() usa "marca" (presente nas 3 tabelas —
--- vagas/candidatos/entrevistas — sem precisar de nenhuma coluna nova) como o
--- eixo de restrição por unidade/departamento de um gestor dentro do
--- Recrutamento. Isso é INDEPENDENTE do escopo de "unidade" usado no módulo
--- Indicadores — um gestor restrito precisa ter os nomes de MARCA (ex.
--- "Hering", "O Boticário") na lista `profiles.unidades` para enxergar dados
--- de Recrutamento, além de (se usar Indicadores também) os nomes de
--- "unidade" que aparecem nas planilhas de RH. Vale revisar com o time depois
--- de ver dados reais dos dois sistemas lado a lado — se fizer mais sentido
--- trocar para a coluna "unidade" do Recrutamento (ou reconciliar as duas
--- listas), é só trocar `marca` por `unidade` nas 3 policies "_select" abaixo.
+-- can_see() usa a coluna "unidade" (presente em vagas/candidatos/entrevistas/
+-- onboarding/pareceres_gestor) como eixo de restrição por unidade/
+-- departamento de um gestor dentro do Recrutamento — independente do escopo
+-- de "unidade" usado no módulo Indicadores (um gestor restrito precisa ter
+-- os nomes de UNIDADE do Recrutamento na lista `profiles.unidades` para
+-- enxergar dados de Recrutamento, além dos nomes de "unidade" das planilhas
+-- de RH se também usar Indicadores).
+--
+-- As colunas `marca` abaixo ficam como histórico morto (não são mais lidas
+-- nem escritas pelo app) — não foram apagadas para preservar o que já
+-- estava gravado em vagas/candidatos/entrevistas/onboarding/pareceres_gestor
+-- antes desta mudança.
 -- ----------------------------------------------------------------------------
 
 create table if not exists public.vagas (
   id text primary key,
   data_abertura date,
-  marca text,
+  marca text, -- histórico morto, ver nota no início da seção 4
   unidade text,
   departamento text,
   nivel_vaga text,
@@ -439,7 +440,7 @@ create table if not exists public.vagas (
   criado_em timestamptz not null default now(),
   atualizado_em timestamptz not null default now()
 );
-create index if not exists vagas_marca_idx on public.vagas (marca);
+create index if not exists vagas_unidade_idx on public.vagas (unidade);
 create index if not exists vagas_departamento_idx on public.vagas (departamento);
 create index if not exists vagas_status_idx on public.vagas (status);
 create index if not exists vagas_responsavel_idx on public.vagas (responsavel);
@@ -453,7 +454,8 @@ create table if not exists public.candidatos (
   contato text,
   linkedin text,
   cargo text,
-  marca text,
+  marca text, -- histórico morto, ver nota no início da seção 4
+  unidade text,
   departamento text,
   nivel_vaga text,
   entrevistado_por text,
@@ -519,7 +521,7 @@ create table if not exists public.candidatos (
   atualizado_em timestamptz not null default now()
 );
 create index if not exists candidatos_vaga_id_idx on public.candidatos (vaga_id);
-create index if not exists candidatos_marca_idx on public.candidatos (marca);
+create index if not exists candidatos_unidade_idx on public.candidatos (unidade);
 create index if not exists candidatos_departamento_idx on public.candidatos (departamento);
 create index if not exists candidatos_resultado_idx on public.candidatos (resultado);
 create index if not exists candidatos_nome_idx on public.candidatos (nome);
@@ -530,7 +532,8 @@ create table if not exists public.entrevistas (
   candidato_nome text,
   vaga_id text references public.vagas(id) on delete set null,
   cargo text,
-  marca text,
+  marca text, -- histórico morto, ver nota no início da seção 4
+  unidade text,
   recrutador text,
   etapa text,
   tipo_entrevista text,
@@ -545,7 +548,7 @@ create table if not exists public.entrevistas (
 );
 create index if not exists entrevistas_candidato_id_idx on public.entrevistas (candidato_id);
 create index if not exists entrevistas_vaga_id_idx on public.entrevistas (vaga_id);
-create index if not exists entrevistas_marca_idx on public.entrevistas (marca);
+create index if not exists entrevistas_unidade_idx on public.entrevistas (unidade);
 create index if not exists entrevistas_data_idx on public.entrevistas (data);
 
 -- Módulo Treinamento e Desenvolvimento → Onboarding. Um registro é criado
@@ -562,7 +565,7 @@ create table if not exists public.onboarding (
   candidato_nome text,
   vaga_id text references public.vagas(id) on delete set null,
   cargo text,
-  marca text,
+  marca text, -- histórico morto, ver nota no início da seção 4
   departamento text,
   unidade text,
   nivel_vaga text,
@@ -586,7 +589,7 @@ create table if not exists public.onboarding (
 );
 create index if not exists onboarding_candidato_id_idx on public.onboarding (candidato_id);
 create index if not exists onboarding_vaga_id_idx on public.onboarding (vaga_id);
-create index if not exists onboarding_marca_idx on public.onboarding (marca);
+create index if not exists onboarding_unidade_idx on public.onboarding (unidade);
 create index if not exists onboarding_status_idx on public.onboarding (status);
 
 -- Módulo Treinamento e Desenvolvimento → Visita em Loja. Porta o formulário
@@ -689,7 +692,8 @@ create table if not exists public.pareceres_gestor (
   candidato_nome text,
   vaga_id text references public.vagas(id) on delete set null,
   cargo text,
-  marca text,
+  marca text, -- histórico morto, ver nota no início da seção 4
+  unidade text,
   departamento text,
   modelo text not null, -- 'hering' | 'levis' | 'boticario_loja' | 'boticario_vd_er' | 'boticario_vd_campo' | 'boticario_vd_logistica'
   recrutador text, -- quem agendou (preenchido na criação, pelo(a) recrutador(a))
@@ -801,7 +805,6 @@ create index if not exists solicitacoes_status_idx on public.solicitacoes (statu
 
 -- Listas mestre do Recrutamento (dropdowns) — CRUD em Administração →
 -- Cadastros do Recrutamento.
-create table if not exists public.marcas (id bigserial primary key, nome text not null, ativo boolean not null default true);
 create table if not exists public.unidades (id bigserial primary key, nome text not null, ativo boolean not null default true);
 create table if not exists public.cargos (id bigserial primary key, nome text not null, ativo boolean not null default true);
 create table if not exists public.etapas (id bigserial primary key, nome text not null, ativo boolean not null default true);
@@ -809,7 +812,7 @@ create table if not exists public.fontes_captacao (id bigserial primary key, nom
 create table if not exists public.portais (id bigserial primary key, nome text not null, ativo boolean not null default true);
 create table if not exists public.niveis_vaga (id bigserial primary key, nome text not null, ativo boolean not null default true);
 create table if not exists public.recrutadores (id bigserial primary key, nome text not null, ativo boolean not null default true);
-create table if not exists public.recrutamento_departamentos (id bigserial primary key, nome text not null, marca text, ativo boolean not null default true);
+create table if not exists public.recrutamento_departamentos (id bigserial primary key, nome text not null, unidade text, ativo boolean not null default true);
 
 -- ----------------------------------------------------------------------------
 -- 5. ROW LEVEL SECURITY
@@ -833,7 +836,6 @@ alter table public.visitas_loja enable row level security;
 alter table public.pareceres_gestor enable row level security;
 alter table public.historico enable row level security;
 alter table public.solicitacoes enable row level security;
-alter table public.marcas enable row level security;
 alter table public.unidades enable row level security;
 alter table public.cargos enable row level security;
 alter table public.etapas enable row level security;
@@ -889,12 +891,12 @@ create policy twygo_conteudos_write on public.twygo_conteudos for all
 
 -- vagas/candidatos/entrevistas: leitura exige (a) alguma permissão
 -- relacionada ao Recrutamento E (b) escopo de unidade/departamento
--- (can_see, usando a coluna "marca" como eixo de escopo — ver nota na seção 4).
+-- (can_see, usando a coluna "unidade" como eixo de escopo — ver nota na seção 4).
 -- Escrita: cada tabela pede a permissão específica da tela que a edita.
 drop policy if exists vagas_select on public.vagas;
 create policy vagas_select on public.vagas for select
   using (
-    public.can_see(marca, departamento)
+    public.can_see(unidade, departamento)
     and (
       public.has_permission('recrutamento.dashboard') or public.has_permission('indicadores.recrutamento')
       or public.has_permission('recrutamento.vagas') or public.has_permission('recrutamento.candidatos')
@@ -909,7 +911,7 @@ create policy vagas_write on public.vagas for all
 drop policy if exists candidatos_select on public.candidatos;
 create policy candidatos_select on public.candidatos for select
   using (
-    public.can_see(marca, departamento)
+    public.can_see(unidade, departamento)
     and (
       public.has_permission('recrutamento.dashboard') or public.has_permission('indicadores.recrutamento')
       or public.has_permission('recrutamento.vagas') or public.has_permission('recrutamento.candidatos')
@@ -933,7 +935,7 @@ create policy candidatos_write on public.candidatos for all
 drop policy if exists entrevistas_select on public.entrevistas;
 create policy entrevistas_select on public.entrevistas for select
   using (
-    public.can_see(marca, null)
+    public.can_see(unidade, null)
     and (
       public.has_permission('recrutamento.dashboard') or public.has_permission('indicadores.recrutamento')
       or public.has_permission('recrutamento.agenda') or public.has_permission('recrutamento.candidatos')
@@ -955,7 +957,7 @@ create policy entrevistas_write on public.entrevistas for all
 drop policy if exists onboarding_select on public.onboarding;
 create policy onboarding_select on public.onboarding for select
   using (
-    public.can_see(marca, departamento)
+    public.can_see(unidade, departamento)
     and (
       public.has_permission('treinamento_dev.onboarding')
       or public.has_permission('recrutamento.candidatos')
@@ -971,8 +973,7 @@ create policy onboarding_update on public.onboarding for update
   with check (public.has_permission('treinamento_dev.onboarding') or public.has_permission('recrutamento.vagas'));
 
 -- visitas_loja: usa a "área" (Juiz de Fora/Rio de Janeiro/Interior de MG...)
--- como equivalente de unidade no can_see() — mesmo truque pragmático já
--- usado em onboarding (que reaproveita a coluna marca). Um(a) gestor(a) sem
+-- como equivalente de unidade no can_see(). Um(a) gestor(a) sem
 -- unidades específicas cadastradas continua vendo tudo (can_see trata lista
 -- vazia como "sem restrição"); quem tem unidades cadastradas só verá visitas
 -- se essas unidades coincidirem com o texto da área.
@@ -988,7 +989,7 @@ create policy visitas_loja_update on public.visitas_loja for update
   with check (public.has_permission('treinamento_dev.visita_loja'));
 
 -- pareceres_gestor: mesmo padrão de escopo de candidatos/vagas
--- (can_see(marca, departamento)). Leitura liberada tanto para quem tem
+-- (can_see(unidade, departamento)). Leitura liberada tanto para quem tem
 -- recrutamento.parecer_gestor (o(a) gestor(a) que vai preencher) quanto
 -- para recrutamento.candidatos (o(a) recrutador(a) que agendou, para
 -- acompanhar/trocar o modelo antes do preenchimento). Criação só pelo(a)
@@ -998,7 +999,7 @@ create policy visitas_loja_update on public.visitas_loja for update
 drop policy if exists pareceres_gestor_select on public.pareceres_gestor;
 create policy pareceres_gestor_select on public.pareceres_gestor for select
   using (
-    public.can_see(marca, departamento)
+    public.can_see(unidade, departamento)
     and (public.has_permission('recrutamento.parecer_gestor') or public.has_permission('recrutamento.candidatos'))
   );
 drop policy if exists pareceres_gestor_insert on public.pareceres_gestor;
@@ -1064,7 +1065,7 @@ declare
   t text;
 begin
   foreach t in array array[
-    'marcas','unidades','cargos','etapas','fontes_captacao','portais',
+    'unidades','cargos','etapas','fontes_captacao','portais',
     'niveis_vaga','recrutadores','recrutamento_departamentos'
   ]
   loop

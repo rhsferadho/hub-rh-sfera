@@ -4,17 +4,15 @@
 // convenções do hub: sem <script> de ícones (Lucide) — botões de texto em
 // vez de ícones; sem elemento de drawer no shell novo — editar vaga troca o
 // conteúdo da própria seção por um formulário (como a Nova Vaga já fazia),
-// em vez de abrir um painel lateral; listas de dropdown (marca/unidade/
-// cargo/etapa/fonte/portal/nível/recrutador) vêm de HUB_RECRUIT_DATA em vez
+// em vez de abrir um painel lateral; listas de dropdown (unidade/cargo/
+// etapa/fonte/portal/nível/recrutador) vêm de HUB_RECRUIT_DATA em vez
 // dos arrays fixos do app original. Estado local (filtros/ordenação/
 // paginação/wizard) fica em `let`s do módulo, no mesmo padrão de
 // js/admin/usuarios.js.
 //
-// Adaptação de schema: no app original, Departamento cascateava a partir de
-// Unidade (loja/local). No hub novo, a tabela `recrutamento_departamentos`
-// tem coluna `marca` (não `unidade`) — ver supabase-migration.sql linha
-// ~544 e o comentário da policy `vagas_select` — então aqui Departamento
-// cascateia a partir de MARCA.
+// Não existe mais campo "Marca" — Unidade + Departamento já bastam para
+// identificar uma vaga. Departamento cascateia a partir de Unidade
+// (recrutamento_departamentos.unidade) — ver supabase-migration.sql.
 (function () {
   const U = HUB_UTILS;
   const R = HUB_RECRUIT;
@@ -41,7 +39,6 @@
   // isAdmin() no app original, só que via permissão granular).
   function canApprove() { return HUB_PERMISSIONS.hasPerm(HUB_USER, 'recrutamento.aprovacoes'); }
 
-  function marcasAtivas() { return R.activeNames('marcas'); }
   function unidadesAtivas() { return R.activeNames('unidades'); }
   function cargosAtivos() { return R.activeNames('cargos'); }
   function etapasAtivas() { return R.activeNames('etapas'); }
@@ -49,9 +46,9 @@
   function portaisAtivosLista() { return R.activeNames('portais'); }
   function niveisAtivos() { return R.activeNames('niveis_vaga'); }
   function recrutadoresAtivos() { return R.activeNames('recrutadores'); }
-  function departamentosPorMarca(marca) {
+  function departamentosPorUnidade(unidade) {
     return U.uniqueSorted((D().recrutamento_departamentos || [])
-      .filter(r => r.ativo !== false && (!marca || r.marca === marca))
+      .filter(r => r.ativo !== false && (!unidade || r.unidade === unidade))
       .map(r => r.nome));
   }
 
@@ -174,7 +171,7 @@
   // Estado do módulo
   // ================================================================
   let listState = {
-    search: '', filterMarca: 'todas', filterRecrutador: 'todos', filterStatusArray: [],
+    search: '', filterUnidade: 'todas', filterRecrutador: 'todos', filterStatusArray: [],
     filterTipo: 'todos', filterSLA: 'todos', filterDataIni: '', filterDataFim: '',
     sortKey: 'dataAbertura', sortDir: 'desc', page: 1, pageSize: 10
   };
@@ -226,7 +223,7 @@
     let res = (D().vagas || []).slice();
     const s = listState.search.toLowerCase().trim();
     if (s) res = res.filter(v => Object.values(v).some(val => Array.isArray(val) ? val.join(' ').toLowerCase().includes(s) : String(val || '').toLowerCase().includes(s)));
-    if (listState.filterMarca !== 'todas') res = res.filter(v => v.marca === listState.filterMarca);
+    if (listState.filterUnidade !== 'todas') res = res.filter(v => v.unidade === listState.filterUnidade);
     if (listState.filterRecrutador !== 'todos') res = res.filter(v => v.responsavel === listState.filterRecrutador);
     if (listState.filterStatusArray.length) res = res.filter(v => listState.filterStatusArray.includes(v.status));
     if (listState.filterTipo !== 'todos') res = res.filter(v => v.tipoVaga === listState.filterTipo);
@@ -282,7 +279,7 @@
       <div class="card full">
         <div class="toolbar">
           <input type="text" id="vg-search" placeholder="Buscar em todos os campos..." value="${U.escapeHtml(listState.search)}">
-          <select id="vg-f-marca"><option value="todas">Todas as marcas</option>${marcasAtivas().map(m => `<option value="${U.escapeHtml(m)}" ${listState.filterMarca === m ? 'selected' : ''}>${U.escapeHtml(m)}</option>`).join('')}</select>
+          <select id="vg-f-unidade"><option value="todas">Todas as unidades</option>${unidadesAtivas().map(m => `<option value="${U.escapeHtml(m)}" ${listState.filterUnidade === m ? 'selected' : ''}>${U.escapeHtml(m)}</option>`).join('')}</select>
           <select id="vg-f-recrut"><option value="todos">Todos recrutadores</option>${recrutadoresAtivos().map(r => `<option value="${U.escapeHtml(r)}" ${listState.filterRecrutador === r ? 'selected' : ''}>${U.escapeHtml(r)}</option>`).join('')}</select>
           <select id="vg-f-tipo"><option value="todos">Todos os tipos</option>${TIPOS_VAGA.map(t => `<option ${listState.filterTipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select>
           <select id="vg-f-sla">
@@ -302,7 +299,7 @@
           <thead><tr>
             <th data-k="id" style="cursor:pointer">ID${sortIcon('id')}</th>
             <th data-k="cargo" style="cursor:pointer">Cargo${sortIcon('cargo')}</th>
-            <th data-k="marca" style="cursor:pointer">Marca${sortIcon('marca')}</th>
+            <th data-k="unidade" style="cursor:pointer">Unidade${sortIcon('unidade')}</th>
             <th data-k="departamento" style="cursor:pointer">Depto.${sortIcon('departamento')}</th>
             <th data-k="dataAbertura" style="cursor:pointer">Abertura${sortIcon('dataAbertura')}</th>
             <th>Última Atualização</th>
@@ -328,7 +325,7 @@
               return `<tr>
                 <td>${U.escapeHtml(v.id)}</td>
                 <td><strong>${U.escapeHtml(v.cargo || '')}</strong>${pcdBadge(v)}</td>
-                <td>${U.escapeHtml(v.marca || '')}</td>
+                <td>${U.escapeHtml(v.unidade || '')}</td>
                 <td>${U.escapeHtml(v.departamento || '')}</td>
                 <td>${U.fmtDateBR(v.dataAbertura)}</td>
                 <td style="color:var(--muted)">${(() => { const ua = ultimaAtualizacaoVaga(v); return ua ? U.fmtDateBR(String(ua).slice(0, 10)) : '—'; })()}</td>
@@ -379,7 +376,7 @@
   function wireListEvents(el, totalPages) {
     const $ = sel => el.querySelector(sel);
     $('#vg-search') && $('#vg-search').addEventListener('input', e => { listState.search = e.target.value; listState.page = 1; render(); });
-    $('#vg-f-marca') && $('#vg-f-marca').addEventListener('change', e => { listState.filterMarca = e.target.value; listState.page = 1; render(); });
+    $('#vg-f-unidade') && $('#vg-f-unidade').addEventListener('change', e => { listState.filterUnidade = e.target.value; listState.page = 1; render(); });
     $('#vg-f-recrut') && $('#vg-f-recrut').addEventListener('change', e => { listState.filterRecrutador = e.target.value; listState.page = 1; render(); });
     $('#vg-f-tipo') && $('#vg-f-tipo').addEventListener('change', e => { listState.filterTipo = e.target.value; listState.page = 1; render(); });
     $('#vg-f-sla') && $('#vg-f-sla').addEventListener('change', e => { listState.filterSLA = e.target.value; listState.page = 1; render(); });
@@ -406,9 +403,9 @@
   }
 
   function exportarVagasCSV() {
-    const header = ['ID', 'Data Abertura', 'Marca', 'Departamento', 'Cargo', 'Solicitante', 'Responsável', 'Status', 'Etapa', 'SLA (dias)', 'Status SLA', 'Tipo Vaga', 'Tipo Movimentação', 'Tipo Recrutamento', 'Fonte', 'Data Fechamento', 'Contratado', '% FIT', 'Cota', 'Tipo de Cota', 'Observações'];
+    const header = ['ID', 'Data Abertura', 'Unidade', 'Departamento', 'Cargo', 'Solicitante', 'Responsável', 'Status', 'Etapa', 'SLA (dias)', 'Status SLA', 'Tipo Vaga', 'Tipo Movimentação', 'Tipo Recrutamento', 'Fonte', 'Data Fechamento', 'Contratado', '% FIT', 'Cota', 'Tipo de Cota', 'Observações'];
     const rows = [header].concat((D().vagas || []).map(v => [
-      v.id, v.dataAbertura, v.marca, v.departamento, v.cargo, v.solicitante, v.responsavel, v.status, v.etapa,
+      v.id, v.dataAbertura, v.unidade, v.departamento, v.cargo, v.solicitante, v.responsavel, v.status, v.etapa,
       MR.calcularSLA(v), MR.statusSLA(v), v.tipoVaga, v.tipoMovimentacao, v.tipoRecrutamento, v.fonte,
       v.dataFechamento, v.contratado, v.fitPct, v.cota || 'Não', v.tipoCota || '', v.observacoes
     ]));
@@ -438,15 +435,15 @@
       if (!confirm(`Excluir definitivamente a vaga ${vaga.id} — ${vaga.cargo}?\n\nEsta ação não pode ser desfeita.`)) return;
       try {
         await R.deleteRow('vagas', vagaId);
-        await R.logAcao({ acao: 'Exclusão de Vaga', vagaId, detalhes: `Vaga excluída: ${vaga.cargo} (${vaga.marca})` });
+        await R.logAcao({ acao: 'Exclusão de Vaga', vagaId, detalhes: `Vaga excluída: ${vaga.cargo} (${vaga.unidade})` });
       } catch (err) { alert('Erro ao excluir: ' + err.message); return; }
     } else {
       const motivo = prompt(`Solicitar exclusão da vaga ${vaga.id} — ${vaga.cargo}.\n\nInforme o motivo:`);
       if (motivo === null) return;
       try {
         await R.criarSolicitacao({
-          tipo: 'excluir-vaga', payload: { vagaId, cargo: vaga.cargo, marca: vaga.marca },
-          descricao: `Excluir vaga ${vagaId} — ${vaga.cargo} (${vaga.marca}). Motivo: ${motivo || 'não informado'}`
+          tipo: 'excluir-vaga', payload: { vagaId, cargo: vaga.cargo, unidade: vaga.unidade },
+          descricao: `Excluir vaga ${vagaId} — ${vaga.cargo} (${vaga.unidade}). Motivo: ${motivo || 'não informado'}`
         });
       } catch (err) { alert('Erro ao enviar solicitação: ' + err.message); return; }
       alert('Solicitação de exclusão enviada para aprovação.');
@@ -497,9 +494,8 @@
       <div class="form-grid">
         <div class="field"><label>ID da Vaga</label><input value="${U.escapeHtml(v.id)}" readonly style="background:var(--bg)"></div>
         <div class="field"><label>Data de Abertura <span class="req">*</span></label><input type="date" id="ev_dataAbertura" value="${v.dataAbertura || ''}" ${disabled}></div>
-        <div class="field"><label>Marca <span class="req">*</span></label><select id="ev_marca" ${disabled}>${selOpts(marcasAtivas(), v.marca)}</select></div>
-        <div class="field"><label>Unidade</label><select id="ev_unidade" ${disabled}>${selOpts(unidadesAtivas(), v.unidade)}</select></div>
-        <div class="field"><label>Departamento</label><select id="ev_departamento" ${disabled}>${selOpts(departamentosPorMarca(v.marca), v.departamento)}</select></div>
+        <div class="field"><label>Unidade <span class="req">*</span></label><select id="ev_unidade" ${disabled}>${selOpts(unidadesAtivas(), v.unidade)}</select></div>
+        <div class="field"><label>Departamento</label><select id="ev_departamento" ${disabled}>${selOpts(departamentosPorUnidade(v.unidade), v.departamento)}</select></div>
         <div class="field"><label>Nível da Vaga</label><select id="ev_nivelVaga" ${disabled}>${selOpts(niveisAtivos(), v.nivelVaga)}</select></div>
         <div class="field"><label>Solicitante</label><select id="ev_solicitante" ${disabled}>${selOpts(solicitanteOpcoes(v.solicitante), v.solicitante)}</select></div>
         <div class="field"><label>Cargo <span class="req">*</span></label><select id="ev_cargo" ${disabled}>${selOpts(cargosAtivos(), v.cargo)}</select></div>
@@ -546,7 +542,7 @@
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:10px">
         <div>
           <h2 style="font-size:16px">${readOnly ? 'Ver vaga' : 'Editar vaga'} ${U.escapeHtml(vaga.id)}</h2>
-          <p class="sub" style="color:var(--muted);font-size:12px;margin-top:2px">${U.escapeHtml(vaga.cargo || '')}${pcdBadge(vaga)} — ${U.escapeHtml(vaga.marca || '')}</p>
+          <p class="sub" style="color:var(--muted);font-size:12px;margin-top:2px">${U.escapeHtml(vaga.cargo || '')}${pcdBadge(vaga)} — ${U.escapeHtml(vaga.unidade || '')}</p>
         </div>
         <button class="btn btn-outline btn-sm" id="ev-voltar">‹ Voltar para a lista</button>
       </div>
@@ -661,21 +657,21 @@
     corpo += `<div><h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:10px">Candidatos entrevistados (${cands.length})</h4>`;
     corpo += cands.length ? cands.map(candidatoResumoPipelineHTML).join('') : `<p style="color:var(--muted);font-size:13px;font-style:italic">Nenhum candidato cadastrado para esta vaga.</p>`;
     corpo += `</div>`;
-    abrirModal('Observações da vaga', `${U.escapeHtml(vaga.id)} · ${U.escapeHtml(vaga.cargo || '')} (${U.escapeHtml(vaga.marca || '')})`, corpo);
+    abrirModal('Observações da vaga', `${U.escapeHtml(vaga.id)} · ${U.escapeHtml(vaga.cargo || '')} (${U.escapeHtml(vaga.unidade || '')})`, corpo);
   }
 
   function abrirModalHistoricoVaga(vagaId) {
     const vaga = (D().vagas || []).find(v => v.id === vagaId);
     if (!vaga) return;
     const logs = (historicoCache || []).filter(l => l.vagaId === vagaId).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    abrirModal(`Histórico — ${U.escapeHtml(vaga.id)}`, `${U.escapeHtml(vaga.cargo || '')} (${U.escapeHtml(vaga.marca || '')})`, renderHistoricoList(logs));
+    abrirModal(`Histórico — ${U.escapeHtml(vaga.id)}`, `${U.escapeHtml(vaga.cargo || '')} (${U.escapeHtml(vaga.unidade || '')})`, renderHistoricoList(logs));
   }
 
   function coletarFormVaga(el, prefix) {
     const get = id => { const e = el.querySelector('#' + prefix + id); return e ? e.value : ''; };
     const portaisSel = Array.from(el.querySelectorAll(`[data-portal]:checked`)).map(c => c.dataset.portal);
     return {
-      dataAbertura: get('dataAbertura'), marca: get('marca'), departamento: get('departamento'), unidade: get('unidade'),
+      dataAbertura: get('dataAbertura'), departamento: get('departamento'), unidade: get('unidade'),
       nivelVaga: get('nivelVaga'), solicitante: get('solicitante'), cargo: get('cargo'), sigilosa: get('sigilosa'),
       tipoVaga: get('tipoVaga'), responsavel: get('responsavel'), status: get('status'), tipoMovimentacao: get('tipoMovimentacao'),
       motivoAumento: get('motivoAumento'), pessoaSubstituida: get('pessoaSubstituida'),
@@ -694,10 +690,10 @@
   function wireEditEvents(el, vaga, readOnly) {
     el.querySelector('#ev-voltar').addEventListener('click', () => { view = 'list'; render(); });
     if (readOnly) return;
-    const marcaSel = el.querySelector('#ev_marca');
-    marcaSel && marcaSel.addEventListener('change', () => {
+    const unidadeSel = el.querySelector('#ev_unidade');
+    unidadeSel && unidadeSel.addEventListener('change', () => {
       const deptoSel = el.querySelector('#ev_departamento');
-      if (deptoSel) deptoSel.innerHTML = selOpts(departamentosPorMarca(marcaSel.value), '');
+      if (deptoSel) deptoSel.innerHTML = selOpts(departamentosPorUnidade(unidadeSel.value), '');
     });
     const tipoMovSel = el.querySelector('#ev_tipoMovimentacao');
     tipoMovSel && tipoMovSel.addEventListener('change', () => {
@@ -739,7 +735,7 @@
   }
 
   const CAMPOS_LABEL_VAGA = {
-    dataAbertura: 'Data de Abertura', marca: 'Marca', departamento: 'Departamento', solicitante: 'Solicitante',
+    dataAbertura: 'Data de Abertura', departamento: 'Departamento', solicitante: 'Solicitante',
     cargo: 'Cargo', sigilosa: 'Sigilosa', tipoVaga: 'Tipo da Vaga', responsavel: 'Responsável',
     status: 'Status', tipoMovimentacao: 'Tipo de Movimentação', motivoAumento: 'Motivo Aumento',
     pessoaSubstituida: 'Pessoa Substituída', cota: 'Vaga é Cota?', tipoCota: 'Tipo de Cota', tipoRecrutamento: 'Tipo de Recrutamento', etapa: 'Etapa',
@@ -755,7 +751,7 @@
     const msg = el.querySelector('#ev-msg');
     msg.style.display = 'none';
     const dados = coletarFormVaga(el, 'ev_');
-    if (!dados.dataAbertura || !dados.marca || !dados.cargo || !dados.responsavel || !dados.status || !dados.observacoes) {
+    if (!dados.dataAbertura || !dados.unidade || !dados.cargo || !dados.responsavel || !dados.status || !dados.observacoes) {
       msg.textContent = 'Preencha os campos obrigatórios marcados com *.'; msg.style.display = 'block'; return;
     }
     if (dados.cota === 'Sim' && !dados.tipoCota) {
@@ -782,8 +778,8 @@
         const motivo = prompt(`Alterar o status da vaga ${vaga.id} para "${statusPedido}" exige aprovação.\n\nInforme o motivo:`);
         if (motivo === null) { btn.disabled = false; btn.textContent = 'Salvar alterações'; return; }
         await R.criarSolicitacao({
-          tipo, payload: { vagaId: vaga.id, cargo: vaga.cargo, marca: vaga.marca, novoStatus: statusPedido },
-          descricao: `Alterar status da vaga ${vaga.id} — ${vaga.cargo} (${vaga.marca}) de "${statusAtual}" para "${statusPedido}". Motivo: ${motivo || 'não informado'}`
+          tipo, payload: { vagaId: vaga.id, cargo: vaga.cargo, unidade: vaga.unidade, novoStatus: statusPedido },
+          descricao: `Alterar status da vaga ${vaga.id} — ${vaga.cargo} (${vaga.unidade}) de "${statusAtual}" para "${statusPedido}". Motivo: ${motivo || 'não informado'}`
         });
         dados.status = statusAtual;
         solicitacaoCriada = true;
@@ -878,9 +874,8 @@
     if (novaVagaStep === 1) {
       container.innerHTML = `
         <div class="form-grid">
-          <div class="field"><label>Marca <span class="req">*</span></label><select id="nv_marca">${selOpts(marcasAtivas(), d.marca)}</select></div>
-          <div class="field"><label>Unidade</label><select id="nv_unidade">${selOpts(unidadesAtivas(), d.unidade)}</select></div>
-          <div class="field"><label>Departamento <span class="req">*</span></label><select id="nv_departamento">${selOpts(departamentosPorMarca(d.marca), d.departamento)}</select></div>
+          <div class="field"><label>Unidade <span class="req">*</span></label><select id="nv_unidade">${selOpts(unidadesAtivas(), d.unidade)}</select></div>
+          <div class="field"><label>Departamento <span class="req">*</span></label><select id="nv_departamento">${selOpts(departamentosPorUnidade(d.unidade), d.departamento)}</select></div>
           <div class="field"><label>Nível da Vaga <span class="req">*</span></label><select id="nv_nivelVaga">${selOpts(niveisAtivos(), d.nivelVaga)}</select></div>
           <div class="field"><label>Cargo <span class="req">*</span></label><select id="nv_cargo">${selOpts(cargosAtivos(), d.cargo)}</select></div>
           <div class="field"><label>Solicitante <span class="req">*</span></label><select id="nv_solicitante">${selOpts(solicitanteOpcoes(d.solicitante), d.solicitante)}</select></div>
@@ -893,8 +888,8 @@
           <div class="field"><label>Vaga é Cota? <span class="req">*</span></label><select id="nv_cota">${selOpts(SIGILO, d.cota)}</select></div>
           ${d.cota === 'Sim' ? `<div class="field"><label>Tipo de Cota <span class="req">*</span></label><select id="nv_tipoCota">${selOpts(TIPOS_COTA, d.tipoCota)}</select></div>` : ''}
         </div>`;
-      const marcaSel = container.querySelector('#nv_marca');
-      marcaSel.addEventListener('change', () => { coletarStep(container); renderStep(el); });
+      const unidadeSel = container.querySelector('#nv_unidade');
+      unidadeSel.addEventListener('change', () => { coletarStep(container); renderStep(el); });
       container.querySelector('#nv_tipoMovimentacao').addEventListener('change', () => { coletarStep(container); renderStep(el); });
       container.querySelector('#nv_cota').addEventListener('change', () => { coletarStep(container); renderStep(el); });
     } else if (novaVagaStep === 2) {
@@ -932,7 +927,7 @@
     const get = id => { const e = container.querySelector('#' + id); return e ? e.value : ''; };
     if (novaVagaStep === 1) {
       Object.assign(novaVagaDados, {
-        marca: get('nv_marca'), departamento: get('nv_departamento'), unidade: get('nv_unidade'), nivelVaga: get('nv_nivelVaga'),
+        departamento: get('nv_departamento'), unidade: get('nv_unidade'), nivelVaga: get('nv_nivelVaga'),
         cargo: get('nv_cargo'), solicitante: get('nv_solicitante'), tipoVaga: get('nv_tipoVaga'), responsavel: get('nv_responsavel'),
         sigilosa: get('nv_sigilosa'), tipoMovimentacao: get('nv_tipoMovimentacao'), motivoAumento: get('nv_motivoAumento'),
         pessoaSubstituida: get('nv_pessoaSubstituida'),
@@ -965,7 +960,7 @@
     const msg = el.querySelector('#nv-msg');
     msg.style.display = 'none';
     if (novaVagaStep === 1) {
-      const obrig = [['marca', 'Marca'], ['unidade', 'Unidade'], ['departamento', 'Departamento'], ['nivelVaga', 'Nível da Vaga'],
+      const obrig = [['unidade', 'Unidade'], ['departamento', 'Departamento'], ['nivelVaga', 'Nível da Vaga'],
         ['cargo', 'Cargo'], ['solicitante', 'Solicitante'], ['tipoVaga', 'Tipo da Vaga'], ['responsavel', 'Responsável'],
         ['sigilosa', 'Vaga Sigilosa?'], ['tipoMovimentacao', 'Tipo de Movimentação']];
       for (const [c, l] of obrig) if (!d[c]) { showNvMsg(el, `Preencha o campo "${l}".`); return false; }
@@ -1001,7 +996,7 @@
   }
   async function salvarRascunho(el) {
     coletarStep(el.querySelector('#nv-step-container'));
-    if (!novaVagaDados.marca || !novaVagaDados.cargo) { showNvMsg(el, 'Preencha ao menos Marca e Cargo para salvar como rascunho.'); return; }
+    if (!novaVagaDados.unidade || !novaVagaDados.cargo) { showNvMsg(el, 'Preencha ao menos Unidade e Cargo para salvar como rascunho.'); return; }
     await criarVaga(el, Object.assign({}, novaVagaDados, { status: 'Aberto', etapa: novaVagaDados.etapa || 'Divulgação' }));
   }
   async function finalizarNovaVaga(el) { await criarVaga(el, novaVagaDados); }
@@ -1013,7 +1008,7 @@
       const id = U.nextCode('VAG', (D().vagas || []).map(v => v.id));
       const vaga = {
         id, dataAbertura: dados.dataAbertura || U.todayISO(), motivoSla: dados.motivoSla || '',
-        marca: dados.marca || '', departamento: dados.departamento || '', unidade: dados.unidade || '',
+        departamento: dados.departamento || '', unidade: dados.unidade || '',
         nivelVaga: dados.nivelVaga || '', solicitante: dados.solicitante || '', cargo: dados.cargo || '',
         sigilosa: dados.sigilosa || 'Não', tipoVaga: dados.tipoVaga || 'Operacional', responsavel: dados.responsavel || '',
         status: dados.status || 'Aberto', tipoMovimentacao: dados.tipoMovimentacao || '', motivoAumento: dados.motivoAumento || '',
@@ -1028,7 +1023,7 @@
         cota: dados.cota || 'Não', tipoCota: dados.cota === 'Sim' ? (dados.tipoCota || '') : ''
       };
       await R.insertRow('vagas', vaga);
-      await R.logAcao({ acao: 'Criação de Vaga', vagaId: vaga.id, detalhes: `Vaga criada: ${vaga.cargo} (${vaga.marca})` });
+      await R.logAcao({ acao: 'Criação de Vaga', vagaId: vaga.id, detalhes: `Vaga criada: ${vaga.cargo} (${vaga.unidade})` });
       view = 'list';
       await reloadAndRender();
     } catch (err) {

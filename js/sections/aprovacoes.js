@@ -147,7 +147,7 @@
 
     if (s.tipo === 'excluir-vaga') {
       await HUB_RECRUIT.deleteRow('vagas', p.vagaId);
-      await HUB_RECRUIT.logAcao({ acao: 'Exclusão de Vaga', vagaId: p.vagaId, detalhes: `Vaga excluída: ${p.cargo || ''} (${p.marca || ''}) · aprovado via solicitação por ${usuarioAtual()}` });
+      await HUB_RECRUIT.logAcao({ acao: 'Exclusão de Vaga', vagaId: p.vagaId, detalhes: `Vaga excluída: ${p.cargo || ''} (${p.unidade || ''}) · aprovado via solicitação por ${usuarioAtual()}` });
 
     } else if (s.tipo === 'excluir-candidato') {
       await HUB_RECRUIT.deleteRow('candidatos', p.candidatoId);

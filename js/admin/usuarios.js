@@ -112,7 +112,7 @@
               <span style="font-size:11px"><a href="#" id="acc-departamentos-all" style="color:var(--p1)">selecionar todos</a> · <a href="#" id="acc-departamentos-none" style="color:var(--muted)">limpar</a></span>
             </div>
             <div class="checks" id="acc-departamentos"></div>
-            <p class="sub" style="color:var(--muted);margin-top:6px">Vale para os dois módulos: restringe as linhas de Indicadores por unidade/departamento e, no Recrutamento, restringe por marca (ver observação no rodapé).</p>
+            <p class="sub" style="color:var(--muted);margin-top:6px">Vale para os dois módulos: restringe as linhas de Indicadores e, no Recrutamento, restringe por unidade (ver observação no rodapé).</p>
           </div>
         </div>
         <div style="display:flex;gap:10px;margin-top:16px">
@@ -120,7 +120,7 @@
           ${isEdit ? '<button type="button" class="btn btn-outline" id="acc-cancel">Cancelar</button>' : ''}
         </div>
         <div class="msg err" id="acc-msg"></div>
-        <p class="sub" style="color:var(--muted);margin-top:10px">No Recrutamento, "unidades liberadas" é comparado com o campo Marca de cada vaga (ex.: "Hering", "O Boticário") — pode não usar exatamente a mesma lista de nomes que aparece nas planilhas de Indicadores.</p>
+        <p class="sub" style="color:var(--muted);margin-top:10px">No Recrutamento, "unidades liberadas" é comparado com o campo Unidade de cada vaga (ex.: "Boticário - Interior de MG", "Hering") — pode não usar exatamente a mesma lista de nomes que aparece nas planilhas de Indicadores.</p>
       </form>`;
 
     function checkedUnidades() {

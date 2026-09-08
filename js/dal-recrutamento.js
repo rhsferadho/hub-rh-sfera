@@ -16,7 +16,7 @@
   // recarregar toda vez que se entra em qualquer tela do módulo Recrutamento
   // OU do módulo Treinamento e Desenvolvimento — ver RECRUIT_SECTIONS em app.js.
   const RECRUIT_TABLES = ['vagas', 'candidatos', 'entrevistas', 'onboarding', 'visitas_loja', 'pareceres_gestor', 'entrevistas_desligamento'];
-  const MASTER_TABLES = ['marcas', 'unidades', 'cargos', 'etapas', 'fontes_captacao', 'portais', 'niveis_vaga', 'recrutadores', 'recrutamento_departamentos'];
+  const MASTER_TABLES = ['unidades', 'cargos', 'etapas', 'fontes_captacao', 'portais', 'niveis_vaga', 'recrutadores', 'recrutamento_departamentos'];
 
   window.HUB_RECRUIT_DATA = window.HUB_RECRUIT_DATA || {};
   for (const t of RECRUIT_TABLES.concat(MASTER_TABLES)) window.HUB_RECRUIT_DATA[t] = window.HUB_RECRUIT_DATA[t] || [];

@@ -9,9 +9,8 @@
 // compartilhados da barra superior do hub (data início/fim, unidade,
 // departamento) em vez do painel de filtros próprio que o app original tinha.
 //
-// "Unidade" do filtro compartilhado do hub mapeia para vaga.marca (não para
-// a coluna "unidade" do Recrutamento) — mesma escolha feita no RLS, ver nota
-// na seção 4 de supabase-migration.sql.
+// "Unidade" do filtro compartilhado do hub mapeia para vaga.unidade — mesma
+// escolha feita no RLS, ver nota na seção 4 de supabase-migration.sql.
 (function () {
   const U = HUB_UTILS;
 
@@ -75,7 +74,7 @@
 
   // ------------------------------------------------------------------
   // Filtro: usa a barra superior compartilhada do hub (start/end sobre
-  // vaga.dataAbertura, unidade sobre vaga.marca, departamento sobre
+  // vaga.dataAbertura, unidade sobre vaga.unidade, departamento sobre
   // vaga.departamento) — os filtros extras do dashboard original
   // (recrutador/vaga/nível/tipo/status) ficam só na tela operacional
   // "Controle de Vagas", que tem seu próprio painel de filtros mais rico.
@@ -83,7 +82,7 @@
   function vagasFiltradas(f) {
     let rows = HUB_RECRUIT_DATA.vagas || [];
     if (f.start || f.end) rows = rows.filter(v => v.dataAbertura && U.inRange(v.dataAbertura, f.start, f.end));
-    rows = rows.filter(v => U.matchesAny(v.marca, f.unidade));
+    rows = rows.filter(v => U.matchesAny(v.unidade, f.unidade));
     rows = rows.filter(v => U.matchesAny(v.departamento, f.departamento));
     return rows;
   }
@@ -194,7 +193,7 @@
 
   function charts(vagas, candidatos, entrevistas) {
     const abertasAndamento = vagas.filter(v => v.status === 'Aberto' || v.status === 'Andamento');
-    const porMarca = countBy(abertasAndamento, v => v.marca);
+    const porUnidade = countBy(abertasAndamento, v => v.unidade);
     const porStatus = countBy(vagas, v => v.status);
 
     const meses = new Map();
@@ -252,7 +251,7 @@
       label, value: abertasAndamento.filter(v => { const s = calcularSLA(v); return s >= min && s <= max; }).length
     }));
 
-    return { porMarca, porStatus, evolucaoMensal, slaPorRecrutador, funilPorEtapa, slaPorEtapa, fontes, eficienciaPorFonte, motivosReprovacao, entrevistasPorRecrutador, entrevistasProximos14, aging };
+    return { porUnidade, porStatus, evolucaoMensal, slaPorRecrutador, funilPorEtapa, slaPorEtapa, fontes, eficienciaPorFonte, motivosReprovacao, entrevistasPorRecrutador, entrevistasProximos14, aging };
   }
 
   function rankings(vagas, candidatos, entrevistas) {

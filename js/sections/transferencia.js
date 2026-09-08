@@ -47,13 +47,13 @@
       <div class="card full">
         ${vagas.length === 0 ? HUB_UI.empty('Nenhuma vaga em aberto, andamento ou congelada no momento.') : `
         <div class="table-wrap"><table class="dt">
-          <thead><tr><th>ID</th><th>Cargo</th><th>Marca</th><th>Departamento</th><th>Status</th><th>Responsável atual</th><th></th></tr></thead>
+          <thead><tr><th>ID</th><th>Cargo</th><th>Unidade</th><th>Departamento</th><th>Status</th><th>Responsável atual</th><th></th></tr></thead>
           <tbody>
             ${vagas.map(v => `
               <tr>
                 <td>${U.escapeHtml(v.id)}</td>
                 <td>${U.escapeHtml(v.cargo || '')}</td>
-                <td>${U.escapeHtml(v.marca || '')}</td>
+                <td>${U.escapeHtml(v.unidade || '')}</td>
                 <td>${U.escapeHtml(v.departamento || '')}</td>
                 <td>${U.escapeHtml(v.status || '')}</td>
                 <td>${U.escapeHtml(v.responsavel || '—')}</td>
@@ -121,8 +121,8 @@
       } else {
         await R.criarSolicitacao({
           tipo: 'transferir-vaga',
-          payload: { vagaId, cargo: vaga.cargo, marca: vaga.marca, novoRecrutador, motivo, observacao },
-          descricao: `Transferir vaga ${vagaId} — ${vaga.cargo || ''} (${vaga.marca || ''}) de ${vaga.responsavel || '—'} para ${novoRecrutador}. Motivo: ${motivo}${observacao ? ' — ' + observacao : ''}`
+          payload: { vagaId, cargo: vaga.cargo, unidade: vaga.unidade, novoRecrutador, motivo, observacao },
+          descricao: `Transferir vaga ${vagaId} — ${vaga.cargo || ''} (${vaga.unidade || ''}) de ${vaga.responsavel || '—'} para ${novoRecrutador}. Motivo: ${motivo}${observacao ? ' — ' + observacao : ''}`
         });
         alert('Solicitação de transferência enviada para aprovação.');
       }

@@ -152,7 +152,7 @@
     return `
       <div style="margin-bottom:14px;padding:12px;background:var(--bg);border-radius:8px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><strong>${U.escapeHtml(c.nome)}</strong>${pcdBadgeCandidato(c)} · <span style="font-family:monospace">${U.escapeHtml(c.id)}</span></div>
-        <div style="font-size:12px;color:var(--muted)">Vaga: ${U.escapeHtml(c.vagaId || '—')} — ${U.escapeHtml(c.cargo || '')} (${U.escapeHtml(c.marca || '')})</div>
+        <div style="font-size:12px;color:var(--muted)">Vaga: ${U.escapeHtml(c.vagaId || '—')} — ${U.escapeHtml(c.cargo || '')} (${U.escapeHtml(c.unidade || '')})</div>
         <div style="font-size:12px;color:var(--muted);margin-top:2px">E-mail: ${U.escapeHtml(c.email || '—')} · Contato: ${U.escapeHtml(c.contato || '—')} · FIT: ${c.fitPct || 0}%</div>
         ${c.observacoes && c.observacoes.trim() ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:12.5px"><strong>Observações internas:</strong><br>${U.escapeHtml(c.observacoes)}</div>` : ''}
       </div>
@@ -267,7 +267,7 @@
         ${page.length === 0 ? HUB_UI.empty('Nenhum candidato encontrado.', 'Ajuste os filtros ou cadastre um novo candidato.') : `
         <div class="table-wrap"><table class="dt">
           <thead><tr>
-            <th>ID</th><th>Candidato</th><th>Vaga</th><th>Cargo</th><th>Marca</th><th>Recrutador</th><th>% FIT</th>
+            <th>ID</th><th>Candidato</th><th>Vaga</th><th>Cargo</th><th>Unidade</th><th>Recrutador</th><th>% FIT</th>
             <th>Etapa RH</th><th>Etapa Análise</th><th>Etapa Checagem</th><th>Etapa Gestor</th><th>Resultado Final</th><th>Contato</th><th></th>
           </tr></thead>
           <tbody>
@@ -279,7 +279,7 @@
                 <td><span class="fit-dot" style="background:${fitDotColor(c.fitPct)}"></span> ${U.escapeHtml(c.nome || '')}${pcdBadgeCandidato(c)}</td>
                 <td>${U.escapeHtml(c.vagaId || '')}</td>
                 <td>${U.escapeHtml(c.cargo || '')}</td>
-                <td>${U.escapeHtml(c.marca || '')}</td>
+                <td>${U.escapeHtml(c.unidade || '')}</td>
                 <td>${U.escapeHtml(c.entrevistadoPor || '—')}</td>
                 <td>${fitBarHTML(c.fitPct)}</td>
                 <td>${badgeEtapaCandidato(rRH, [])}</td>
@@ -335,9 +335,9 @@
   }
 
   function exportarCandidatosCSV() {
-    const header = ['ID', 'Nome', 'Vaga ID', 'Cargo', 'Marca', 'Departamento', 'Nível', 'Recrutador', 'Data Entrevista', 'Horário', 'Contato', 'E-mail', '% FIT', 'Resultado RH', 'Motivo Reprovação', 'Resultado Análise', 'Resultado Checagem', 'Resultado Gestor', 'Resultado Final', 'Data Fechamento', 'Fonte', 'Data Admissão', 'Observações'];
+    const header = ['ID', 'Nome', 'Vaga ID', 'Cargo', 'Unidade', 'Departamento', 'Nível', 'Recrutador', 'Data Entrevista', 'Horário', 'Contato', 'E-mail', '% FIT', 'Resultado RH', 'Motivo Reprovação', 'Resultado Análise', 'Resultado Checagem', 'Resultado Gestor', 'Resultado Final', 'Data Fechamento', 'Fonte', 'Data Admissão', 'Observações'];
     const rows = [header].concat((D().candidatos || []).map(c => [
-      c.id, c.nome, c.vagaId, c.cargo, c.marca, c.departamento, c.nivelVaga, c.entrevistadoPor, c.dataEntrevista, c.horarioEntrevista,
+      c.id, c.nome, c.vagaId, c.cargo, c.unidade, c.departamento, c.nivelVaga, c.entrevistadoPor, c.dataEntrevista, c.horarioEntrevista,
       c.contato, c.email, c.fitPct, c.resultadoRh, c.motivoReprovacao, c.resultadoAnalise, c.resultadoChecagem, c.resultadoGestor,
       c.resultadoFinal, c.dataFechamento, c.fonteCaptacao, c.dataAdmissao, c.observacoes
     ]));
@@ -402,7 +402,7 @@
     const vaga = (D().vagas || []).find(v => v.id === c.vagaId);
     try {
       await R.insertRow('onboarding', {
-        candidatoId: c.id, candidatoNome: c.nome, vagaId: c.vagaId, cargo: c.cargo, marca: c.marca,
+        candidatoId: c.id, candidatoNome: c.nome, vagaId: c.vagaId, cargo: c.cargo,
         departamento: c.departamento, unidade: vaga ? vaga.unidade : '', nivelVaga: c.nivelVaga,
         dataPrevistaAdmissao: (vaga && vaga.dataPrevistaAdmissao) || c.dataAdmissao || '',
         status: 'Pendente',
@@ -535,10 +535,10 @@
         <div class="blk-body">
           <div class="form-grid">
             <div class="field full"><label>Código da Vaga <span class="req">*</span></label>
-              <select id="cf_vagaId" ${dis}><option value="">Selecione uma vaga ativa...</option>${vagasAtivas.map(v => `<option value="${v.id}" ${d.vagaId === v.id ? 'selected' : ''}>${v.id} — ${U.escapeHtml(v.cargo || '')} (${U.escapeHtml(v.marca || '')})</option>`).join('')}</select>
+              <select id="cf_vagaId" ${dis}><option value="">Selecione uma vaga ativa...</option>${vagasAtivas.map(v => `<option value="${v.id}" ${d.vagaId === v.id ? 'selected' : ''}>${v.id} — ${U.escapeHtml(v.cargo || '')} (${U.escapeHtml(v.unidade || '')})</option>`).join('')}</select>
             </div>
             <div class="field"><label>Cargo</label><input value="${vaga ? U.escapeHtml(vaga.cargo || '') : ''}" readonly style="background:var(--bg)"></div>
-            <div class="field"><label>Marca</label><input value="${vaga ? U.escapeHtml(vaga.marca || '') : ''}" readonly style="background:var(--bg)"></div>
+            <div class="field"><label>Unidade</label><input value="${vaga ? U.escapeHtml(vaga.unidade || '') : ''}" readonly style="background:var(--bg)"></div>
             <div class="field"><label>Departamento</label><input value="${vaga ? U.escapeHtml(vaga.departamento || '') : ''}" readonly style="background:var(--bg)"></div>
             <div class="field"><label>Nível da Vaga</label><input value="${vaga ? U.escapeHtml(vaga.nivelVaga || '') : ''}" readonly style="background:var(--bg)"></div>
           </div>
@@ -705,7 +705,7 @@
         await R.insertRow('pareceres_gestor', {
           id: U.nextCode('PG', (D()['pareceres_gestor'] || []).map(p => p.id)),
           candidatoId: c.id, candidatoNome: c.nome, vagaId: c.vagaId, cargo: c.cargo,
-          marca: c.marca, departamento: c.departamento, modelo,
+          unidade: c.unidade, departamento: c.departamento, modelo,
           recrutador: (HUB_USER && (HUB_USER.nome || HUB_USER.email)) || 'Desconhecido',
           status: 'Pendente', dados: {}
         });
@@ -808,7 +808,7 @@
       inp.addEventListener(ev, () => { d[inp.dataset.field] = inp.value; });
     });
 
-    // Vaga: recalcula recrutador/fonte padrão e reflete cargo/marca/departamento
+    // Vaga: recalcula recrutador/fonte padrão e reflete cargo/unidade/departamento
     const vagaSel = el.querySelector('#cf_vagaId');
     vagaSel && vagaSel.addEventListener('change', () => {
       d.vagaId = vagaSel.value;
@@ -1019,7 +1019,7 @@
       }
     } else if (d.etapaRhStatus !== 'Concluída' && d.dataEntrevista && d.horarioEntrevista) {
       await R.insertRow('entrevistas', {
-        candidatoId: editingCandId, candidatoNome: d.nome, vagaId: d.vagaId, cargo: d.cargo, marca: d.marca,
+        candidatoId: editingCandId, candidatoNome: d.nome, vagaId: d.vagaId, cargo: d.cargo, unidade: d.unidade,
         recrutador: d.entrevistadoPor, etapa: 'Entrevista (RH)', tipoEntrevista: 'RH', data: d.dataEntrevista, horario: d.horarioEntrevista,
         duracao: 60, status: 'Agendada', tipoProcesso: vaga ? vaga.tipoRecrutamento : 'Externo', nivelVaga: d.nivelVaga, observacao: ''
       });
@@ -1030,7 +1030,7 @@
     if (!validar(el)) return;
     const d = candForm;
     const vaga = (D().vagas || []).find(v => v.id === d.vagaId);
-    if (vaga) { d.cargo = vaga.cargo; d.marca = vaga.marca; d.departamento = vaga.departamento; d.nivelVaga = vaga.nivelVaga || ''; }
+    if (vaga) { d.cargo = vaga.cargo; d.unidade = vaga.unidade; d.departamento = vaga.departamento; d.nivelVaga = vaga.nivelVaga || ''; }
     d.atualizadoPor = (HUB_USER && (HUB_USER.nome || HUB_USER.email)) || 'Desconhecido';
 
     const btn = el.querySelector('#cf-salvar-voltar');
@@ -1048,7 +1048,7 @@
         await R.logAcao({ acao: 'Novo Candidato', vagaId: novo.vagaId, detalhes: `Candidato ${id} cadastrado: ${novo.nome}` });
         if (d.dataEntrevista && d.horarioEntrevista) {
           await R.insertRow('entrevistas', {
-            candidatoId: id, candidatoNome: novo.nome, vagaId: novo.vagaId, cargo: novo.cargo, marca: novo.marca,
+            candidatoId: id, candidatoNome: novo.nome, vagaId: novo.vagaId, cargo: novo.cargo, unidade: novo.unidade,
             recrutador: novo.entrevistadoPor, etapa: 'Entrevista (RH)', tipoEntrevista: 'RH', data: novo.dataEntrevista, horario: novo.horarioEntrevista,
             duracao: 60, status: 'Agendada', tipoProcesso: vaga ? vaga.tipoRecrutamento : 'Externo', nivelVaga: novo.nivelVaga, observacao: ''
           });
