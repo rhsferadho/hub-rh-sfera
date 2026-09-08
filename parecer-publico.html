@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Parecer do Gestor — Hub Sfera</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231C7CEC'/%3E%3Ctext x='16' y='22' font-size='15' font-family='Arial' font-weight='bold' fill='white' text-anchor='middle'%3EHS%3C/text%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.0/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --p1:#1C7CEC; --p2:#0DBAFC; --p3:#7ED2F2; --ink:#000000;
+  --bg:#F1F4F8; --card:#ffffff; --border:#E2E8F0;
+  --text:#16181D; --text2:#52565E; --muted:#8A8F98;
+  --good:#0ca30c; --warning:#c98500; --serious:#ec835a; --critical:#d03b3b;
+  --radius:12px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:'Ubuntu',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+h1,h2,h3,h4{font-weight:700;margin:0}
+.pp-page{max-width:760px;margin:0 auto;padding:28px 16px 60px}
+.pp-brand{display:flex;align-items:center;gap:8px;margin-bottom:18px;font-weight:700;color:var(--text2);font-size:13px}
+.pp-brand span{width:22px;height:22px;border-radius:6px;background:var(--p1);display:inline-block}
+.pp-card{background:var(--card);border-radius:var(--radius);padding:22px;border:1px solid var(--border)}
+
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:6px}
+.field input,.field select,.field textarea{width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;color:var(--text);background:#fff}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--p1);box-shadow:0 0 0 3px rgba(28,124,236,.15)}
+.field input:disabled{background:var(--bg);color:var(--text2)}
+.field textarea{resize:vertical}
+.field .req{color:var(--critical)}
+.field .hint{font-size:10.5px;color:var(--muted);font-weight:400}
+.hint{color:var(--muted)}
+
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-grid .full,.field.full{grid-column:1/-1}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;border:none;font-family:inherit;transition:filter .15s}
+.btn-primary{background:var(--p1);color:#fff}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-primary:disabled{opacity:.6;cursor:default}
+
+.msg{font-size:12.5px;margin-top:10px;padding:9px 11px;border-radius:8px}
+.msg.err{background:#FEF2F2;color:var(--critical);border:1px solid #FECACA}
+
+details.blk{border:1.5px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
+details.blk > summary{background:#F7F9FC;padding:11px 16px;font-size:12.5px;font-weight:700;cursor:pointer;list-style:none}
+details.blk > summary::-webkit-details-marker{display:none}
+details.blk > summary:before{content:'▸ ';color:var(--muted)}
+details.blk[open] > summary:before{content:'▾ '}
+details.blk > .blk-body{padding:16px}
+
+table.tbl{width:100%;border-collapse:collapse;font-size:12px}
+table.tbl th,table.tbl td{padding:8px 6px;border-bottom:1px solid var(--border);text-align:left}
+</style>
+</head>
+<body>
+<div class="pp-page">
+  <div class="pp-brand"><span></span> Hub Sfera — Recrutamento &amp; Seleção</div>
+  <div id="pp-root"><div class="pp-card"><p class="hint">Carregando...</p></div></div>
+</div>
+<script src="js/config.js"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/pareceres/comum.js"></script>
+<script src="js/pareceres/vd-comum.js"></script>
+<script src="js/pareceres/modelo-hering.js"></script>
+<script src="js/pareceres/modelo-levis.js"></script>
+<script src="js/pareceres/modelo-boticario-loja.js"></script>
+<script src="js/pareceres/modelo-boticario-vd-er.js"></script>
+<script src="js/pareceres/modelo-boticario-vd-campo.js"></script>
+<script src="js/pareceres/modelo-boticario-vd-logistica.js"></script>
+<script src="js/pareceres/render-comum.js"></script>
+<script src="js/parecer-publico.js"></script>
+</body>
+</html>

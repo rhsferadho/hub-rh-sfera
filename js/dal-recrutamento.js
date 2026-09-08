@@ -15,7 +15,7 @@
   // muda com a mesma frequência que vagas/candidatos/entrevistas e precisa
   // recarregar toda vez que se entra em qualquer tela do módulo Recrutamento
   // OU do módulo Treinamento e Desenvolvimento — ver RECRUIT_SECTIONS em app.js.
-  const RECRUIT_TABLES = ['vagas', 'candidatos', 'entrevistas', 'onboarding', 'visitas_loja', 'pareceres_gestor'];
+  const RECRUIT_TABLES = ['vagas', 'candidatos', 'entrevistas', 'onboarding', 'visitas_loja', 'pareceres_gestor', 'entrevistas_desligamento'];
   const MASTER_TABLES = ['marcas', 'unidades', 'cargos', 'etapas', 'fontes_captacao', 'portais', 'niveis_vaga', 'recrutadores', 'recrutamento_departamentos'];
 
   window.HUB_RECRUIT_DATA = window.HUB_RECRUIT_DATA || {};

@@ -21,7 +21,8 @@ aqui). Siga os passos na ordem.
    - As tabelas do módulo **Indicadores** (alimentadas por upload): `colaboradores`, `feedbacks`, `one_on_one`, `celebracoes`, `entrevista_pesquisa`, `entrevista_solicitacao`, `twygo_participantes`, `twygo_usuarios`, `twygo_conteudos`.
    - As tabelas do módulo **Recrutamento** (alimentadas pelas próprias telas do hub, sem upload): `vagas`, `candidatos`, `entrevistas`, `historico`, `solicitacoes`, além das listas mestre `marcas`, `unidades`, `cargos`, `etapas`, `fontes_captacao`, `portais`, `niveis_vaga`, `recrutadores`, `recrutamento_departamentos`.
    - A tabela do módulo **Treinamento e Desenvolvimento**: `onboarding` — um registro é criado automaticamente quando um candidato aprovado (vaga já finalizada) é enviado para onboarding pela tela Candidatos; nunca é criada à mão.
-   - `pareceres_gestor` — um registro é criado automaticamente quando o(a) recrutador(a) escolhe, na Etapa Entrevista Gestor da tela Candidatos, qual dos 6 modelos de parecer (Hering/Levi's/O Boticário Loja/O Boticário VD ER, Campo e Logística) o(a) gestor(a) deve preencher; nunca é criada à mão.
+   - `pareceres_gestor` — um registro é criado automaticamente quando o(a) recrutador(a) escolhe, na Etapa Entrevista Gestor da tela Candidatos, qual dos 6 modelos de parecer (Hering/Levi's/O Boticário Loja/O Boticário VD ER, Campo e Logística) o(a) gestor(a) deve preencher; nunca é criada à mão. Tem um link público de preenchimento sem login (`parecer-publico.html`), acessado só por token — a tabela em si não tem nenhuma policy para o papel `anon`, o acesso passa exclusivamente pelas funções `parecer_publico_get`/`parecer_publico_salvar`.
+   - `entrevistas_desligamento` — um registro é criado quando um(a) analista de RH (permissão `indicadores.desligamento_gerar_link`) gera um link de Entrevista de Desligamento pela tela Indicadores → Entrevista Desligamento, a partir de um colaborador da planilha de Colaboradores. Mesmo padrão de link público sem login do item acima (`entrevista-desligamento-publico.html` + `entrevista_desligamento_publico_get`/`entrevista_desligamento_publico_salvar`) — nunca entra automaticamente nos indicadores calculados a partir de `entrevista_pesquisa`/`entrevista_solicitacao` (essas continuam só de upload de planilha).
    - Todas as tabelas já saem com Row Level Security configurada, incluindo `has_permission()` (lê o mapa de permissões de cada usuário) e `can_see()` (restringe por unidade/departamento, reaproveitado do Hub de Indicadores).
 
 ## 3. Desativar confirmação de e-mail
@@ -48,6 +49,7 @@ cadastrada, desative a confirmação por e-mail:
    select id, email, 'Administrador', 'admin', '{
      "indicadores.headcount": true, "indicadores.recrutamento": true,
      "indicadores.rotatividade": true, "indicadores.desligamento": true,
+     "indicadores.desligamento_gerar_link": true,
      "indicadores.feedbacks": true, "indicadores.oneonone": true,
      "indicadores.treinamentos": true, "indicadores.celebracoes": true,
      "recrutamento.dashboard": true, "recrutamento.vagas": true,

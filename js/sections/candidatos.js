@@ -714,6 +714,56 @@
     await reloadAndRender();
   }
 
+  // Colaborador (Ativo/Desativado, papel Gestor/Administrador) que corresponde
+  // ao Solicitante da vaga — mesmo nome usado pelo select de Solicitante em
+  // vagas.js. É pra este e-mail que vai o link público do parecer.
+  function colaboradorSolicitanteDaVaga(vagaId) {
+    const vaga = (D().vagas || []).find(v => v.id === vagaId);
+    if (!vaga || !vaga.solicitante) return null;
+    return ((window.HUB_DATA || {}).colaboradores || []).find(c => (c.nome_completo || c.nome) === vaga.solicitante) || null;
+  }
+
+  // Botão "Gerar link e enviar por e-mail": cria (uma vez — reaproveita se já
+  // existir) um token aleatório em pareceres_gestor.link_token, monta a URL
+  // pública (parecer-publico.html?token=...) e abre o cliente de e-mail do(a)
+  // próprio(a) recrutador(a) com o link pronto (mailto:, no mesmo molde do
+  // link de WhatsApp já usado em candidatos.js/banco-talentos.js — quem
+  // efetivamente envia é o(a) recrutador(a), não o Hub Sfera).
+  function htmlBotaoLinkParecer(parecer) {
+    if (!parecer || parecer.status !== 'Pendente') return '';
+    const colaborador = colaboradorSolicitanteDaVaga(parecer.vagaId);
+    if (!colaborador || !colaborador.email) {
+      return `<div class="field full"><div class="hint">Para enviar o link do parecer por e-mail, defina o <strong>Solicitante</strong> da vaga (com e-mail cadastrado na planilha de Colaboradores).</div></div>`;
+    }
+    return `<div class="field full">
+      <button type="button" class="btn btn-outline btn-sm" id="cf-parecer-link" style="width:auto">Gerar link do parecer e enviar por e-mail (${U.escapeHtml(colaborador.email)})</button>
+    </div>`;
+  }
+
+  async function gerarEnviarLinkParecer(candidatoId) {
+    const parecer = parecerGestorDoCandidato(candidatoId);
+    if (!parecer || parecer.status !== 'Pendente') return;
+    const colaborador = colaboradorSolicitanteDaVaga(parecer.vagaId);
+    if (!colaborador || !colaborador.email) { alert('Defina o Solicitante da vaga (com e-mail na planilha de Colaboradores) antes de gerar o link.'); return; }
+    let token = parecer.linkToken;
+    if (!token) {
+      token = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+      try {
+        await R.updateRow('pareceres_gestor', parecer.id, { linkToken: token });
+        parecer.linkToken = token;
+      } catch (err) { alert('Erro ao gerar o link: ' + err.message); return; }
+    }
+    const link = new URL('parecer-publico.html?token=' + encodeURIComponent(token), location.href).href;
+    const nomeColab = colaborador.nome_completo || colaborador.nome || '';
+    const assunto = `Parecer do Gestor pendente — ${parecer.candidatoNome || ''} (${parecer.cargo || ''})`;
+    const corpo = `Olá${nomeColab ? ', ' + nomeColab : ''}!\n\nVocê tem um parecer de gestor pendente para o(a) candidato(a) ${parecer.candidatoNome || ''} (${parecer.cargo || ''}).\n\nAcesse o link abaixo para preencher:\n${link}\n\nEste link é pessoal e de uso único — não repasse para outras pessoas.\n\nAtenciosamente,\nRecrutamento & Seleção`;
+    const mailto = `mailto:${colaborador.email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+    const a = document.createElement('a');
+    a.href = mailto; a.target = '_blank'; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    try { await navigator.clipboard.writeText(link); } catch (e) { /* clipboard indisponível — o link já foi incluído no e-mail aberto */ }
+  }
+
   function renderGestorBlock(d, dis) {
     const parecer = editingCandId ? parecerGestorDoCandidato(editingCandId) : null;
     const modelos = Object.values(window.HUB_PARECER_MODELOS || {});
@@ -733,8 +783,8 @@
               <option value="">Selecione o modelo...</option>
               ${modelos.map(m => `<option value="${m.id}" ${parecer && parecer.modelo === m.id ? 'selected' : ''}>${U.escapeHtml(m.nome)}</option>`).join('')}
             </select>
-            ${parecer ? `<div class="hint" style="margin-top:4px">Status do parecer: ${parecer.status === 'Preenchido' ? 'Preenchido' : 'Pendente — aparece na tela Parecer do Gestor'}</div>` : ''}
-          </div>` : `<div class="field full"><div class="hint">Salve o candidato antes de escolher o modelo de parecer.</div></div>`}
+            ${parecer ? `<div class="hint" style="margin-top:4px">Status do parecer: ${parecer.status === 'Preenchido' ? 'Preenchido' : 'Pendente — já aparece na tela Parecer do Gestor'}</div>` : ''}
+          </div>${!dis ? htmlBotaoLinkParecer(parecer) : ''}` : `<div class="field full"><div class="hint">Salve o candidato antes de escolher o modelo de parecer.</div></div>`}
         </div>
       </div>
     </details>`;
@@ -867,6 +917,8 @@
     modeloParecerSel && modeloParecerSel.addEventListener('change', () => {
       if (modeloParecerSel.value) salvarModeloParecer(editingCandId, modeloParecerSel.value);
     });
+    const linkParecerBtn = el.querySelector('#cf-parecer-link');
+    linkParecerBtn && linkParecerBtn.addEventListener('click', () => gerarEnviarLinkParecer(editingCandId));
 
     // Resultado Final manual + admissão
     const finalSel = el.querySelector('#cf_resultadoFinal');

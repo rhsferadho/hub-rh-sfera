@@ -44,7 +44,7 @@
   // vagas/candidatos/entrevistas/onboarding toda vez que são abertas — é
   // isso que faz os dados aparecerem "em tempo real, de forma automática"
   // sem upload.
-  const RECRUIT_SECTIONS = new Set(['ind-recrutamento', 'rec-dashboard', 'rec-vagas', 'rec-candidatos', 'rec-agenda', 'rec-banco-talentos', 'rec-aprovacoes', 'rec-historico', 'rec-transferencia', 'rec-parecer-gestor', 'tre-onboarding', 'tre-visita-loja']);
+  const RECRUIT_SECTIONS = new Set(['ind-recrutamento', 'ind-desligamento', 'rec-dashboard', 'rec-vagas', 'rec-candidatos', 'rec-agenda', 'rec-banco-talentos', 'rec-aprovacoes', 'rec-historico', 'rec-transferencia', 'rec-parecer-gestor', 'tre-onboarding', 'tre-visita-loja']);
 
   function sectionRenderer(name) {
     const f = getFilters();

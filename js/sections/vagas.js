@@ -55,6 +55,29 @@
       .map(r => r.nome));
   }
 
+  // Solicitante da vaga: passou a vir da planilha "1. Colaboradores" (módulo
+  // Indicadores, window.HUB_DATA — não HUB_RECRUIT_DATA) em vez de texto
+  // livre — só colaboradores Ativos/Desativados (não Desligados) cujo papel
+  // é Gestor ou Administrador. `nome_completo` é o mesmo campo usado em todo
+  // o módulo Indicadores para exibir o colaborador.
+  function solicitantesAtivos() {
+    const papeisAceitos = ['gestor', 'administrador'];
+    return U.uniqueSorted((((window.HUB_DATA || {}).colaboradores) || [])
+      .filter(c => {
+        const situ = U.normalizeText(c.situacao);
+        return (situ === 'ativo' || situ === 'desativado') && papeisAceitos.includes(U.normalizeText(c.papel));
+      })
+      .map(c => c.nome_completo || c.nome).filter(Boolean));
+  }
+  // Preserva o valor já salvo mesmo que ele não bata com a lista atual
+  // (planilha de Colaboradores não carregada, colaborador desligado/removido
+  // depois, ou valor antigo digitado livremente antes desta mudança) — sem
+  // isso, abrir e salvar uma vaga antiga apagaria o Solicitante gravado nela.
+  function solicitanteOpcoes(valorAtual) {
+    const ativos = solicitantesAtivos();
+    return valorAtual && !ativos.includes(valorAtual) ? [valorAtual].concat(ativos) : ativos;
+  }
+
   // ---- Badges / formatadores de célula (portados de badgeStatusVaga,
   // badgeStatusSLA, formatFitCel, formatSLACel — adaptados às classes
   // .badge .b1..b5 do hub, sem CSS/ícones próprios do app original) ----
@@ -478,7 +501,7 @@
         <div class="field"><label>Unidade</label><select id="ev_unidade" ${disabled}>${selOpts(unidadesAtivas(), v.unidade)}</select></div>
         <div class="field"><label>Departamento</label><select id="ev_departamento" ${disabled}>${selOpts(departamentosPorMarca(v.marca), v.departamento)}</select></div>
         <div class="field"><label>Nível da Vaga</label><select id="ev_nivelVaga" ${disabled}>${selOpts(niveisAtivos(), v.nivelVaga)}</select></div>
-        <div class="field"><label>Solicitante</label><input id="ev_solicitante" value="${U.escapeHtml(v.solicitante || '')}" ${disabled}></div>
+        <div class="field"><label>Solicitante</label><select id="ev_solicitante" ${disabled}>${selOpts(solicitanteOpcoes(v.solicitante), v.solicitante)}</select></div>
         <div class="field"><label>Cargo <span class="req">*</span></label><select id="ev_cargo" ${disabled}>${selOpts(cargosAtivos(), v.cargo)}</select></div>
         <div class="field"><label>Vaga Sigilosa?</label><select id="ev_sigilosa" ${disabled}>${selOpts(SIGILO, v.sigilosa)}</select></div>
         <div class="field"><label>Tipo da Vaga</label><select id="ev_tipoVaga" ${disabled}>${selOpts(TIPOS_VAGA, v.tipoVaga)}</select></div>
@@ -860,7 +883,7 @@
           <div class="field"><label>Departamento <span class="req">*</span></label><select id="nv_departamento">${selOpts(departamentosPorMarca(d.marca), d.departamento)}</select></div>
           <div class="field"><label>Nível da Vaga <span class="req">*</span></label><select id="nv_nivelVaga">${selOpts(niveisAtivos(), d.nivelVaga)}</select></div>
           <div class="field"><label>Cargo <span class="req">*</span></label><select id="nv_cargo">${selOpts(cargosAtivos(), d.cargo)}</select></div>
-          <div class="field"><label>Solicitante <span class="req">*</span></label><input id="nv_solicitante" value="${U.escapeHtml(d.solicitante || '')}"></div>
+          <div class="field"><label>Solicitante <span class="req">*</span></label><select id="nv_solicitante">${selOpts(solicitanteOpcoes(d.solicitante), d.solicitante)}</select></div>
           <div class="field"><label>Tipo da Vaga <span class="req">*</span></label><select id="nv_tipoVaga">${selOpts(TIPOS_VAGA, d.tipoVaga)}</select></div>
           <div class="field"><label>Responsável (Recrutador) <span class="req">*</span></label><select id="nv_responsavel">${selOpts(recrutadoresAtivos(), d.responsavel)}</select></div>
           <div class="field"><label>Vaga Sigilosa? <span class="req">*</span></label><select id="nv_sigilosa">${selOpts(SIGILO, d.sigilosa)}</select></div>

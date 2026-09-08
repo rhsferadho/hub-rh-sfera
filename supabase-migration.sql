@@ -266,6 +266,43 @@ create index if not exists entrevista_solicitacao_unidade_idx on public.entrevis
 create index if not exists entrevista_solicitacao_departamento_idx on public.entrevista_solicitacao (departamento);
 create index if not exists entrevista_solicitacao_data_idx on public.entrevista_solicitacao (data_demissao);
 
+-- Entrevista de Desligamento OPERACIONAL — diferente de entrevista_pesquisa/
+-- entrevista_solicitacao acima (que são só leitura, alimentadas por upload de
+-- planilha e substituídas por completo a cada reenvio via admin_truncate).
+-- Esta tabela é escrita pela própria aplicação: o(a) analista de RH gera um
+-- link de entrevista (a partir de um colaborador da planilha de
+-- Colaboradores) na tela Indicadores → Entrevista Desligamento, e o(a)
+-- ex-colaborador(a) preenche via link público (token), sem login — mesmo
+-- padrão de pareceres_gestor/parecer_publico_*. As respostas daqui NÃO
+-- entram automaticamente nos indicadores calculados a partir de
+-- entrevista_pesquisa/entrevista_solicitacao (essa integração, se quiser,
+-- fica para um passo seguinte).
+create table if not exists public.entrevistas_desligamento (
+  id text primary key,
+  colaborador_external_id text, -- referência solta (sem FK) ao external_id de colaboradores — essa tabela é truncada a cada upload de planilha, então uma FK quebraria
+  colaborador_nome text,
+  colaborador_cpf text,
+  colaborador_email text,
+  colaborador_telefone text,
+  cargo text,
+  data_admissao date,
+  data_desligamento date, -- colaboradores.ultimo_dia_trabalhado no momento da geração do link
+  unidade text,            -- colaboradores.unidade (usado no can_see, igual entrevista_pesquisa/entrevista_solicitacao)
+  departamento text,       -- colaboradores.departamento (idem)
+  unidade_trabalho text,   -- pergunta 5 do formulário ("Boticário - Juiz de Fora" etc.)
+  local text,              -- pergunta 6-13/15-17 (loja/ER) — nulo quando unidade_trabalho = Escritório
+  departamento_forms text, -- pergunta 14 — só quando unidade_trabalho = Escritório
+  respostas jsonb not null default '{}', -- { "<id da pergunta 18-83>": valor }
+  status text not null default 'Pendente', -- 'Pendente' | 'Preenchido'
+  link_token text,
+  gerado_por text, -- nome/e-mail de quem gerou o link
+  data_finalizacao timestamptz,
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+create index if not exists entrevistas_desligamento_status_idx on public.entrevistas_desligamento (status);
+create unique index if not exists entrevistas_desligamento_link_token_idx on public.entrevistas_desligamento (link_token) where link_token is not null;
+
 -- 27. Twygo.xlsx (participantes/matrículas — nível inscrição, um por curso por pessoa)
 create table if not exists public.twygo_participantes (
   id bigserial primary key,
@@ -663,11 +700,18 @@ create table if not exists public.pareceres_gestor (
   justificativa text,
   preenchido_por text,
   data_finalizacao timestamptz,
+  -- Token de acesso ao link público do parecer (parecer-publico.html), gerado
+  -- pelo(a) recrutador(a) ao clicar "Gerar link e enviar por e-mail" — dá
+  -- acesso de preenchimento SEM LOGIN, via as funções parecer_publico_get/
+  -- parecer_publico_salvar abaixo (a única forma de acesso anônimo — a
+  -- tabela em si continua sem nenhuma policy para o papel anon).
+  link_token text,
   criado_em timestamptz not null default now(),
   atualizado_em timestamptz not null default now()
 );
 create index if not exists pareceres_gestor_candidato_id_idx on public.pareceres_gestor (candidato_id);
 create index if not exists pareceres_gestor_status_idx on public.pareceres_gestor (status);
+create unique index if not exists pareceres_gestor_link_token_idx on public.pareceres_gestor (link_token) where link_token is not null;
 
 -- ----------------------------------------------------------------------------
 -- 3.1 ATUALIZAÇÃO INCREMENTAL (idempotente — roda sem efeito em projeto novo,
@@ -681,6 +725,8 @@ alter table public.vagas add column if not exists tipo_cota text;
 alter table public.candidatos add column if not exists tipo_transporte text;
 alter table public.candidatos add column if not exists quantidade_passagens int;
 alter table public.candidatos add column if not exists valor_total_transporte numeric;
+alter table public.pareceres_gestor add column if not exists link_token text;
+create unique index if not exists pareceres_gestor_link_token_idx on public.pareceres_gestor (link_token) where link_token is not null;
 
 alter table public.onboarding add column if not exists modalidade text;
 alter table public.onboarding add column if not exists carga_horaria numeric;
@@ -770,6 +816,7 @@ alter table public.one_on_one enable row level security;
 alter table public.celebracoes enable row level security;
 alter table public.entrevista_pesquisa enable row level security;
 alter table public.entrevista_solicitacao enable row level security;
+alter table public.entrevistas_desligamento enable row level security;
 alter table public.twygo_participantes enable row level security;
 alter table public.twygo_usuarios enable row level security;
 alter table public.twygo_conteudos enable row level security;
@@ -957,6 +1004,26 @@ create policy pareceres_gestor_update on public.pareceres_gestor for update
   using (public.has_permission('recrutamento.parecer_gestor') or public.has_permission('recrutamento.candidatos'))
   with check (public.has_permission('recrutamento.parecer_gestor') or public.has_permission('recrutamento.candidatos'));
 
+-- entrevistas_desligamento: leitura via indicadores.desligamento (mesmo
+-- escopo de can_see() das tabelas de indicadores — colaboradores.unidade/
+-- departamento, não marca). Gerar link (insert) é uma permissão à parte,
+-- indicadores.desligamento_gerar_link, porque nem todo mundo que vê o
+-- indicador deve poder gerar/enviar links reais para ex-colaboradores. O
+-- preenchimento em si (update) acontece só via a RPC pública
+-- entrevista_desligamento_publico_salvar (SECURITY DEFINER, sem policy de
+-- anon aqui) — a policy de update abaixo é só para uso administrativo futuro
+-- (ex.: corrigir um dado errado), não faz parte do fluxo normal.
+drop policy if exists entrevistas_desligamento_select on public.entrevistas_desligamento;
+create policy entrevistas_desligamento_select on public.entrevistas_desligamento for select
+  using (public.can_see(unidade, departamento) and public.has_permission('indicadores.desligamento'));
+drop policy if exists entrevistas_desligamento_insert on public.entrevistas_desligamento;
+create policy entrevistas_desligamento_insert on public.entrevistas_desligamento for insert
+  with check (public.has_permission('indicadores.desligamento_gerar_link'));
+drop policy if exists entrevistas_desligamento_update on public.entrevistas_desligamento;
+create policy entrevistas_desligamento_update on public.entrevistas_desligamento for update
+  using (public.has_permission('indicadores.desligamento_gerar_link'))
+  with check (public.has_permission('indicadores.desligamento_gerar_link'));
+
 -- historico: leitura via recrutamento.historico; escrita (log automático de
 -- auditoria) liberada a qualquer usuário com alguma permissão de Recrutamento.
 drop policy if exists historico_select on public.historico;
@@ -1045,6 +1112,148 @@ $$;
 
 grant execute on function public.admin_truncate(text) to authenticated;
 
+-- ----------------------------------------------------------------------------
+-- 7. LINK PÚBLICO DO PARECER DO GESTOR (sem login)
+-- ----------------------------------------------------------------------------
+-- O(a) recrutador(a) pode gerar, na tela Candidatos, um link com token
+-- aleatório (pareceres_gestor.link_token) e mandar por e-mail para o(a)
+-- Solicitante da vaga — que pode não ter (e em geral não tem) login no Hub
+-- Sfera. Em vez de abrir a tabela pro papel `anon` via RLS (o que exigiria
+-- confiar o token inteiro à política de RLS, sem controle fino sobre o que
+-- cada chamada pode fazer), as duas funções abaixo são o ÚNICO ponto de
+-- acesso anônimo: SECURITY DEFINER, validam o token internamente e não
+-- expõem nada além do necessário. `pareceres_gestor`/`candidatos` continuam
+-- sem qualquer policy para `anon` — só estas duas funções.
+create or replace function public.parecer_publico_get(p_token text)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  result jsonb;
+begin
+  if p_token is null or length(p_token) < 16 then
+    return null;
+  end if;
+  select jsonb_build_object(
+    'candidatoNome', pg.candidato_nome,
+    'cargo', pg.cargo,
+    'modelo', pg.modelo,
+    'recrutador', pg.recrutador,
+    'dados', pg.dados,
+    'observacoesCandidato', c.observacoes
+  ) into result
+  from public.pareceres_gestor pg
+  left join public.candidatos c on c.id = pg.candidato_id
+  where pg.link_token = p_token and pg.status = 'Pendente';
+  return result; -- null = token inválido, já usado ou expirado (nunca existiu)
+end;
+$$;
+revoke all on function public.parecer_publico_get(text) from public;
+grant execute on function public.parecer_publico_get(text) to anon, authenticated;
+
+create or replace function public.parecer_publico_salvar(
+  p_token text, p_dados jsonb, p_nivel_recomendacao int,
+  p_parecer_final text, p_justificativa text, p_preenchido_por text
+)
+returns boolean
+language plpgsql security definer set search_path = public as $$
+declare
+  v_parecer public.pareceres_gestor%rowtype;
+  v_resultado text;
+  v_agora timestamptz := now();
+begin
+  if p_token is null or length(p_token) < 16 then
+    raise exception 'Link inválido.';
+  end if;
+  select * into v_parecer from public.pareceres_gestor where link_token = p_token and status = 'Pendente';
+  if not found then
+    raise exception 'Este link não é mais válido — o parecer já foi preenchido ou o link expirou.';
+  end if;
+
+  -- Mesmo mapeamento de resultadoGestorDoParecer em js/sections/parecer-gestor.js
+  if p_parecer_final = 'Aprovado(a) - Banco de Talentos' then v_resultado := 'Banco de Talentos';
+  elsif p_parecer_final = 'Reprovado(a) - Não avançar no processo' then v_resultado := 'Reprovado';
+  else v_resultado := 'Aprovado';
+  end if;
+
+  update public.pareceres_gestor set
+    status = 'Preenchido', dados = p_dados, nivel_recomendacao = p_nivel_recomendacao,
+    parecer_final = p_parecer_final, justificativa = p_justificativa,
+    preenchido_por = p_preenchido_por, data_finalizacao = v_agora, atualizado_em = v_agora
+  where id = v_parecer.id;
+
+  if v_parecer.candidato_id is not null then
+    update public.candidatos set
+      resultado_gestor = v_resultado, etapa_gestor_status = 'Concluída',
+      data_entrevista_gestor = v_agora::date, atualizado_em = v_agora
+    where id = v_parecer.candidato_id;
+  end if;
+
+  return true;
+end;
+$$;
+revoke all on function public.parecer_publico_salvar(text, jsonb, int, text, text, text) from public;
+grant execute on function public.parecer_publico_salvar(text, jsonb, int, text, text, text) to anon, authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 8. LINK PÚBLICO DA ENTREVISTA DE DESLIGAMENTO (sem login)
+-- ----------------------------------------------------------------------------
+-- Mesmo padrão de segurança do link do Parecer do Gestor (seção 7): as duas
+-- funções abaixo são o ÚNICO ponto de acesso anônimo a
+-- entrevistas_desligamento — a tabela em si não tem nenhuma policy para
+-- `anon`. get() só retorna dado enquanto status='Pendente' (nunca depois de
+-- preenchido); salvar() exige o mesmo e marca 'Preenchido' de forma
+-- atômica, então o token vira inválido para qualquer tentativa seguinte
+-- (link de uso único).
+create or replace function public.entrevista_desligamento_publico_get(p_token text)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  result jsonb;
+begin
+  if p_token is null or length(p_token) < 16 then
+    return null;
+  end if;
+  select jsonb_build_object(
+    'colaboradorNome', colaborador_nome,
+    'colaboradorCpf', colaborador_cpf,
+    'colaboradorEmail', colaborador_email,
+    'colaboradorTelefone', colaborador_telefone,
+    'unidadeTrabalho', unidade_trabalho,
+    'local', local,
+    'departamentoForms', departamento_forms,
+    'respostas', respostas
+  ) into result
+  from public.entrevistas_desligamento
+  where link_token = p_token and status = 'Pendente';
+  return result; -- null = token inválido, já respondido ou expirado (nunca existiu)
+end;
+$$;
+revoke all on function public.entrevista_desligamento_publico_get(text) from public;
+grant execute on function public.entrevista_desligamento_publico_get(text) to anon, authenticated;
+
+create or replace function public.entrevista_desligamento_publico_salvar(p_token text, p_respostas jsonb)
+returns boolean
+language plpgsql security definer set search_path = public as $$
+declare
+  v_row public.entrevistas_desligamento%rowtype;
+  v_agora timestamptz := now();
+begin
+  if p_token is null or length(p_token) < 16 then
+    raise exception 'Link inválido.';
+  end if;
+  select * into v_row from public.entrevistas_desligamento where link_token = p_token and status = 'Pendente';
+  if not found then
+    raise exception 'Este link não é mais válido — a entrevista já foi respondida ou o link expirou.';
+  end if;
+  update public.entrevistas_desligamento set
+    respostas = p_respostas, status = 'Preenchido', data_finalizacao = v_agora, atualizado_em = v_agora
+  where id = v_row.id;
+  return true;
+end;
+$$;
+revoke all on function public.entrevista_desligamento_publico_salvar(text, jsonb) from public;
+grant execute on function public.entrevista_desligamento_publico_salvar(text, jsonb) to anon, authenticated;
+
 -- ============================================================================
 -- BOOTSTRAP DO PRIMEIRO ADMINISTRADOR (faça isto depois de rodar o script acima)
 -- ============================================================================
@@ -1058,6 +1267,7 @@ grant execute on function public.admin_truncate(text) to authenticated;
 --    select id, email, 'Administrador', 'admin', '{
 --      "indicadores.headcount": true, "indicadores.recrutamento": true,
 --      "indicadores.rotatividade": true, "indicadores.desligamento": true,
+--      "indicadores.desligamento_gerar_link": true,
 --      "indicadores.feedbacks": true, "indicadores.oneonone": true,
 --      "indicadores.treinamentos": true, "indicadores.celebracoes": true,
 --      "recrutamento.dashboard": true, "recrutamento.vagas": true,
