@@ -298,92 +298,19 @@
     }).filter(r => r.colaborador_enviou);
   }
 
-  // ---------------------------------------------------------------------
-  // 34. Nova Entrevista de Desligamento.xlsx
-  // (duas abas: "Pesquisa de Desligamento" + "Solicitação de Desligamento")
-  // ---------------------------------------------------------------------
-  function npsFromText(v) {
-    const n = num(v);
-    if (n === null) return null;
-    return Math.max(0, Math.min(10, Math.round(n)));
-  }
-
-  function parseEntrevistaPesquisa(rows) {
-    return rows.map(row => {
-      const idx = buildIndex(row);
-      const g = (...c) => pick(row, idx, c);
-      const respostas = {};
-      for (const k of Object.keys(row)) {
-        const v = row[k];
-        if (v !== '' && v !== null && v !== undefined) respostas[k] = v;
-      }
-      return {
-        planilha_id: str(g('ID')),
-        data_inicio: toISODate(g('Hora de início')),
-        data_conclusao: toISODate(g('Hora de conclusão')),
-        nome: str(g('Seu nome completo')),
-        email: str(g('Seu e-mail')),
-        telefone: str(g('Seu telefone com DDD \r\nExemplo: 21-99999-9999', 'Seu telefone com DDD')),
-        unidade: str(g('Unidade', 'Sua Unidade de trabalho')),
-        departamento: str(g('Departamento')),
-        motivo_desligamento: str(g('Motivo do Desligamento', 'Motivo do Desligamento:')),
-        submotivo_desligamento: str(g('Submotivo de Desligamento')),
-        data_desligamento: toISODate(g('Data do Desligamento')),
-        trabalharia_novamente: str(g('Você trabalharia novamente na Sfera Multifranquias?')),
-        nps: npsFromText(g('Qual é a probabilidade de você nos recomendar a um amigo ou a um colega?')),
-        respostas
-      };
-    }).filter(r => r.nome || r.planilha_id);
-  }
-
-  function parseEntrevistaSolicitacao(rows) {
-    return rows.map(row => {
-      const idx = buildIndex(row);
-      const g = (...c) => pick(row, idx, c);
-      return {
-        planilha_id: str(g('ID')),
-        data_solicitacao: toISODate(g('DATA DA SOLICITAÇÃO')),
-        nome_solicitante: str(g('NOME DO SOLICITANTE')),
-        nome: str(g('NOME')),
-        cargo: str(g('CARGO')),
-        unidade: str(g('UNIDADE')),
-        departamento: str(g('DEPARTAMENTO OU LOJA')),
-        data_admissao: toISODate(g('DATA DE ADMISSÃO')),
-        data_demissao: toISODate(g('DATA DA DEMISSÃO')),
-        tempo_trabalho: intOrNull(g('TEMPO DE TRABALHO')),
-        tipo: str(g('TIPO')),
-        tipo_desligamento: str(g('TIPO DO DESLIGAMENTO')),
-        motivo_desligamento: str(g('MOTIVO DO DESLIGAMENTO')),
-        status_feedz: str(g('STATUS DO DESLIGAMENTO NA FEEDZ')),
-        status_entrevista: str(g('STATUS DA ENTREVISTA')),
-        observacoes: str(g('OBSERVAÇÕES'))
-      };
-    }).filter(r => r.nome);
-  }
-
-  function parseEntrevistaDesligamento(wb) {
-    const sigPesquisa = ['Seu nome completo', 'Motivo do Desligamento', 'Você trabalharia novamente na Sfera Multifranquias?'];
-    const sigSolicitacao = ['DATA DA SOLICITAÇÃO', 'NOME', 'UNIDADE', 'STATUS DA ENTREVISTA'];
-    const pPesquisa = pickSheet(wb, sigPesquisa, { preferName: 'Pesquisa de Desligamento' });
-    const pSolicitacao = pickSheet(wb, sigSolicitacao, { preferName: 'Solicitação de Desligamento' });
-    if (!pPesquisa && !pSolicitacao) {
-      throw new Error('Não encontrei as abas "Pesquisa de Desligamento" e/ou "Solicitação de Desligamento" no arquivo.');
-    }
-    const pesquisa = pPesquisa ? parseEntrevistaPesquisa(pPesquisa.rows) : [];
-    const solicitacao = (pSolicitacao && pSolicitacao.name !== (pPesquisa && pPesquisa.name))
-      ? parseEntrevistaSolicitacao(pSolicitacao.rows)
-      : [];
-    if (!pesquisa.length && !solicitacao.length) {
-      throw new Error('O arquivo não contém linhas reconhecíveis de nenhuma das duas abas esperadas.');
-    }
-    return { pesquisa, solicitacao };
-  }
+  // A planilha "34. Nova Entrevista de Desligamento.xlsx" não é mais
+  // enviada por upload — entrevista_pesquisa/entrevista_solicitacao viraram
+  // só o arquivo histórico (importado uma única vez via SQL, ver
+  // import-historico-entrevista-desligamento.sql), e os dados novos vêm do
+  // link público de entrevista (js/entrevista-desligamento-publico.js), que
+  // grava direto em entrevistas_desligamento — ver
+  // js/metrics-indicadores.js (entrevistaMetrics já lê as duas fontes).
 
   // ---------------------------------------------------------------------
   // 27. Twygo.xlsx — participantes/matrículas (nível inscrição)
   // ---------------------------------------------------------------------
   function parseTwygoParticipantes(wb) {
-    const sig = ['ID do conteúdo', 'Título do conteúdo', 'Nome completo', 'E-mail', 'Progresso', 'Situação da Inscrição'];
+    const sig = ['ID do conteúdo', 'Título do conteúdo', 'Nome', 'Sobrenome', 'E-mail', 'Progresso', 'Situação da Inscrição'];
     const picked = pickSheet(wb, sig);
     if (!picked) throw new Error('Não encontrei dados na planilha de participantes do Twygo.');
     requireSignature(picked.rows, sig, 4, 'Twygo - Participantes');
@@ -397,11 +324,17 @@
       const textRow = textRows[i] || {};
       const textIdx = buildIndex(textRow);
       const cargaTexto = pick(textRow, textIdx, ['Carga horária', 'Carga Horária do conteúdo']);
+      // O export real do Twygo (relatório "Participantes", modelo Inscrições)
+      // vem com "Nome" e "Sobrenome" em colunas separadas, sem nenhuma coluna
+      // "Nome completo" — junta os dois pro indicador não ficar com o nome
+      // partido. Mantém "Nome completo" como alternativa caso algum export
+      // diferente venha com as duas partes já combinadas numa coluna só.
+      const nomeCompleto = str(g('Nome completo')) || [str(g('Nome')), str(g('Sobrenome'))].filter(Boolean).join(' ') || null;
       return {
         content_id: str(g('ID do conteúdo')),
         content_title: str(g('Título do conteúdo')),
         content_type: str(g('Tipo do conteúdo')),
-        nome_completo: str(g('Nome completo')),
+        nome_completo: nomeCompleto,
         email: str(g('E-mail')),
         unidade: str(g('Empresa')),
         departamento: str(g('Área')),
@@ -549,7 +482,6 @@
     parseFeedbacks,
     parseOneOnOne,
     parseCelebracoes,
-    parseEntrevistaDesligamento,
     parseTwygoParticipantes,
     parseTwygoUsuarios,
     parseTwygoConteudos,

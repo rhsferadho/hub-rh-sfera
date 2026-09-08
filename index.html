@@ -80,7 +80,11 @@ p{margin:0}
 
 .main{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-width:0}
 .topbar{background:var(--card);border-bottom:1px solid var(--border);padding:14px 26px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:5}
-.topbar h1{font-size:18px}
+.topbar h1{font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn-hamburger{display:none;flex-shrink:0;background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:var(--text);padding:6px 8px;border-radius:7px}
+.btn-hamburger:hover{background:var(--bg)}
+.sb-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:49}
+.sb-backdrop.open{display:block}
 #data-status{font-size:11.5px;color:var(--muted)}
 .pc{padding:22px 26px 40px;flex:1}
 
@@ -206,11 +210,29 @@ table.dt tr:hover td{background:#F7F9FC}
 .perm-preset-bar button:hover{border-color:var(--p1);color:var(--p1)}
 
 @media (max-width:900px){
-  .sidebar{display:none}
+  .btn-hamburger{display:inline-flex;align-items:center}
+  /* A sidebar vira uma gaveta deslizante (aberta via #btn-mobile-menu, em
+     js/app.js) em vez de simplesmente sumir — sem isso não haveria como
+     trocar de seção nem sair (o botão "Sair" mora dentro da sidebar). */
+  .sidebar{
+    display:flex;
+    position:fixed; top:0; left:0; height:100vh; z-index:50;
+    box-shadow:0 0 0 rgba(0,0,0,0);
+    transform:translateX(-100%);
+    transition:transform .22s ease;
+  }
+  .sidebar.open{transform:translateX(0);box-shadow:12px 0 32px rgba(0,0,0,.25)}
+  .topbar{padding:12px 14px}
+  .pc{padding:16px 14px 32px}
+  .fbar{padding:12px}
   .grid2{grid-template-columns:1fr}
   .grid2-fixed{grid-template-columns:1fr}
   .kpi-grid{grid-template-columns:repeat(2,1fr)}
   .form-grid{grid-template-columns:1fr}
+}
+
+@media (max-width:480px){
+  .kpi-grid{grid-template-columns:1fr}
 }
 
 /* ---------- Recrutamento: Vagas / Candidatos / Agenda (js/sections/vagas.js, candidatos.js, agenda.js) ---------- */
@@ -356,9 +378,14 @@ details.blk > .blk-body{padding:16px}
     <div class="sb-foot"><button class="btn" id="btn-logout">&#9211; Sair</button></div>
   </div>
 
+  <div class="sb-backdrop" id="sb-backdrop"></div>
+
   <div class="main">
     <div class="topbar">
-      <h1 id="page-title">Dashboard</h1>
+      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+        <button class="btn-hamburger" id="btn-mobile-menu" aria-label="Abrir menu">&#9776;</button>
+        <h1 id="page-title">Dashboard</h1>
+      </div>
       <span id="data-status"></span>
     </div>
     <div class="pc">

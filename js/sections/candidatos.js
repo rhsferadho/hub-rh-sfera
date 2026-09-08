@@ -647,7 +647,7 @@
       ${d.resultadoFinal === 'Banco de Talentos' ? `<details class="blk" open>
         <summary>Cargos Possíveis</summary>
         <div class="blk-body">
-          <div class="field full"><label>Para quais cargos esse candidato é aderente no Banco de Talentos? <span class="hint">(até 5)</span></label>
+          <div class="field full"><label>Para quais cargos esse candidato é aderente no Banco de Talentos? <span class="req">*</span> <span class="hint">(até 5)</span></label>
             <div class="tag-list" id="cf_cargos_list">${(d.cargosPossiveis || []).map(c => `<span class="tag-chip">${U.escapeHtml(c)} <span class="x" data-rm-cargo="${U.escapeHtml(c)}">×</span></span>`).join('')}
               ${!readOnly && (d.cargosPossiveis || []).length < 5 ? `<select id="cf_newCargoPossivel" style="max-width:220px"><option value="">+ selecionar cargo...</option>${cargosAtivos().filter(c => !(d.cargosPossiveis || []).includes(c)).map(c => `<option value="${U.escapeHtml(c)}">${U.escapeHtml(c)}</option>`).join('')}</select>` : ''}
             </div>
@@ -998,6 +998,9 @@
     const auto = computeAutoResultadoFinal(d);
     if (auto) d.resultadoFinal = auto;
     if (d.resultadoFinal === 'Reprovado' && !d.motivoReprovacao) return fail('Informe o Motivo da Reprovação para finalizar.');
+    if (d.resultadoFinal === 'Banco de Talentos' && !(d.cargosPossiveis && d.cargosPossiveis.length)) {
+      return fail('Selecione ao menos um Cargo Possível para mover o candidato para o Banco de Talentos.');
+    }
     if (d.resultadoFinal === 'Aprovado') {
       if (!d.tipoTransporte) return fail('Informe o Tipo de Transporte em "Dados de Transporte para o Onboarding".');
       if (d.quantidadePassagens === undefined || d.quantidadePassagens === null || d.quantidadePassagens === '') return fail('Informe a Quantidade de Passagens em "Dados de Transporte para o Onboarding".');

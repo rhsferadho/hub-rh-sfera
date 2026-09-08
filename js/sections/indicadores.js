@@ -198,18 +198,44 @@
     terEl.innerHTML = `<p class="sub" style="margin-bottom:8px"><strong>Comentários adicionais</strong> — ${U.fmtInt(comentarios.length)}</p>` + comentariosHtml(comentarios, 'Sem comentários adicionais para esta opção.');
   }
 
+  // Duas subabas: "Indicadores" (gráficos anonimizados, sem nome de quem
+  // respondeu) e "Lista de Colaboradores" (pra quem foi gerado o link —
+  // essa sim mostra nome, porque é acompanhamento operacional de envio, não
+  // conteúdo de resposta). Estado de qual subaba está aberta persiste em
+  // memória do módulo (mesmo padrão de admin/cadastros.js).
+  let desligamentoTab = 'indicadores';
+
   function renderDesligamento(el, f) {
-    // O card "Gerar link de entrevista" (HUB_ENTREVISTA_DESLIGAMENTO) fica
-    // independente do noDataGate abaixo — ele não depende de planilha
-    // nenhuma ter sido importada, é uma tela operacional (grava direto em
-    // entrevistas_desligamento), diferente do resto desta página (dashboard
-    // alimentado só por upload de entrevista_pesquisa/entrevista_solicitacao).
-    const cardLink = HUB_ENTREVISTA_DESLIGAMENTO ? HUB_ENTREVISTA_DESLIGAMENTO.renderCardGerarLink() : '';
-    if (noDataGate(el, ['entrevista_pesquisa', 'entrevista_solicitacao'], canUpload())) {
-      if (cardLink) el.innerHTML = cardLink + el.innerHTML;
-      HUB_ENTREVISTA_DESLIGAMENTO && HUB_ENTREVISTA_DESLIGAMENTO.wireCardGerarLink(el);
+    el.innerHTML = `
+      <div class="tab-bar">
+        <button type="button" class="tab-btn ${desligamentoTab === 'indicadores' ? 'active' : ''}" data-desl-tab="indicadores">Indicadores</button>
+        <button type="button" class="tab-btn ${desligamentoTab === 'lista' ? 'active' : ''}" data-desl-tab="lista">Lista de Colaboradores</button>
+      </div>
+      <div id="desl-tab-body"></div>`;
+    el.querySelectorAll('[data-desl-tab]').forEach(b => b.addEventListener('click', () => {
+      desligamentoTab = b.dataset.deslTab;
+      renderDesligamento(el, f);
+    }));
+    const body = el.querySelector('#desl-tab-body');
+    if (desligamentoTab === 'lista') {
+      if (!HUB_ENTREVISTA_DESLIGAMENTO || !HUB_ENTREVISTA_DESLIGAMENTO.canGerarLink()) {
+        body.innerHTML = empty('Acesso restrito.', 'Você não tem permissão para gerar ou acompanhar links de entrevista.');
+        return;
+      }
+      body.innerHTML = HUB_ENTREVISTA_DESLIGAMENTO.renderListaLinks();
+      HUB_ENTREVISTA_DESLIGAMENTO.wireListaLinks(body);
       return;
     }
+    renderDesligamentoIndicadores(body, f);
+  }
+
+  function renderDesligamentoIndicadores(el, f) {
+    // "entrevistas_desligamento" mora em HUB_RECRUIT_DATA (não HUB_DATA) —
+    // um source combinado só pra este noDataGate, sem tocar HUB_DATA.
+    const linksGerados = (window.HUB_RECRUIT_DATA && window.HUB_RECRUIT_DATA.entrevistas_desligamento) || [];
+    const gateSource = Object.assign({}, HUB_DATA, { entrevistas_desligamento: linksGerados });
+    if (noDataGate(el, ['entrevista_pesquisa', 'entrevista_solicitacao', 'entrevistas_desligamento'], canUpload(),
+      'Importe o histórico em Administração ou gere links de entrevista na aba "Lista de Colaboradores".', gateSource)) return;
     const d = M.entrevistaMetrics(f);
     // Drivers de Atração (simples) abre a sequência; Motivos/Submotivos
     // entram logo em seguida como um par, antes dos demais índices — o
@@ -219,7 +245,6 @@
       card('Motivos de desligamento', '&#128172;', d.motivos.length ? '<div class="chart-h"><canvas id="c-desl-motivos"></canvas></div>' : empty('Sem dados.')) +
       card('Submotivos', '&#128269;', '<p class="sub" style="margin-bottom:8px">Clique numa barra de "Motivos de desligamento" para detalhar.</p><div id="submotivos-body">' + empty('Selecione um motivo ao lado.') + '</div>');
     el.innerHTML = `
-      ${cardLink}
       <div class="kpi-grid">
         ${kpi('Respostas de pesquisa', U.fmtInt(d.totalRespostas), '', 'var(--p1)')}
         ${kpi('Trabalhariam novamente', d.totalRespostas ? U.fmtPct(d.positivos / d.totalRespostas) : '—', `${U.fmtInt(d.positivos)} de ${U.fmtInt(d.totalRespostas)}`, '#1baf7a')}
@@ -248,7 +273,6 @@
       });
     }
     if (d.statusEntrevista.length) doughnutChart('c-desl-status', d.statusEntrevista.map(x => x.label), d.statusEntrevista.map(x => x.value));
-    HUB_ENTREVISTA_DESLIGAMENTO && HUB_ENTREVISTA_DESLIGAMENTO.wireCardGerarLink(el);
   }
 
   function renderSubmotivos(motivo, pairs) {

@@ -1,9 +1,8 @@
 // Entrevista de Desligamento — "Gerar link de entrevista" e acompanhamento
-// dos links já gerados. Injetado dentro da tela Indicadores → Entrevista
-// Desligamento (js/sections/indicadores.js chama HUB_ENTREVISTA_DESLIGAMENTO
-// no topo de renderDesligamento) — não é uma seção própria, por pedido
-// explícito do usuário ("crie um botão dentro de Entrevistas de
-// desligamento").
+// dos links já gerados. Renderizado dentro da subaba "Lista de
+// Colaboradores" da tela Indicadores → Entrevista Desligamento
+// (js/sections/indicadores.js chama HUB_ENTREVISTA_DESLIGAMENTO) — não é
+// uma seção própria do menu.
 //
 // Fluxo: analista com a permissão indicadores.desligamento_gerar_link
 // escolhe um colaborador (qualquer situação — ativo, desativado ou
@@ -23,7 +22,6 @@
   const U = HUB_UTILS;
   const R = HUB_RECRUIT;
   const M = HUB_ED_MODELO;
-  const PR = HUB_ED_RENDER;
 
   function D() { return window.HUB_DATA || {}; }
   function RD() { return window.HUB_RECRUIT_DATA || {}; }
@@ -87,12 +85,6 @@
   function abrirModalGerarLink() {
     modalColab = null; modalUnidadeTrabalho = ''; modalLocal = ''; modalDepartamentoForms = '';
     renderModalGerarLink();
-  }
-
-  function situacaoBadge(s) {
-    const st = U.normalizeText(s);
-    const cls = st === 'ativo' ? 'b2' : (st === 'desligado' ? 'b3' : 'b4');
-    return `<span class="badge ${cls}">${U.escapeHtml(s || '—')}</span>`;
   }
 
   function renderModalGerarLink() {
@@ -255,78 +247,45 @@
   }
 
   // ---------------------------------------------------------------
-  // "Ver resposta" (preenchidos) — reconstrói a trilha de perguntas
-  // realmente respondida (segue os `next` a partir das respostas salvas).
+  // Subaba "Lista de Colaboradores" — só acompanhamento de ENVIO (pra quem
+  // foi gerado o link e qual o status), nunca o CONTEÚDO da resposta: as
+  // respostas em si só alimentam os gráficos anonimizados da subaba
+  // "Indicadores" (ver converterRespostaLink em metrics-indicadores.js), e
+  // não têm nenhuma tela de detalhe ligada a um nome aqui de propósito.
   // ---------------------------------------------------------------
-  function trilhaRespostas(respostas) {
-    const linhas = [];
-    let qid = M.PRIMEIRA_PERGUNTA;
-    const visitados = new Set();
-    while (qid && M.PERGUNTAS[qid] && !visitados.has(qid)) {
-      visitados.add(qid);
-      const q = M.PERGUNTAS[qid];
-      const valor = respostas[qid];
-      const legivel = PR.respostaLegivel(qid, q, valor);
-      linhas.push({ titulo: q.titulo, resposta: legivel });
-      qid = PR.proximaPergunta(qid, q, respostas);
-    }
-    return linhas;
-  }
-
-  function abrirVerResposta(id) {
-    const row = registros().find(r => r.id === id);
-    if (!row) return;
-    const linhas = trilhaRespostas(row.respostas || {});
-    const corpo = `
-      <p class="hint" style="margin-bottom:12px">${U.escapeHtml(row.colaboradorNome || '')} · respondido em ${row.dataFinalizacao ? new Date(row.dataFinalizacao).toLocaleString('pt-BR') : '—'}</p>
-      ${linhas.map(l => `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="font-size:12px;font-weight:700;color:var(--text2)">${U.escapeHtml(l.titulo)}</div>
-        <div style="font-size:13px;margin-top:3px">${l.resposta === null ? '<span class="hint">Sem resposta</span>' : (Array.isArray(l.resposta) ? l.resposta.map(U.escapeHtml).join('; ') : U.escapeHtml(String(l.resposta)))}</div>
-      </div>`).join('')}
-    `;
-    abrirModal('Resposta da Entrevista de Desligamento', corpo);
-  }
-
-  // ---------------------------------------------------------------
-  // Card exibido no topo da tela Indicadores → Entrevista Desligamento
-  // ---------------------------------------------------------------
-  function renderCardGerarLink() {
-    if (!canGerarLink()) return '';
+  function renderListaLinks() {
     const todos = registros();
     const pendentes = todos.filter(r => r.status === 'Pendente');
     const preenchidos = todos.filter(r => r.status === 'Preenchido').sort((a, b) => (b.dataFinalizacao || '').localeCompare(a.dataFinalizacao || ''));
     return `
-      <div class="card full" style="margin-bottom:16px">
+      <div class="card full">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
           <h3 style="margin:0">Links de Entrevista de Desligamento</h3>
           <button type="button" class="btn btn-primary btn-sm" id="ed-abrir-gerar" style="width:auto">Gerar link de entrevista</button>
         </div>
         ${!todos.length ? '<p class="sub" style="color:var(--muted)">Nenhum link gerado ainda.</p>' : `
         <div class="table-wrap"><table class="dt">
-          <thead><tr><th>Colaborador(a)</th><th>Cargo</th><th>Status</th><th>Gerado por</th><th>Data</th><th></th></tr></thead>
+          <thead><tr><th>Colaborador(a)</th><th>Cargo</th><th>Status</th><th>Gerado por</th><th>Data</th></tr></thead>
           <tbody>
             ${pendentes.map(r => `<tr>
               <td>${U.escapeHtml(r.colaboradorNome || '')}</td><td>${U.escapeHtml(r.cargo || '')}</td>
               <td><span class="badge b4">Pendente</span></td><td>${U.escapeHtml(r.geradoPor || '')}</td>
-              <td>${r.criadoEm ? U.fmtDateBR(String(r.criadoEm).slice(0, 10)) : '—'}</td><td></td>
+              <td>${r.criadoEm ? U.fmtDateBR(String(r.criadoEm).slice(0, 10)) : '—'}</td>
             </tr>`).join('')}
             ${preenchidos.map(r => `<tr>
               <td>${U.escapeHtml(r.colaboradorNome || '')}</td><td>${U.escapeHtml(r.cargo || '')}</td>
               <td><span class="badge b2">Preenchido</span></td><td>${U.escapeHtml(r.geradoPor || '')}</td>
               <td>${r.dataFinalizacao ? U.fmtDateBR(String(r.dataFinalizacao).slice(0, 10)) : '—'}</td>
-              <td><button type="button" class="btn btn-outline btn-sm" data-ver-resposta="${r.id}">Ver resposta</button></td>
             </tr>`).join('')}
           </tbody>
         </table></div>`}
       </div>`;
   }
 
-  function wireCardGerarLink(el) {
-    if (!canGerarLink()) return;
+  function wireListaLinks(el) {
     const btn = el.querySelector('#ed-abrir-gerar');
     btn && btn.addEventListener('click', abrirModalGerarLink);
-    el.querySelectorAll('[data-ver-resposta]').forEach(b => b.addEventListener('click', () => abrirVerResposta(b.dataset.verResposta)));
   }
 
-  window.HUB_ENTREVISTA_DESLIGAMENTO = { canGerarLink, renderCardGerarLink, wireCardGerarLink };
+  window.HUB_ENTREVISTA_DESLIGAMENTO = { canGerarLink, renderListaLinks, wireListaLinks };
 })();

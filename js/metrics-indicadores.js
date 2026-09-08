@@ -483,21 +483,86 @@
 
   function isPositivo(r) { return norm(r.trabalharia_novamente).startsWith('sim'); }
 
+  // Converte um registro de entrevistas_desligamento (respostas por índice
+  // de pergunta, ver js/entrevista-desligamento/modelo.js) pro mesmo
+  // "formato pesquisa" que entrevista_pesquisa (planilha histórica) já usa —
+  // respostas viram um mapa {texto da pergunta: texto da resposta}, e como
+  // o texto das perguntas do link é praticamente idêntico ao da planilha
+  // original (mesmo formulário), os índices DESL_INDICES acima (que fazem
+  // busca fuzzy por cabeçalho, ver getResposta) funcionam sem nenhuma
+  // adaptação nos dois casos. Nunca inclui nome/CPF/e-mail do respondente —
+  // só unidade/departamento, que já era o único contexto de pessoa exposto
+  // nos comentários anônimos mesmo antes desta mudança.
+  function converterRespostaLink(row) {
+    const M = window.HUB_ED_MODELO, PR = window.HUB_ED_RENDER;
+    if (!M || !PR || !row.respostas) return null;
+    const respostas = {};
+    let motivo = null, submotivo = null, nps = null, trabalhariaNovamente = null;
+    for (const qidStr of Object.keys(row.respostas)) {
+      const qid = Number(qidStr);
+      const q = M.PERGUNTAS[qid];
+      if (!q) continue;
+      const legivel = PR.respostaLegivel(qid, q, row.respostas[qidStr]);
+      if (legivel === null || legivel === undefined) continue;
+      if (q.tipo === 'nps') { nps = legivel; continue; }
+      const texto = Array.isArray(legivel) ? legivel.join('; ') : String(legivel);
+      respostas[q.titulo] = texto;
+      if (qid === 18) motivo = texto;
+      else if (qid >= 19 && qid <= 28) submotivo = texto;
+      else if (qid === 80) trabalhariaNovamente = texto;
+    }
+    const dataConclusao = row.dataFinalizacao ? String(row.dataFinalizacao).slice(0, 10) : null;
+    return {
+      unidade: row.unidade, departamento: row.departamento,
+      motivo_desligamento: motivo, submotivo_desligamento: submotivo,
+      trabalharia_novamente: trabalhariaNovamente, nps,
+      data_inicio: dataConclusao, data_conclusao: dataConclusao,
+      respostas
+    };
+  }
+
+  // Todo link gerado (preenchido ou não) conta como uma "solicitação de
+  // entrevista" — mesmo papel que entrevista_solicitacao tinha na planilha
+  // histórica (KPI "Solicitações de desligamento" + gráfico "Status da
+  // entrevista").
+  function converterSolicitacaoLink(row) {
+    return {
+      unidade: row.unidade, departamento: row.departamento,
+      data_demissao: row.dataDesligamento || null,
+      status_entrevista: row.status === 'Preenchido' ? 'Realizada' : 'Não Realizada',
+      tipo: null
+    };
+  }
+
   function entrevistaMetrics(f) {
-    let pesquisa = HUB_DATA.entrevista_pesquisa || [];
-    let solicitacao = HUB_DATA.entrevista_solicitacao || [];
+    // Duas fontes: entrevista_pesquisa/entrevista_solicitacao (arquivo
+    // histórico, importado uma única vez via SQL — não recebe mais upload)
+    // + entrevistas_desligamento (link público, alimentado ao vivo pelas
+    // respostas de quem preenche a entrevista pela tela Indicadores →
+    // Entrevista Desligamento → Lista de Colaboradores). Ver
+    // converterRespostaLink/converterSolicitacaoLink acima.
+    const linksGerados = (window.HUB_RECRUIT_DATA && window.HUB_RECRUIT_DATA.entrevistas_desligamento) || [];
+    const pesquisaLink = linksGerados.filter(r => r.status === 'Preenchido').map(converterRespostaLink).filter(Boolean);
+    const solicitacaoLink = linksGerados.map(converterSolicitacaoLink);
+
+    let pesquisa = (HUB_DATA.entrevista_pesquisa || []).concat(pesquisaLink);
+    let solicitacao = (HUB_DATA.entrevista_solicitacao || []).concat(solicitacaoLink);
 
     // O filtro de período aqui é por quando a ENTREVISTA foi respondida
     // (não quando a pessoa se desligou — a pesquisa pode ser respondida bem
     // depois do desligamento, então filtrar por data_desligamento excluía
     // entrevistas de fato realizadas dentro do período escolhido).
     pesquisa = pesquisa.map(r => Object.assign({}, r, { data_entrevista: r.data_conclusao || r.data_inicio }));
-    const map = { date: 'data_entrevista', unidade: 'unidade', departamento: 'departamento', pessoa: 'nome' };
+    // Anonimizado de propósito: sem `pessoa` no mapa de filtro — ninguém
+    // consegue buscar/filtrar a Entrevista de Desligamento pelo nome de
+    // quem respondeu, só por unidade/departamento (pedido explícito: as
+    // respostas nunca se ligam a um nome na tela).
+    const map = { date: 'data_entrevista', unidade: 'unidade', departamento: 'departamento' };
     pesquisa = filterRows(pesquisa, map, f);
-    const mapSol = { date: 'data_demissao', unidade: 'unidade', departamento: 'departamento', pessoa: 'nome' };
+    const mapSol = { date: 'data_demissao', unidade: 'unidade', departamento: 'departamento' };
     solicitacao = filterRows(solicitacao, mapSol, f);
-    // As duas abas de origem não trazem o nome do gestor direto, então o
-    // filtro "Gestor" da barra superior não se aplica a este menu.
+    // As duas fontes não trazem o nome do gestor direto, então o filtro
+    // "Gestor" da barra superior não se aplica a este menu.
 
     const positivos = pesquisa.filter(isPositivo);
     const negativos = pesquisa.filter(r => r.trabalharia_novamente && !isPositivo(r));

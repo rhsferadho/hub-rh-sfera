@@ -112,6 +112,7 @@
 
   function goToSection(name) {
     if (!canSee(name)) return;
+    closeMobileMenu();
     currentSection = name;
     $$('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.section === name));
     $$('.section').forEach(s => s.classList.remove('active'));
@@ -442,6 +443,25 @@
     window.location.reload();
   }
 
+  // Sidebar em telas ≤900px vira uma gaveta deslizante (ver CSS .sidebar em
+  // index.html) — sem isto ela some por completo e leva junto o único jeito
+  // de trocar de seção ou sair (o botão "Sair" mora dentro dela).
+  function closeMobileMenu() {
+    $('.sidebar').classList.remove('open');
+    $('#sb-backdrop').classList.remove('open');
+  }
+  function wireMobileMenu() {
+    const btn = $('#btn-mobile-menu');
+    const backdrop = $('#sb-backdrop');
+    if (!btn || !backdrop) return;
+    btn.addEventListener('click', () => {
+      $('.sidebar').classList.toggle('open');
+      backdrop.classList.toggle('open');
+    });
+    backdrop.addEventListener('click', closeMobileMenu);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMobileMenu(); });
+  }
+
   async function bootstrap() {
     if (!window.HUB_SUPABASE_READY) {
       $('#login-btn').disabled = true;
@@ -450,6 +470,7 @@
     }
     $('#login-form').addEventListener('submit', doLogin);
     $('#btn-logout').addEventListener('click', doLogout);
+    wireMobileMenu();
 
     const { data } = await sb.auth.getSession();
     if (data && data.session) {

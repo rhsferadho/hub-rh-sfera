@@ -130,7 +130,50 @@ projeto Supabase antigo do Sfera Recruiter e importar neste), e não deve ser
 feito sem uma cópia de segurança e sem confirmar com quem administra os dois
 sistemas hoje.
 
-## 9. Evitar que o projeto Supabase "durma" (plano gratuito)
+## 9. Sincronização automática do Twygo (opcional)
+
+Substitui o upload manual da planilha "27. Twygo" — a partir daqui, os dados
+de inscrições/treinamento vêm direto da API do Twygo, todo dia, sem
+intervenção manual. Só sincroniza `twygo_participantes` (é a única das três
+tabelas do Twygo que o indicador de Treinamentos realmente precisa —
+`twygo_usuarios`/`twygo_conteudos` continuam disponíveis por upload manual,
+como complemento opcional).
+
+1. **Gerar o token da API do Twygo**: dentro do Twygo, vá em
+   **Configurações → Integrações → API** e gere o token. Guarde-o com
+   cuidado — ele dá acesso a todos os dados da organização no Twygo. Nunca
+   cole esse token no código, num commit, ou aqui no chat.
+2. **Publicar a Edge Function**: no painel do Supabase, vá em **Edge
+   Functions → Deploy a new function**, nomeie como `sync-twygo`, e cole o
+   conteúdo de
+   [`supabase/functions/sync-twygo/index.ts`](supabase/functions/sync-twygo/index.ts)
+   deste repositório.
+3. **Guardar o token da API como segredo da function**: na própria tela da
+   function, **Secrets** → adicione `TWYGO_API_TOKEN` com o valor gerado no
+   passo 1. (`SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` já existem
+   automaticamente, não precisa criar.)
+4. **Testar uma vez na mão**: ainda na tela da function, use o botão de
+   invocar/testar (ou copie a URL dela, algo como
+   `https://<seu-projeto>.supabase.co/functions/v1/sync-twygo`, e chame com
+   `Authorization: Bearer <sua service_role key>`). A resposta deve ser
+   `{"ok":true,"linhas":N}`. Depois, confira **Administração → Upload de
+   Planilhas** → a tabela `twygo_participantes` deve refletir os dados
+   recém-sincronizados no indicador de Treinamentos.
+5. **Agendar a execução diária**: no SQL Editor, rode
+   [`supabase-twygo-sync-setup.sql`](supabase-twygo-sync-setup.sql) deste
+   repositório, trocando `<PROJECT_REF>` e `<SERVICE_ROLE_KEY>` pelos
+   valores do seu projeto (**Project Settings → API**) antes de rodar.
+
+**Sobre a exatidão dos números**: o mapeamento de campos da API do Twygo
+para as colunas de `twygo_participantes` foi feito só a partir da
+documentação pública da API (sem uma planilha real pra comparar lado a
+lado) — os campos "Nota", "Frequência" e "Pontuação" em particular são uma
+melhor suposição, não uma certeza. Depois da primeira sincronização,
+compare alguns registros com um export manual recente da mesma planilha; se
+algum número não bater, me avise qual campo e eu ajusto o mapeamento na
+função.
+
+## 10. Evitar que o projeto Supabase "durma" (plano gratuito)
 
 O plano gratuito do Supabase pausa o projeto depois de um tempo sem uso — a
 primeira requisição depois disso demora enquanto ele "acorda" (pode parecer
