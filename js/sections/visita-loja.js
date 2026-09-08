@@ -18,6 +18,13 @@
 // artefato da exportação do Microsoft Forms para PDF, não 3 perguntas
 // diferentes. Aqui existe só uma vez, como as demais ("Selecione a Loja"),
 // com a lista de opções variando de acordo com a Área escolhida.
+//
+// Duas subabas (mesmo padrão de Indicadores → Entrevista Desligamento, ver
+// js/sections/indicadores.js): "Indicadores" (KPIs e gráficos agregados,
+// calculados em cima de todas as visitas já registradas) e "Lista de
+// Visitas Realizadas" (tabela operacional + botão "+ Nova Visita"). Estado
+// de qual subaba está aberta persiste em memória do módulo, mesmo padrão de
+// admin/cadastros.js.
 (function () {
   const U = HUB_UTILS;
   const R = HUB_RECRUIT;
@@ -40,6 +47,16 @@
 
   function selOpts(arr, val, emptyLabel) {
     return `<option value="">${emptyLabel || '— selecione —'}</option>` + (arr || []).map(o => `<option value="${U.escapeHtml(o)}" ${val === o ? 'selected' : ''}>${U.escapeHtml(o)}</option>`).join('');
+  }
+
+  function countBy(arr, keyFn) {
+    const m = new Map();
+    for (const x of arr) {
+      const k = keyFn(x);
+      if (k === null || k === undefined || k === '') continue;
+      m.set(k, (m.get(k) || 0) + 1);
+    }
+    return Array.from(m.entries()).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value }));
   }
 
   // ================================================================
@@ -211,6 +228,7 @@
   // ================================================================
   let listState = { search: '' };
   let view = 'list'; // 'list' | 'nova' | 'ver'
+  let visitaLojaTab = 'indicadores'; // 'indicadores' | 'lista' — só vale para view === 'list'
   let rootEl = null;
   let vlStep = 1;
   let vlDados = {};
@@ -222,9 +240,25 @@
   }
   function render() {
     if (!rootEl) return;
-    if (view === 'nova') renderNovaVisitaView(rootEl);
-    else if (view === 'ver') renderVerView(rootEl);
-    else renderListView(rootEl);
+    if (view === 'nova') { renderNovaVisitaView(rootEl); return; }
+    if (view === 'ver') { renderVerView(rootEl); return; }
+    renderTabsShell(rootEl);
+  }
+
+  function renderTabsShell(el) {
+    el.innerHTML = `
+      <div class="tab-bar">
+        <button type="button" class="tab-btn ${visitaLojaTab === 'indicadores' ? 'active' : ''}" data-vl-tab="indicadores">Indicadores</button>
+        <button type="button" class="tab-btn ${visitaLojaTab === 'lista' ? 'active' : ''}" data-vl-tab="lista">Lista de Visitas Realizadas</button>
+      </div>
+      <div id="vl-tab-body"></div>`;
+    el.querySelectorAll('[data-vl-tab]').forEach(b => b.addEventListener('click', () => {
+      visitaLojaTab = b.dataset.vlTab;
+      renderTabsShell(el);
+    }));
+    const body = el.querySelector('#vl-tab-body');
+    if (visitaLojaTab === 'lista') { renderListView(body); return; }
+    renderIndicadoresView(body);
   }
   async function reloadAndRender() {
     try { await R.reload(); } catch (err) { /* mantém dados antigos na tela mesmo se o reload falhar */ }
@@ -249,25 +283,13 @@
   }
 
   function renderListView(el) {
-    const all = D()['visitas_loja'] || [];
-    const total = all.length;
-    const comAusencia = all.filter(v => v.todosPresentes === 'Não').length;
     const lista = filtrarVisitas();
-
     el.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-        <div><h2 style="font-size:16px">Visita em Loja</h2><p class="sub" style="color:var(--muted);font-size:12px;margin-top:2px">Avaliações de visita em loja registradas pelos(as) multiplicadores(as)/treinadores(as)</p></div>
-        ${canWrite() ? '<button class="btn btn-primary btn-sm" id="vl-novo">+ Nova Visita</button>' : ''}
-      </div>
-      <div class="kpi-grid">
-        ${HUB_UI.kpi('Visitas registradas', U.fmtInt(total), '', 'var(--p1)')}
-        ${HUB_UI.kpi('Com ausência de colaborador', U.fmtInt(comAusencia), '', comAusencia > 0 ? 'var(--warning)' : '#1baf7a')}
-        ${HUB_UI.kpi('Nota média — Clima/Engajamento', (() => { const m = media(all, 'notaClimaEngajamento'); return m !== null ? U.fmt1(m) : '—'; })(), 'de 0 a 10', 'var(--p2)')}
-        ${HUB_UI.kpi('Nota média — Botileza', (() => { const m = media(all, 'notaBotileza'); return m !== null ? U.fmt1(m) : '—'; })(), 'de 0 a 10', '#e87ba4')}
-        ${HUB_UI.kpi('Nota média — Atendimento 360', (() => { const m = media(all, 'notaAtendimento360'); return m !== null ? U.fmt1(m) : '—'; })(), 'de 0 a 10', '#4a3aa7')}
-        ${HUB_UI.kpi('Nota média — Geral', (() => { const m = media(all, 'notaGeral'); return m !== null ? U.fmt1(m) : '—'; })(), 'de 0 a 10', '#1baf7a')}
-      </div>
       <div class="card full">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+          <h3 style="margin:0">Visitas Realizadas</h3>
+          ${canWrite() ? '<button class="btn btn-primary btn-sm" id="vl-novo">+ Nova Visita</button>' : ''}
+        </div>
         <div class="toolbar">
           <input type="text" id="vl-search" placeholder="Buscar por área, loja..." value="${U.escapeHtml(listState.search)}">
         </div>
@@ -300,6 +322,157 @@
     btnNovo && btnNovo.addEventListener('click', novaVisita);
     el.querySelectorAll('[data-ver]').forEach(b => b.addEventListener('click', () => abrirVer(b.dataset.ver)));
     U.wireTableTopScroll(el);
+  }
+
+  // ================================================================
+  // INDICADORES — KPIs e gráficos agregados sobre todas as visitas já
+  // registradas (anonimizado por natureza: a avaliação em si não identifica
+  // ninguém específico do time avaliado nos gráficos, só a loja/área).
+  // ================================================================
+  function pctSim(all, campo) {
+    const vals = all.map(v => v[campo]).filter(v => v !== null && v !== undefined && v !== '');
+    if (!vals.length) return null;
+    return vals.filter(v => v === 'Sim').length / vals.length;
+  }
+
+  function distribuicao(all, campo, ordem) {
+    const c = countBy(all, v => v[campo]);
+    if (!ordem) return c;
+    return ordem.map(label => ({ label, value: (c.find(x => x.label === label) || { value: 0 }).value })).filter(x => x.value > 0);
+  }
+
+  function notaMediaPorArea(all, campo) {
+    const porArea = new Map();
+    for (const v of all) {
+      if (!v.area || v[campo] === null || v[campo] === undefined || v[campo] === '') continue;
+      if (!porArea.has(v.area)) porArea.set(v.area, { soma: 0, n: 0 });
+      const e = porArea.get(v.area);
+      e.soma += Number(v[campo]); e.n++;
+    }
+    return Array.from(porArea.entries()).map(([label, e]) => ({ label, value: +(e.soma / e.n).toFixed(1) })).sort((a, b) => b.value - a.value);
+  }
+
+  function rankingLojasPorNota(all, campo, minVisitas) {
+    const porLoja = new Map();
+    for (const v of all) {
+      if (!v.loja || v[campo] === null || v[campo] === undefined || v[campo] === '') continue;
+      if (!porLoja.has(v.loja)) porLoja.set(v.loja, { soma: 0, n: 0 });
+      const e = porLoja.get(v.loja);
+      e.soma += Number(v[campo]); e.n++;
+    }
+    return Array.from(porLoja.entries())
+      .filter(([, e]) => e.n >= (minVisitas || 1))
+      .map(([label, e]) => ({ label, value: +(e.soma / e.n).toFixed(1), n: e.n }))
+      .sort((a, b) => b.value - a.value);
+  }
+
+  const BOTILEZA_ADERENCIA_CAMPOS = [
+    ['seApresentam', 'Se apresentam adequadamente'],
+    ['perguntamMotivo', 'Perguntam o motivo da visita'],
+    ['perguntamNome', 'Perguntam o nome do cliente'],
+    ['explicamFidelidade', 'Explicam o programa de fidelidade ao pedir CPF'],
+    ['incentivamExperimentar', 'Incentivam o cliente a experimentar produtos'],
+    ['ofereceAdicional', 'Oferecem produto/promoção adicional'],
+    ['borrifaFragrancia', 'Borrifam fragrância na sacola do cliente'],
+    ['mencionaBotiRecicla', 'Mencionam o Boti Recicla'],
+    ['incentivaBeautybox', 'Incentivam os desafios do BeautyBox']
+  ];
+  const VENDAS360_ADERENCIA_CAMPOS = [
+    ['falouPrecoQuandoPerguntado', 'Falou o preço só quando perguntado'],
+    ['criouOportunidades', 'Criou oportunidades observando o cliente'],
+    ['aproveitouAcompanhante', 'Aproveitou o(a) acompanhante do cliente'],
+    ['experimentarPremium', 'Fez o cliente experimentar produtos premium'],
+    ['usouPreVenda', 'Usou a pré-venda'],
+    ['apresentouAlavancas', 'Apresentou as alavancas BT/BP com experimentação'],
+    ['organizouCaixaPresente', 'Organizou bem a caixa de presente'],
+    ['ofereceuAcessoriosMake', 'Ofereceu acessórios de make'],
+    ['destacouDescontos', 'Destacou a vantagem dos descontos'],
+    ['mostrouConfianca', 'Mostrou confiança no produto vendido']
+  ];
+
+  function visitaLojaMetrics() {
+    const all = D()['visitas_loja'] || [];
+    const aderencia = campos => campos
+      .map(([campo, label]) => ({ label, value: pctSim(all, campo) }))
+      .filter(x => x.value !== null)
+      .sort((a, b) => b.value - a.value);
+
+    return {
+      total: all.length,
+      comAusencia: all.filter(v => v.todosPresentes === 'Não').length,
+      notaClima: media(all, 'notaClimaEngajamento'),
+      notaBotileza: media(all, 'notaBotileza'),
+      notaAtend360: media(all, 'notaAtendimento360'),
+      notaGeral: media(all, 'notaGeral'),
+      porArea: countBy(all, v => v.area),
+      evolucaoMensal: (() => {
+        const meses = new Map();
+        for (const v of all) { if (!v.dataVisita) continue; const k = v.dataVisita.slice(0, 7); meses.set(k, (meses.get(k) || 0) + 1); }
+        return Array.from(meses.keys()).sort().map(k => ({ label: U.monthLabel(k), value: meses.get(k) }));
+      })(),
+      notaGeralPorArea: notaMediaPorArea(all, 'notaGeral'),
+      climaDist: distribuicao(all, 'climaEquipe', NIVEL4),
+      posturaGerenteDist: distribuicao(all, 'posturaGerente', NIVEL4),
+      posturaConsultoresDist: distribuicao(all, 'posturaConsultores', NIVEL4),
+      iniciativaTimeDist: distribuicao(all, 'iniciativaTime', NIVEL4),
+      momentoCpfDist: distribuicao(all, 'momentoCpf', ['Início', 'Meio', 'Fim', 'Não perguntaram']),
+      etapasExperimentacaoDist: distribuicao(all, 'etapasExperimentacao', ['Sim', 'Não', 'Em parte']),
+      entendeuDesejoDist: distribuicao(all, 'entendeuDesejo', ['Não', 'Parcialmente', 'Sim']),
+      botilezaAderencia: aderencia(BOTILEZA_ADERENCIA_CAMPOS),
+      vendas360Aderencia: aderencia(VENDAS360_ADERENCIA_CAMPOS),
+      rankingLojas: rankingLojasPorNota(all, 'notaGeral')
+    };
+  }
+
+  function notaRankTable(list) {
+    if (!list.length) return HUB_UI.empty('Sem registros suficientes.');
+    return `<div class="table-wrap"><table class="dt"><thead><tr><th>Loja</th><th>Nota média</th><th>Visitas</th></tr></thead><tbody>` +
+      list.map(r => `<tr><td>${U.escapeHtml(r.label)}</td><td><strong>${U.fmt1(r.value)}</strong></td><td>${U.fmtInt(r.n)}</td></tr>`).join('') +
+      '</tbody></table></div>';
+  }
+
+  function renderIndicadoresView(el) {
+    if (HUB_UI.noDataGate(el, ['visitas_loja'], canWrite(), 'Registre a primeira visita na aba "Lista de Visitas Realizadas".', D())) return;
+    const d = visitaLojaMetrics();
+    const melhores = d.rankingLojas.slice(0, 5);
+    const piores = d.rankingLojas.slice(-5).reverse();
+    el.innerHTML = `
+      <div class="kpi-grid">
+        ${HUB_UI.kpi('Visitas registradas', U.fmtInt(d.total), '', 'var(--p1)')}
+        ${HUB_UI.kpi('Com ausência de colaborador', U.fmtInt(d.comAusencia), d.total ? U.fmtPct(d.comAusencia / d.total, 0) + ' das visitas' : '', d.comAusencia > 0 ? 'var(--warning)' : '#1baf7a')}
+        ${HUB_UI.kpi('Nota média — Clima/Engajamento', d.notaClima !== null ? U.fmt1(d.notaClima) : '—', 'de 0 a 10', 'var(--p2)')}
+        ${HUB_UI.kpi('Nota média — Botileza', d.notaBotileza !== null ? U.fmt1(d.notaBotileza) : '—', 'de 0 a 10', '#e87ba4')}
+        ${HUB_UI.kpi('Nota média — Atendimento 360', d.notaAtend360 !== null ? U.fmt1(d.notaAtend360) : '—', 'de 0 a 10', '#4a3aa7')}
+        ${HUB_UI.kpi('Nota média — Geral', d.notaGeral !== null ? U.fmt1(d.notaGeral) : '—', 'de 0 a 10', '#1baf7a')}
+      </div>
+      <div class="grid2">
+        ${HUB_UI.card('Visitas por área', '&#127970;', d.porArea.length ? '<div class="chart-h"><canvas id="c-vl-area"></canvas></div>' : HUB_UI.empty('Sem dados.'))}
+        ${HUB_UI.card('Nota geral média por área', '&#127942;', d.notaGeralPorArea.length ? '<div class="chart-h"><canvas id="c-vl-nota-area"></canvas></div>' : HUB_UI.empty('Sem dados.'))}
+        ${HUB_UI.card('Evolução mensal de visitas', '&#128200;', d.evolucaoMensal.length ? '<div class="chart-h tall"><canvas id="c-vl-evolucao"></canvas></div>' : HUB_UI.empty('Sem dados.'), { full: true })}
+        ${HUB_UI.card('Clima da equipe', '&#128522;', d.climaDist.length ? '<div class="chart-h short"><canvas id="c-vl-clima"></canvas></div>' : HUB_UI.empty('Sem dados.'))}
+        ${HUB_UI.card('Postura do(a) Gerente', '&#128100;', d.posturaGerenteDist.length ? '<div class="chart-h short"><canvas id="c-vl-gerente"></canvas></div>' : HUB_UI.empty('Sem dados.'))}
+        ${HUB_UI.card('Postura dos Consultores/Vendedores', '&#128101;', d.posturaConsultoresDist.length ? '<div class="chart-h short"><canvas id="c-vl-consultores"></canvas></div>' : HUB_UI.empty('Sem dados.'))}
+        ${HUB_UI.card('Iniciativa do time', '&#9889;', d.iniciativaTimeDist.length ? '<div class="chart-h short"><canvas id="c-vl-iniciativa"></canvas></div>' : HUB_UI.empty('Sem dados.'))}
+        ${HUB_UI.card('Momento em que pedem o CPF', '&#128179;', d.momentoCpfDist.length ? '<div class="chart-h short"><canvas id="c-vl-cpf"></canvas></div>' : HUB_UI.empty('Sem dados.'))}
+        ${HUB_UI.card('Etapas de experimentação com o cliente', '&#129498;', d.etapasExperimentacaoDist.length ? '<div class="chart-h short"><canvas id="c-vl-etapas"></canvas></div>' : HUB_UI.empty('Sem dados.'))}
+        ${HUB_UI.card('Entendimento do desejo do cliente (Vendas 360)', '&#128172;', d.entendeuDesejoDist.length ? '<div class="chart-h short"><canvas id="c-vl-desejo"></canvas></div>' : HUB_UI.empty('Sem dados.'))}
+        ${HUB_UI.card('Aderência aos passos de Botileza (% "Sim")', '&#10003;&#65039;', d.botilezaAderencia.length ? '<div class="chart-h tall"><canvas id="c-vl-botileza-ader"></canvas></div>' : HUB_UI.empty('Sem dados.'), { full: true })}
+        ${HUB_UI.card('Aderência às técnicas de Vendas 360 (% "Sim")', '&#128176;', d.vendas360Aderencia.length ? '<div class="chart-h tall"><canvas id="c-vl-vendas-ader"></canvas></div>' : HUB_UI.empty('Sem dados.'), { full: true })}
+        ${HUB_UI.card('Melhores lojas — nota geral média', '&#127942;', notaRankTable(melhores))}
+        ${HUB_UI.card('Lojas com maior oportunidade de melhoria', '&#128721;', notaRankTable(piores))}
+      </div>`;
+    if (d.porArea.length) HUB_UI.barChart('c-vl-area', d.porArea.map(x => x.label), d.porArea.map(x => x.value), { horizontal: true });
+    if (d.notaGeralPorArea.length) HUB_UI.barChart('c-vl-nota-area', d.notaGeralPorArea.map(x => x.label), d.notaGeralPorArea.map(x => x.value), { horizontal: true });
+    if (d.evolucaoMensal.length) HUB_UI.lineChart('c-vl-evolucao', d.evolucaoMensal.map(x => x.label), [{ label: 'Visitas', data: d.evolucaoMensal.map(x => x.value) }]);
+    if (d.climaDist.length) HUB_UI.doughnutChart('c-vl-clima', d.climaDist.map(x => x.label), d.climaDist.map(x => x.value));
+    if (d.posturaGerenteDist.length) HUB_UI.doughnutChart('c-vl-gerente', d.posturaGerenteDist.map(x => x.label), d.posturaGerenteDist.map(x => x.value));
+    if (d.posturaConsultoresDist.length) HUB_UI.doughnutChart('c-vl-consultores', d.posturaConsultoresDist.map(x => x.label), d.posturaConsultoresDist.map(x => x.value));
+    if (d.iniciativaTimeDist.length) HUB_UI.doughnutChart('c-vl-iniciativa', d.iniciativaTimeDist.map(x => x.label), d.iniciativaTimeDist.map(x => x.value));
+    if (d.momentoCpfDist.length) HUB_UI.barChart('c-vl-cpf', d.momentoCpfDist.map(x => x.label), d.momentoCpfDist.map(x => x.value), { horizontal: true });
+    if (d.etapasExperimentacaoDist.length) HUB_UI.doughnutChart('c-vl-etapas', d.etapasExperimentacaoDist.map(x => x.label), d.etapasExperimentacaoDist.map(x => x.value));
+    if (d.entendeuDesejoDist.length) HUB_UI.doughnutChart('c-vl-desejo', d.entendeuDesejoDist.map(x => x.label), d.entendeuDesejoDist.map(x => x.value));
+    if (d.botilezaAderencia.length) HUB_UI.barChart('c-vl-botileza-ader', d.botilezaAderencia.map(x => x.label), d.botilezaAderencia.map(x => x.value), { horizontal: true, pct: true });
+    if (d.vendas360Aderencia.length) HUB_UI.barChart('c-vl-vendas-ader', d.vendas360Aderencia.map(x => x.label), d.vendas360Aderencia.map(x => x.value), { horizontal: true, pct: true });
   }
 
   // ================================================================
