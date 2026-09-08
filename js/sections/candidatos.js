@@ -437,11 +437,18 @@
 
   function openForm(id) {
     editingCandId = id;
+    const defaults = defaultCandForm();
     if (id) {
       const c = (D().candidatos || []).find(x => x.id === id);
-      candForm = c ? Object.assign({}, c) : defaultCandForm();
+      candForm = c ? Object.assign({}, defaults, c) : defaults;
+      // Campos como Status da etapa/Resultado mostram um valor padrão só na
+      // tela (ex.: "Em andamento") quando vêm null do banco (nunca foram
+      // salvos) — sem isso, o <select> aparenta preenchido mas candForm
+      // fica vazio de verdade, e o Salvar barra pedindo pra selecionar algo
+      // que já parece selecionado.
+      for (const k of Object.keys(defaults)) if (candForm[k] === null || candForm[k] === undefined) candForm[k] = defaults[k];
     } else {
-      candForm = defaultCandForm();
+      candForm = defaults;
     }
     view = 'form';
     render();
