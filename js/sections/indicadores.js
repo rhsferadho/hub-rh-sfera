@@ -47,6 +47,10 @@
         ${kpi('Headcount', U.fmtInt(d.total), 'Ativos + desativados (sem duplicidade)', 'var(--p1)')}
         ${kpi('Ativos', U.fmtInt(d.ativos), '', '#1baf7a')}
         ${kpi('Desativados', U.fmtInt(d.desativados), '', 'var(--warning)')}
+        ${kpi('Cota PCD', U.fmtInt(d.cotaPcd), '', '#e87ba4')}
+        ${kpi('Cota Jovem Aprendiz', U.fmtInt(d.cotaAprendiz), '', '#eda100')}
+        ${kpi('Afastamentos INSS', U.fmtInt(d.afastamentoInss), '', 'var(--critical)')}
+        ${kpi('Licença Maternidade', U.fmtInt(d.afastamentoMaternidade), '', '#805AD5')}
         ${kpi('Tempo médio de casa', U.tenureLabel(Math.round(d.tempoMedioMeses)), '', '#4a3aa7')}
       </div>
       <div class="grid2">
@@ -78,6 +82,10 @@
         ${kpi('Turnover médio', U.fmtPct(d.turnoverMedio), 'média dos meses do período', '#1baf7a')}
         ${kpi('Taxa de desligamento média', U.fmtPct(d.taxaDesligamentoMedia), 'média dos meses do período', '#e87ba4')}
       </div>
+      <div class="insight info" style="margin-bottom:18px">
+        <span class="ic">&#8505;&#65039;</span>
+        <span><strong>Como calculamos:</strong> Turnover = ((Admissões + Desligamentos) ÷ 2) ÷ Headcount médio do período — mede a movimentação total do quadro, entradas e saídas juntas. Taxa de Desligamento = Desligamentos ÷ Headcount médio do período — mede só quem saiu, sem contar quem entrou. Os dois "médio(s)" usam a média do headcount de início de cada mês do período filtrado.</span>
+      </div>
       <div class="grid2">
         ${card('Desligamentos ao longo do tempo', '&#128200;', '<div class="chart-h tall"><canvas id="c-rot-serie"></canvas></div>', { full: true })}
         ${card('Voluntário vs. involuntário por mês', '&#9878;&#65039;', '<div class="chart-h"><canvas id="c-rot-tipo"></canvas></div>')}
@@ -85,6 +93,12 @@
         ${card('Top 10 cargos com maior rotatividade', '&#128188;', d.cargosDesligados.length ? '<div class="chart-h"><canvas id="c-rot-cargos"></canvas></div>' : empty('Sem cargos informados.'))}
         ${card('Desligados no período', '&#128203;', d.listaDesligados.length ? `<div class="table-wrap"><table class="dt"><thead><tr><th>Nome</th><th>Cargo</th><th>Unidade</th><th>Departamento</th><th>Tipo</th><th>Data</th></tr></thead><tbody>${d.listaDesligados.map(r => `<tr><td>${U.escapeHtml(r.nome || '')}</td><td>${U.escapeHtml(r.cargo || '')}</td><td>${U.escapeHtml(r.unidade || '')}</td><td>${U.escapeHtml(r.departamento || '')}</td><td>${U.escapeHtml(r.tipo || '')}</td><td>${U.fmtDateBR(r.data)}</td></tr>`).join('')}</tbody></table></div>` : empty('Nenhum desligamento no período.'), { full: true })}
         ${card('Insights e plano de ação', '&#129504;', insightsList(d.insights) || empty('Sem dados suficientes para gerar insights.'), { full: true })}
+      </div>
+      <h3 style="font-size:13px;margin:20px 0 12px">Rotatividade no período de experiência (até 90 dias após a admissão)</h3>
+      <div class="grid2">
+        ${card('Voluntário vs. involuntário por mês — experiência', '&#9878;&#65039;', '<div class="chart-h"><canvas id="c-rot-tipo-exp"></canvas></div>')}
+        ${card('Motivos de desligamento — experiência', '&#128172;', d.motivosExperiencia.length ? '<div class="chart-h"><canvas id="c-rot-motivos-exp"></canvas></div>' : empty('Sem motivos informados.'))}
+        ${card('Top 10 cargos com maior rotatividade — experiência', '&#128188;', d.cargosDesligadosExperiencia.length ? '<div class="chart-h"><canvas id="c-rot-cargos-exp"></canvas></div>' : empty('Sem cargos informados.'))}
       </div>`;
     lineChart('c-rot-serie', d.serie.map(x => x.label), [
       { label: 'Desligamentos', data: d.serie.map(x => x.desligamentos) },
@@ -116,6 +130,31 @@
     if (d.cargosDesligados.length) {
       const topCargos = d.cargosDesligados.slice(0, 10);
       barChart('c-rot-cargos', topCargos.map(x => x.label), topCargos.map(x => x.value), { horizontal: true });
+    }
+    HUB_CHART('c-rot-tipo-exp', {
+      type: 'bar',
+      data: {
+        labels: d.serieExperiencia.map(x => x.label),
+        datasets: [
+          { label: 'Voluntário', data: d.serieExperiencia.map(x => x.voluntarios), backgroundColor: U.color(3), borderRadius: 4 },
+          { label: 'Involuntário', data: d.serieExperiencia.map(x => x.involuntarios), backgroundColor: U.color(6), borderRadius: 4 }
+        ]
+      },
+      options: {
+        plugins: {
+          legend: { display: true },
+          datalabels: { color: '#fff', font: { size: 9, weight: '700' }, formatter: v => v || '' }
+        },
+        scales: { x: { stacked: true }, y: { stacked: true } }
+      }
+    });
+    if (d.motivosExperiencia.length) {
+      const top = d.motivosExperiencia.slice(0, 8);
+      barChart('c-rot-motivos-exp', top.map(x => x.label), top.map(x => x.value), { horizontal: true });
+    }
+    if (d.cargosDesligadosExperiencia.length) {
+      const topCargos = d.cargosDesligadosExperiencia.slice(0, 10);
+      barChart('c-rot-cargos-exp', topCargos.map(x => x.label), topCargos.map(x => x.value), { horizontal: true });
     }
   }
 
@@ -252,6 +291,10 @@
         ${kpi('Solicitações de desligamento', U.fmtInt(d.totalSolicitacoes), '', 'var(--warning)')}
       </div>
       ${renderNpsScale(d.npsDetalhe)}
+      <div class="insight info" style="margin-bottom:18px">
+        <span class="ic">&#8505;&#65039;</span>
+        <span><strong>Como calculamos o eNPS:</strong> cada resposta de 0 a 10 (probabilidade de indicar a empresa) entra num de três grupos — Detratores (nota 0 a 6), Neutros (7 a 8) e Promotores (9 a 10). eNPS = ((nº de Promotores − nº de Detratores) ÷ total de respostas) × 100. O resultado varia de -100 (todo mundo detrator) a +100 (todo mundo promotor); Neutros contam no total mas não entram na conta de cima nem de baixo.</span>
+      </div>
       <div class="grid2-fixed">
         ${renderIndiceDesligamentoCard(primeiroIndice, 0)}
         ${motivosSubmotivosPair}

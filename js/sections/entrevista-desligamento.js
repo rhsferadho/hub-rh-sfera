@@ -247,12 +247,37 @@
   }
 
   // ---------------------------------------------------------------
-  // Subaba "Lista de Colaboradores" — só acompanhamento de ENVIO (pra quem
-  // foi gerado o link e qual o status), nunca o CONTEÚDO da resposta: as
-  // respostas em si só alimentam os gráficos anonimizados da subaba
-  // "Indicadores" (ver converterRespostaLink em metrics-indicadores.js), e
-  // não têm nenhuma tela de detalhe ligada a um nome aqui de propósito.
+  // Subaba "Lista de Colaboradores" — acompanhamento de envio (pra quem foi
+  // gerado o link e qual o status) + ações "Copiar link" (reenviar o mesmo
+  // link já gerado em vez de criar um novo — evita duas pesquisas pra
+  // mesma pessoa) e "Ver respostas" nos já preenchidos. Os gráficos
+  // anonimizados da subaba "Indicadores" continuam sem nome de respondente
+  // (ver converterRespostaLink em metrics-indicadores.js) — só aqui, tela
+  // de acompanhamento operacional por colaborador(a), é que o conteúdo da
+  // resposta fica visível, ligado ao nome.
   // ---------------------------------------------------------------
+  function linkDoRegistro(row) {
+    return new URL('entrevista-desligamento-publico.html?token=' + encodeURIComponent(row.linkToken), location.href).href;
+  }
+
+  async function copiarLink(row) {
+    const link = linkDoRegistro(row);
+    try { await navigator.clipboard.writeText(link); alert('Link copiado — envie para ' + (row.colaboradorNome || 'o(a) ex-colaborador(a)') + '.'); }
+    catch (e) { prompt('Copie o link:', link); }
+  }
+
+  function abrirModalRespostas(row) {
+    const M = window.HUB_ED_MODELO, PR = window.HUB_ED_RENDER;
+    const qids = Object.keys(row.respostas || {}).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
+    const corpo = qids.map(qid => {
+      const q = M.PERGUNTAS[qid];
+      if (!q) return '';
+      return PR.renderPerguntaHTML(qid, q, row.respostas[qid], true);
+    }).join('') || '<p class="sub" style="color:var(--muted)">Sem respostas registradas.</p>';
+    const subtitulo = `${U.escapeHtml(row.cargo || '')}${row.dataFinalizacao ? ' · finalizada em ' + U.fmtDateBR(String(row.dataFinalizacao).slice(0, 10)) : ''}`;
+    abrirModal(`Respostas — ${U.escapeHtml(row.colaboradorNome || '')}`, `<p class="sub" style="color:var(--muted);margin-bottom:14px">${subtitulo}</p><div class="form-grid">${corpo}</div>`);
+  }
+
   function renderListaLinks() {
     const todos = registros();
     const pendentes = todos.filter(r => r.status === 'Pendente');
@@ -265,17 +290,22 @@
         </div>
         ${!todos.length ? '<p class="sub" style="color:var(--muted)">Nenhum link gerado ainda.</p>' : `
         <div class="table-wrap"><table class="dt">
-          <thead><tr><th>Colaborador(a)</th><th>Cargo</th><th>Status</th><th>Gerado por</th><th>Data</th></tr></thead>
+          <thead><tr><th>Colaborador(a)</th><th>Cargo</th><th>Status</th><th>Gerado por</th><th>Data</th><th></th></tr></thead>
           <tbody>
             ${pendentes.map(r => `<tr>
               <td>${U.escapeHtml(r.colaboradorNome || '')}</td><td>${U.escapeHtml(r.cargo || '')}</td>
               <td><span class="badge b4">Pendente</span></td><td>${U.escapeHtml(r.geradoPor || '')}</td>
               <td>${r.criadoEm ? U.fmtDateBR(String(r.criadoEm).slice(0, 10)) : '—'}</td>
+              <td class="row-actions">${r.linkToken ? `<button class="btn btn-outline btn-sm" data-copiar="${r.id}">Copiar link</button>` : ''}</td>
             </tr>`).join('')}
             ${preenchidos.map(r => `<tr>
               <td>${U.escapeHtml(r.colaboradorNome || '')}</td><td>${U.escapeHtml(r.cargo || '')}</td>
               <td><span class="badge b2">Preenchido</span></td><td>${U.escapeHtml(r.geradoPor || '')}</td>
               <td>${r.dataFinalizacao ? U.fmtDateBR(String(r.dataFinalizacao).slice(0, 10)) : '—'}</td>
+              <td class="row-actions">
+                ${r.linkToken ? `<button class="btn btn-outline btn-sm" data-copiar="${r.id}">Copiar link</button>` : ''}
+                <button class="btn btn-outline btn-sm" data-ver="${r.id}">Ver respostas</button>
+              </td>
             </tr>`).join('')}
           </tbody>
         </table></div>`}
@@ -285,6 +315,15 @@
   function wireListaLinks(el) {
     const btn = el.querySelector('#ed-abrir-gerar');
     btn && btn.addEventListener('click', abrirModalGerarLink);
+    const todos = registros();
+    el.querySelectorAll('[data-copiar]').forEach(b => b.addEventListener('click', () => {
+      const row = todos.find(r => String(r.id) === b.dataset.copiar);
+      if (row) copiarLink(row);
+    }));
+    el.querySelectorAll('[data-ver]').forEach(b => b.addEventListener('click', () => {
+      const row = todos.find(r => String(r.id) === b.dataset.ver);
+      if (row) abrirModalRespostas(row);
+    }));
   }
 
   window.HUB_ENTREVISTA_DESLIGAMENTO = { canGerarLink, renderListaLinks, wireListaLinks };

@@ -7,6 +7,16 @@
 
   function norm(s) { return U.normalizeText(s || '').trim(); }
 
+  // "Grupos" (coluna K da planilha de Colaboradores) guarda tags soltas por
+  // colaborador (ex.: "cota.pcd", "afastamento.inss") — geralmente mais de
+  // uma por pessoa, separadas por vírgula/ponto-e-vírgula/quebra de linha.
+  // Checa por substring normalizada em vez de split exato: cobre tanto lista
+  // com separador quanto um valor único, sem depender de qual separador a
+  // planilha realmente usa.
+  function temGrupo(colaborador, tag) {
+    return norm(colaborador.grupos).includes(norm(tag));
+  }
+
   // ------------------------------------------------------------------
   // Filtro genérico: recebe as linhas de uma tabela + um "mapa" dizendo em
   // quais campos daquela tabela estão data/unidade/departamento/pessoa(s)
@@ -127,6 +137,10 @@
       total: rows.length,
       ativos: ativos.length,
       desativados: desativados.length,
+      cotaPcd: rows.filter(r => temGrupo(r, 'cota.pcd')).length,
+      cotaAprendiz: rows.filter(r => temGrupo(r, 'cota.aprendiz')).length,
+      afastamentoInss: rows.filter(r => temGrupo(r, 'afastamento.inss')).length,
+      afastamentoMaternidade: rows.filter(r => temGrupo(r, 'afastamento.maternidade')).length,
       porUnidade: countBy(rows, 'unidade'),
       porDepartamento: countBy(rows, 'departamento'),
       porGestor: countBy(rows, 'gestor_direto'),
@@ -198,6 +212,22 @@
     });
     const taxaTurnoverExperiencia = admitidosPeriodo.length > 0 ? desligadosExperiencia.length / admitidosPeriodo.length : 0;
 
+    // Mesmos 3 gráficos de baixo (voluntário x involuntário por mês, motivos,
+    // top cargos), mas só com quem desligou dentro do período de experiência
+    // (até 90 dias após a admissão) — mede o que está acontecendo logo na
+    // entrada, separado do desligamento "normal" do resto da série.
+    const mesesExperiencia = U.monthsBetween(start.slice(0, 7), end.slice(0, 7));
+    const serieExperiencia = mesesExperiencia.map(mk => {
+      const desMes = desligadosExperiencia.filter(r => U.monthKey(r.ultimo_dia_trabalhado || r.data_admissao) === mk);
+      return {
+        mes: mk, label: U.monthLabel(mk),
+        voluntarios: desMes.filter(r => tipoDesligamento(r) === 'Voluntário').length,
+        involuntarios: desMes.filter(r => tipoDesligamento(r) === 'Involuntário').length
+      };
+    });
+    const motivosExperiencia = countBy(desligadosExperiencia, 'desligamento_motivo');
+    const cargosDesligadosExperiencia = countBy(desligadosExperiencia, 'cargo');
+
     const meses = U.monthsBetween(start.slice(0, 7), end.slice(0, 7));
     const serie = meses.map(mk => {
       const monthStart = mk + '-01';
@@ -259,7 +289,8 @@
       taxaTurnoverGeral, taxaVoluntaria, taxaInvoluntaria,
       taxaDesligamentoGeral, turnoverMedio, taxaDesligamentoMedia,
       taxaTurnoverExperiencia, totalDesligadosExperiencia: desligadosExperiencia.length,
-      serie, motivos, cargosDesligados, listaDesligados, insights
+      serie, motivos, cargosDesligados, listaDesligados, insights,
+      serieExperiencia, motivosExperiencia, cargosDesligadosExperiencia
     };
   }
 
@@ -481,7 +512,19 @@
     return longest;
   }
 
-  function isPositivo(r) { return norm(r.trabalharia_novamente).startsWith('sim'); }
+  // O link público (pergunta 80 de modelo.js) usa uma escala de 5 opções
+  // ('Sim, com certeza' / 'Provavelmente sim' / 'Talvez, dependendo das
+  // condições' / 'Provavelmente não' / 'Não trabalharia novamente'), não só
+  // Sim/Não — checar só `.startsWith('sim')` classificava "Provavelmente
+  // sim" (uma resposta que pende pro positivo) como negativo, e é essa
+  // mistura que fazia os comentários positivos/negativos parecerem
+  // invertidos. A planilha histórica (Sim/Não simples) continua batendo,
+  // porque "sim" sozinho também está na lista.
+  const RESPOSTAS_POSITIVAS_TRABALHARIA = ['sim', 'sim, com certeza', 'provavelmente sim'];
+  function isPositivo(r) {
+    const t = norm(r.trabalharia_novamente);
+    return RESPOSTAS_POSITIVAS_TRABALHARIA.some(v => t === v);
+  }
 
   // Converte um registro de entrevistas_desligamento (respostas por índice
   // de pergunta, ver js/entrevista-desligamento/modelo.js) pro mesmo
