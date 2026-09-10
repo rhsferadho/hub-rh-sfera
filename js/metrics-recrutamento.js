@@ -98,6 +98,15 @@
       const df = new Date(v.dataFechamento);
       return df.getMonth() === hj.getMonth() && df.getFullYear() === hj.getFullYear();
     }).length;
+    // Backlog: vagas Aberto/Andamento que já vinham de meses anteriores e
+    // continuam sem fechar neste mês — não é "vagas em aberto" (esse já
+    // conta tudo, incluindo as abertas este mês), é só o que "empilhou".
+    const backlog = vagas.filter(v => {
+      if (v.status !== 'Aberto' && v.status !== 'Andamento') return false;
+      if (!v.dataAbertura) return false;
+      const da = new Date(v.dataAbertura);
+      return !(da.getMonth() === hj.getMonth() && da.getFullYear() === hj.getFullYear());
+    }).length;
     const finalizadas = vagas.filter(v => v.status === 'Finalizada');
     const slaMedio = finalizadas.length ? (finalizadas.reduce((s, v) => s + calcularSLA(v), 0) / finalizadas.length) : 0;
     const slaExpirado = vagas.filter(v => (v.status === 'Aberto' || v.status === 'Andamento') && statusSLA(v) === 'Expirou SLA').length;
@@ -124,7 +133,7 @@
     const gestor = noShowRate(entrevistas.filter(e => e.tipoEntrevista === 'Gestor'));
 
     return {
-      emAberto, emAndamento, abertas, congeladas, emAdm, fechadasMes,
+      emAberto, emAndamento, abertas, congeladas, emAdm, fechadasMes, backlog,
       slaMedio, slaExpirado, conversao, dentroSLA,
       candAtivos, candPorVaga, prox7,
       noShowGeral: geral, noShowRH: rh, noShowGestor: gestor

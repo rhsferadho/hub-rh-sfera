@@ -39,6 +39,7 @@
         ${kpi('Vagas em aberto', U.fmtInt(k.emAberto), '', 'var(--p1)')}
         ${kpi('Vagas em andamento', U.fmtInt(k.emAndamento), '', '#eda100')}
         ${kpi('Finalizadas no mês', U.fmtInt(k.fechadasMes), '', '#1baf7a')}
+        ${kpi('Backlog', U.fmtInt(k.backlog), 'em aberto/andamento desde antes deste mês', k.backlog > 0 ? 'var(--warning)' : '#1baf7a')}
         ${kpi('Em admissão', U.fmtInt(k.emAdm), '', '#4a3aa7')}
         ${kpi('SLA médio', U.fmt1(k.slaMedio) + ' dias', 'vagas finalizadas', '#e87ba4')}
         ${kpi('SLA expirado', U.fmtInt(k.slaExpirado), `${U.fmt1(k.dentroSLA)}% dentro do SLA`, k.slaExpirado > 0 ? 'var(--critical)' : '#1baf7a')}
@@ -123,6 +124,7 @@
         ${kpi('Vagas em aberto', U.fmtInt(k.emAberto), '', 'var(--p1)')}
         ${kpi('Vagas em andamento', U.fmtInt(k.emAndamento), '', '#eda100')}
         ${kpi('Finalizadas no mês', U.fmtInt(k.fechadasMes), '', '#1baf7a')}
+        ${kpi('Backlog', U.fmtInt(k.backlog), 'em aberto/andamento desde antes deste mês', k.backlog > 0 ? 'var(--warning)' : '#1baf7a')}
         ${kpi('Em admissão', U.fmtInt(k.emAdm), '', '#4a3aa7')}
         ${kpi('Vagas congeladas', U.fmtInt(k.congeladas), '', k.congeladas > 0 ? 'var(--warning)' : '#1baf7a')}
         ${kpi('Candidatos ativos', U.fmtInt(k.candAtivos), `média ${U.fmt1(k.candPorVaga)} por vaga aberta`, 'var(--p1)')}
