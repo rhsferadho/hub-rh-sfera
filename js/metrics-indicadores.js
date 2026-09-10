@@ -112,10 +112,19 @@
     if (f.gestor) rows = rows.filter(r => U.normIncludes(r.gestor_direto, f.gestor));
     if (f.colaborador) rows = rows.filter(r => U.normIncludes(r.nome_completo, f.colaborador));
 
+    const hoje = U.todayISO();
+    // Período de experiência CLT: 45 dias + prorrogação de mais 45 (90 no
+    // total) contados da admissão. "Em experiência" aqui é sempre relativo a
+    // HOJE (não ao período do filtro de data, que esta tela nem usa) — é uma
+    // foto do quadro atual, igual Ativos/Desativados.
+    const emExperienciaRows = rows.filter(r => {
+      const d = r.data_admissao ? daysBetween(r.data_admissao, hoje) : null;
+      return d !== null && d >= 0 && d <= 90;
+    });
+    if (f.experiencia) rows = emExperienciaRows;
+
     const ativos = rows.filter(r => norm(r.situacao) === 'ativo');
     const desativados = rows.filter(r => norm(r.situacao) === 'desativado');
-
-    const hoje = U.todayISO();
     const mesAtual = hoje.slice(5, 10);
     const hojeOrd = ordinalOfMD(mesAtual);
     const aniversariantes = rows
@@ -137,6 +146,7 @@
       total: rows.length,
       ativos: ativos.length,
       desativados: desativados.length,
+      emExperiencia: f.experiencia ? rows.length : emExperienciaRows.length,
       cotaPcd: rows.filter(r => temGrupo(r, 'cota.pcd')).length,
       cotaAprendiz: rows.filter(r => temGrupo(r, 'cota.aprendiz')).length,
       afastamentoInss: rows.filter(r => temGrupo(r, 'afastamento.inss')).length,
@@ -858,7 +868,7 @@
   }
 
   window.HUB_METRICS = {
-    filterRows, countBy, sumBy, avgBy, seriePorMes, countAnswers,
+    filterRows, countBy, sumBy, avgBy, seriePorMes, countAnswers, temGrupo,
     colaboradoresMetrics, rotatividadeMetrics, entrevistaMetrics,
     celebracoesMetrics, feedbacksMetrics, oneOnOneMetrics, treinamentosMetrics,
     dashboardMetrics

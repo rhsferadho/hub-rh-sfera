@@ -39,6 +39,18 @@
   // ==================================================================
   // HEADCOUNT (Colaboradores)
   // ==================================================================
+  // Badges de identificação ao lado do nome, na Lista de colaboradores —
+  // cota PCD/Jovem Aprendiz e afastamento INSS/Maternidade (mesmas tags de
+  // colaboradores.grupos usadas nos 4 cards do topo, ver M.temGrupo).
+  function badgesGruposHTML(r) {
+    const tags = [];
+    if (M.temGrupo(r, 'cota.pcd')) tags.push(['PCD', 'b5']);
+    if (M.temGrupo(r, 'cota.aprendiz')) tags.push(['Jovem Aprendiz', 'b4']);
+    if (M.temGrupo(r, 'afastamento.inss')) tags.push(['INSS', 'b3']);
+    if (M.temGrupo(r, 'afastamento.maternidade')) tags.push(['Maternidade', 'b1']);
+    return tags.map(([label, cls]) => ` <span class="badge ${cls}" style="font-size:9.5px;padding:2px 6px">${label}</span>`).join('');
+  }
+
   function renderHeadcount(el, f) {
     if (noDataGate(el, ['colaboradores'], canUpload())) return;
     const d = M.colaboradoresMetrics(f);
@@ -47,6 +59,7 @@
         ${kpi('Headcount', U.fmtInt(d.total), 'Ativos + desativados (sem duplicidade)', 'var(--p1)')}
         ${kpi('Ativos', U.fmtInt(d.ativos), '', '#1baf7a')}
         ${kpi('Desativados', U.fmtInt(d.desativados), '', 'var(--warning)')}
+        ${kpi('Em período de experiência', U.fmtInt(d.emExperiencia), 'até 90 dias da admissão', '#eb6834')}
         ${kpi('Cota PCD', U.fmtInt(d.cotaPcd), '', '#e87ba4')}
         ${kpi('Cota Jovem Aprendiz', U.fmtInt(d.cotaAprendiz), '', '#eda100')}
         ${kpi('Afastamentos INSS', U.fmtInt(d.afastamentoInss), '', 'var(--critical)')}
@@ -58,7 +71,7 @@
         ${card('Headcount por departamento', '&#128194;', '<div class="chart-h"><canvas id="c-col-depto"></canvas></div>')}
         ${card('Distribuição por sexo', '&#9878;&#65039;', '<div class="chart-h short"><canvas id="c-col-sexo"></canvas></div>')}
         ${card('Aniversariantes (próx. 30 dias)', '&#127874;', d.aniversariantes.length ? `<div class="table-wrap"><table class="dt"><thead><tr><th>Nome</th><th>Cargo</th><th>Data</th><th>Departamento</th></tr></thead><tbody>${d.aniversariantes.map(a => `<tr><td>${U.escapeHtml(a.nome)}</td><td>${U.escapeHtml(a.cargo || '')}</td><td>${U.fmtDateBR(a.data)}</td><td>${U.escapeHtml(a.departamento || '')}</td></tr>`).join('')}</tbody></table></div>` : empty('Nenhum aniversariante nos próximos 30 dias.'))}
-        ${card('Lista de colaboradores', '&#128203;', `<div class="table-wrap"><table class="dt"><thead><tr><th>Nome</th><th>Cargo</th><th>Unidade</th><th>Departamento</th><th>Gestor</th><th>Situação</th><th>Admissão</th></tr></thead><tbody>${d.lista.slice(0, 300).map(r => `<tr><td>${U.escapeHtml(r.nome_completo || r.nome || '')}</td><td>${U.escapeHtml(r.cargo || '')}</td><td>${U.escapeHtml(r.unidade || '')}</td><td>${U.escapeHtml(r.departamento || '')}</td><td>${U.escapeHtml(r.gestor_direto || '')}</td><td><span class="badge ${r.situacao === 'Ativo' ? 'b2' : 'b4'}">${U.escapeHtml(r.situacao || '')}</span></td><td>${U.fmtDateBR(r.data_admissao)}</td></tr>`).join('')}</tbody></table></div>${d.lista.length > 300 ? `<p class="sub" style="margin-top:8px">Exibindo 300 de ${U.fmtInt(d.lista.length)}. Refine os filtros para ver outros.</p>` : ''}`, { full: true })}
+        ${card('Lista de colaboradores', '&#128203;', `<div class="table-wrap"><table class="dt"><thead><tr><th>Nome</th><th>Cargo</th><th>Unidade</th><th>Departamento</th><th>Gestor</th><th>Situação</th><th>Admissão</th><th>Fim experiência (45d)</th><th>Fim prorrogação (90d)</th></tr></thead><tbody>${d.lista.slice(0, 300).map(r => `<tr><td>${U.escapeHtml(r.nome_completo || r.nome || '')}${badgesGruposHTML(r)}</td><td>${U.escapeHtml(r.cargo || '')}</td><td>${U.escapeHtml(r.unidade || '')}</td><td>${U.escapeHtml(r.departamento || '')}</td><td>${U.escapeHtml(r.gestor_direto || '')}</td><td><span class="badge ${r.situacao === 'Ativo' ? 'b2' : 'b4'}">${U.escapeHtml(r.situacao || '')}</span></td><td>${U.fmtDateBR(r.data_admissao)}</td><td>${r.data_admissao ? U.fmtDateBR(U.addDays(r.data_admissao, 45)) : '—'}</td><td>${r.data_admissao ? U.fmtDateBR(U.addDays(r.data_admissao, 90)) : '—'}</td></tr>`).join('')}</tbody></table></div>${d.lista.length > 300 ? `<p class="sub" style="margin-top:8px">Exibindo 300 de ${U.fmtInt(d.lista.length)}. Refine os filtros para ver outros.</p>` : ''}`, { full: true })}
       </div>`;
     const pu = d.porUnidade, pd = d.porDepartamento.slice(0, 12), ps = d.porSexo;
     barChart('c-col-unidade', pu.map(x => x.label), pu.map(x => x.value));

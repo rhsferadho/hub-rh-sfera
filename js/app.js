@@ -87,6 +87,9 @@
       departamento: departamentoMS ? departamentoMS.getSelected() : [],
       gestor: $('#f-gestor').value || '',
       colaborador: $('#f-colaborador').value || '',
+      // Só existe (visível) na tela Headcount — ver goToSection() — mas não
+      // custa nada ler sempre; as outras telas simplesmente ignoram o campo.
+      experiencia: $('#f-experiencia') ? $('#f-experiencia').checked : false,
       trilha: $('#f-trilha').value || '',
       conteudo: $('#f-conteudo').value || ''
     };
@@ -120,6 +123,7 @@
     const showTwygo = name === 'ind-treinamentos';
     $('#fg-trilha').style.display = showTwygo ? 'flex' : 'none';
     $('#fg-conteudo').style.display = showTwygo ? 'flex' : 'none';
+    $('#fg-experiencia').style.display = name === 'ind-headcount' ? 'flex' : 'none';
     renderCurrentSection();
   }
   // Exposto pra navegação entre módulos a partir de uma seção (ex.: botão
@@ -297,7 +301,7 @@
     unidadeMS.onChange(() => { updateDependentFilters(); renderCurrentSection(); });
     departamentoMS.onChange(() => { updateDependentFilters(); renderCurrentSection(); });
 
-    ['f-start', 'f-end', 'f-gestor', 'f-colaborador', 'f-trilha', 'f-conteudo']
+    ['f-start', 'f-end', 'f-gestor', 'f-colaborador', 'f-experiencia', 'f-trilha', 'f-conteudo']
       .forEach(id => document.getElementById(id).addEventListener('change', renderCurrentSection));
     $('#btn-clear-filters').addEventListener('click', () => {
       ['f-gestor', 'f-colaborador', 'f-trilha', 'f-conteudo'].forEach(id => $('#' + id).value = '');
@@ -306,6 +310,28 @@
       setDefaultDates();
       updateDependentFilters();
       renderCurrentSection();
+    });
+  }
+
+  // Botão global no topo (visível em todos os menus) — busca os dados mais
+  // recentes do Supabase sem precisar recarregar a página. Reaproveita
+  // HUB_RELOAD_DATA (mesma função chamada após um upload em Administração):
+  // recarrega todas as tabelas de Indicadores + listas mestre do
+  // Recrutamento, e renderCurrentSection() no final já recarrega
+  // vagas/candidatos/entrevistas também, se a seção atual for do módulo
+  // Recrutamento (ver RECRUIT_SECTIONS).
+  function wireRefreshButton() {
+    const btn = $('#btn-refresh-data');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      // innerHTML (não textContent) pra preservar o <span class="btn-label">
+      // que o CSS mobile usa pra esconder só o texto e manter o ícone.
+      const original = btn.innerHTML;
+      btn.innerHTML = '&#8635; Atualizando...';
+      try { await HUB_RELOAD_DATA(true); }
+      finally { btn.disabled = false; btn.innerHTML = original; }
     });
   }
 
@@ -385,6 +411,7 @@
     applyPermissionsToNav();
     setDefaultDates();
     wireFilterBar();
+    wireRefreshButton();
     wireNav();
     goToSection(firstVisibleSection());
     await reloadData();

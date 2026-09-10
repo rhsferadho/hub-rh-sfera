@@ -236,6 +236,9 @@ table.dt tr:hover td{background:#F7F9FC}
   }
   .sidebar.open{transform:translateX(0);box-shadow:12px 0 32px rgba(0,0,0,.25)}
   .topbar{padding:12px 14px}
+  #btn-refresh-data{padding:8px 9px}
+  #btn-refresh-data .btn-label{display:none}
+  #data-status{display:none}
   .pc{padding:16px 14px 32px}
   .fbar{padding:12px}
   .grid2{grid-template-columns:1fr}
@@ -399,7 +402,10 @@ details.blk > .blk-body{padding:16px}
         <button class="btn-hamburger" id="btn-mobile-menu" aria-label="Abrir menu">&#9776;</button>
         <h1 id="page-title">Dashboard</h1>
       </div>
-      <span id="data-status"></span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="btn btn-outline btn-sm" id="btn-refresh-data" style="width:auto;white-space:nowrap" title="Busca os dados mais recentes sem precisar recarregar a página">&#8635;<span class="btn-label"> Atualizar dados</span></button>
+        <span id="data-status"></span>
+      </div>
     </div>
     <div class="pc">
       <div class="fbar" id="filter-bar">
@@ -427,6 +433,12 @@ details.blk > .blk-body{padding:16px}
         </div>
         <div class="fg"><label>Gestor</label><input type="text" id="f-gestor" list="dl-gestor" placeholder="Todos" autocomplete="off"><datalist id="dl-gestor"></datalist></div>
         <div class="fg"><label>Colaborador</label><input type="text" id="f-colaborador" list="dl-colaborador" placeholder="Todos" autocomplete="off"><datalist id="dl-colaborador"></datalist></div>
+        <div class="fg" id="fg-experiencia" style="display:none;justify-content:flex-end;min-width:170px;max-width:230px">
+          <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:12.5px;font-weight:500;color:var(--text);cursor:pointer">
+            <input type="checkbox" id="f-experiencia" style="width:auto;flex-shrink:0">
+            <span>Só em experiência (até 90 dias)</span>
+          </label>
+        </div>
         <div class="fg" id="fg-trilha" style="display:none"><label>Trilha/Curso (tipo)</label><input type="text" id="f-trilha" list="dl-trilha" placeholder="Todos" autocomplete="off"><datalist id="dl-trilha"></datalist></div>
         <div class="fg" id="fg-conteudo" style="display:none"><label>Conteúdo</label><input type="text" id="f-conteudo" list="dl-conteudo" placeholder="Todos" autocomplete="off"><datalist id="dl-conteudo"></datalist></div>
         <button class="btn btn-outline btn-sm" id="btn-clear-filters">Limpar filtros</button>

@@ -27,6 +27,16 @@
     return `${d}/${m}/${y}`;
   }
 
+  // Soma dias a uma data ISO (YYYY-MM-DD), devolvendo outra data ISO — usa
+  // meio-dia UTC pra não escorregar de dia por causa de fuso horário.
+  function addDays(iso, days) {
+    if (!iso) return null;
+    const d = new Date(String(iso).slice(0, 10) + 'T12:00:00Z');
+    if (isNaN(d)) return null;
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
   function fmtInt(n) {
     if (n === null || n === undefined || isNaN(n)) return '0';
     return Number(n).toLocaleString('pt-BR');
@@ -235,7 +245,7 @@
   }
 
   window.HUB_UTILS = {
-    color, CHART_COLORS, STATUS_COLORS, todayISO, fmtDateBR, fmtInt, fmtPct, fmt1,
+    color, CHART_COLORS, STATUS_COLORS, todayISO, fmtDateBR, addDays, fmtInt, fmtPct, fmt1,
     inRange, monthKey, monthLabel, monthsBetween, ageYears, tenureMonths, tenureLabel,
     uniqueSorted, uniqueSortedNormalized, normalizeText, normEq, normIncludes, matchesAny, escapeHtml,
     extractMentions, nextCode, wireTableTopScroll, fitColor
