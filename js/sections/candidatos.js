@@ -16,6 +16,11 @@
   const R = HUB_RECRUIT;
 
   function D() { return window.HUB_RECRUIT_DATA || {}; }
+
+  // Texto exibido/digitado no campo de Vaga (busca com autocompletar via
+  // <datalist> — ver renderBody) — precisa ser único por vaga pra servir de
+  // chave de busca reversa (texto -> vaga.id) no listener de 'change'.
+  function vagaLabel(v) { return `${v.id} — ${v.cargo || ''} (${v.unidade || ''})`; }
   function canWrite() { return HUB_PERMISSIONS.hasPerm(HUB_USER, 'recrutamento.candidatos'); }
   function canApprove() { return HUB_PERMISSIONS.hasPerm(HUB_USER, 'recrutamento.aprovacoes'); }
 
@@ -542,7 +547,8 @@
         <div class="blk-body">
           <div class="form-grid">
             <div class="field full"><label>Código da Vaga <span class="req">*</span></label>
-              <select id="cf_vagaId" ${dis}><option value="">Selecione uma vaga ativa...</option>${vagasAtivas.map(v => `<option value="${v.id}" ${d.vagaId === v.id ? 'selected' : ''}>${v.id} — ${U.escapeHtml(v.cargo || '')} (${U.escapeHtml(v.unidade || '')})</option>`).join('')}</select>
+              <input type="text" id="cf_vagaId" list="dl-cf-vaga" placeholder="Digite o código, cargo ou unidade..." autocomplete="off" value="${U.escapeHtml(vaga ? vagaLabel(vaga) : '')}" ${dis}>
+              <datalist id="dl-cf-vaga">${vagasAtivas.map(v => `<option value="${U.escapeHtml(vagaLabel(v))}">`).join('')}</datalist>
             </div>
             <div class="field"><label>Cargo</label><input value="${vaga ? U.escapeHtml(vaga.cargo || '') : ''}" readonly style="background:var(--bg)"></div>
             <div class="field"><label>Unidade</label><input value="${vaga ? U.escapeHtml(vaga.unidade || '') : ''}" readonly style="background:var(--bg)"></div>
@@ -815,15 +821,25 @@
       inp.addEventListener(ev, () => { d[inp.dataset.field] = inp.value; });
     });
 
-    // Vaga: recalcula recrutador/fonte padrão e reflete cargo/unidade/departamento
-    const vagaSel = el.querySelector('#cf_vagaId');
-    vagaSel && vagaSel.addEventListener('change', () => {
-      d.vagaId = vagaSel.value;
-      const v = (D().vagas || []).find(x => x.id === d.vagaId);
-      if (v) {
-        if (!d.entrevistadoPor) d.entrevistadoPor = v.responsavel;
-        if (!d.fonteCaptacao) d.fonteCaptacao = v.fonte;
-      }
+    // Vaga: campo de texto com <datalist> (busca por código, cargo ou
+    // unidade enquanto digita) em vez de <select> — mais fácil de achar a
+    // vaga certa numa lista longa. Só assume a digitação como válida quando
+    // o texto bate exatamente com o rótulo de alguma vaga ativa (ou seja,
+    // quando a pessoa escolhe uma sugestão, ou digita o rótulo inteiro à
+    // mão) — meio-termo evita perder a seleção anterior por causa de uma
+    // digitação parcial. 'change' (não 'input') porque re-renderiza o
+    // formulário inteiro pra atualizar Cargo/Unidade/Departamento, e um
+    // re-render a cada tecla apagaria o foco do campo.
+    const vagaInp = el.querySelector('#cf_vagaId');
+    vagaInp && vagaInp.addEventListener('change', () => {
+      // Recalculado aqui (não reaproveitado de renderBody) — wireBodyEvents
+      // roda numa closure separada, sem acesso às consts locais de lá.
+      const vagasAtivas = (D().vagas || []).filter(x => x.status !== 'Finalizada' && x.status !== 'Cancelada');
+      const v = vagasAtivas.find(x => vagaLabel(x) === vagaInp.value);
+      if (!v) { const atual = (D().vagas || []).find(x => x.id === d.vagaId); vagaInp.value = atual ? vagaLabel(atual) : ''; return; }
+      d.vagaId = v.id;
+      if (!d.entrevistadoPor) d.entrevistadoPor = v.responsavel;
+      if (!d.fonteCaptacao) d.fonteCaptacao = v.fonte;
       renderBody(el, readOnly);
     });
 
