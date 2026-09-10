@@ -521,7 +521,8 @@
 
   function renderBody(el, readOnly) {
     const d = candForm;
-    const vagasAtivas = (D().vagas || []).filter(v => v.status !== 'Finalizada' && v.status !== 'Cancelada');
+    const vagasAtivas = (D().vagas || []).filter(v => v.status !== 'Finalizada' && v.status !== 'Cancelada')
+      .sort((a, b) => (b.dataAbertura || '').localeCompare(a.dataAbertura || ''));
     const vaga = (D().vagas || []).find(v => v.id === d.vagaId);
     const wa = linkWhatsApp(d.contato);
     const dis = readOnly ? 'disabled' : '';
@@ -547,8 +548,10 @@
         <div class="blk-body">
           <div class="form-grid">
             <div class="field full"><label>Código da Vaga <span class="req">*</span></label>
-              <input type="text" id="cf_vagaId" list="dl-cf-vaga" placeholder="Digite o código, cargo ou unidade..." autocomplete="off" value="${U.escapeHtml(vaga ? vagaLabel(vaga) : '')}" ${dis}>
-              <datalist id="dl-cf-vaga">${vagasAtivas.map(v => `<option value="${U.escapeHtml(vagaLabel(v))}">`).join('')}</datalist>
+              <div class="combo-wrap">
+                <input type="text" id="cf_vagaId" placeholder="Digite o código, cargo ou unidade..." autocomplete="off" value="${U.escapeHtml(vaga ? vagaLabel(vaga) : '')}" ${dis}>
+                <div class="combo-panel" id="cf-vaga-panel" hidden></div>
+              </div>
             </div>
             <div class="field"><label>Cargo</label><input value="${vaga ? U.escapeHtml(vaga.cargo || '') : ''}" readonly style="background:var(--bg)"></div>
             <div class="field"><label>Unidade</label><input value="${vaga ? U.escapeHtml(vaga.unidade || '') : ''}" readonly style="background:var(--bg)"></div>
@@ -821,27 +824,48 @@
       inp.addEventListener(ev, () => { d[inp.dataset.field] = inp.value; });
     });
 
-    // Vaga: campo de texto com <datalist> (busca por código, cargo ou
-    // unidade enquanto digita) em vez de <select> — mais fácil de achar a
-    // vaga certa numa lista longa. Só assume a digitação como válida quando
-    // o texto bate exatamente com o rótulo de alguma vaga ativa (ou seja,
-    // quando a pessoa escolhe uma sugestão, ou digita o rótulo inteiro à
-    // mão) — meio-termo evita perder a seleção anterior por causa de uma
-    // digitação parcial. 'change' (não 'input') porque re-renderiza o
-    // formulário inteiro pra atualizar Cargo/Unidade/Departamento, e um
-    // re-render a cada tecla apagaria o foco do campo.
+    // Vaga: combobox próprio (não <datalist> nativo — a lista de sugestões
+    // do navegador trava numa largura curta e corta o título da vaga, sem
+    // nenhum controle via CSS; ver .combo-panel no index.html) com busca por
+    // código, cargo ou unidade enquanto digita, ordenado por Data de
+    // Abertura (mais recente primeiro). Recalculado aqui (não reaproveitado
+    // de renderBody) — wireBodyEvents roda numa closure separada, sem acesso
+    // às consts locais de lá.
     const vagaInp = el.querySelector('#cf_vagaId');
-    vagaInp && vagaInp.addEventListener('change', () => {
-      // Recalculado aqui (não reaproveitado de renderBody) — wireBodyEvents
-      // roda numa closure separada, sem acesso às consts locais de lá.
-      const vagasAtivas = (D().vagas || []).filter(x => x.status !== 'Finalizada' && x.status !== 'Cancelada');
-      const v = vagasAtivas.find(x => vagaLabel(x) === vagaInp.value);
-      if (!v) { const atual = (D().vagas || []).find(x => x.id === d.vagaId); vagaInp.value = atual ? vagaLabel(atual) : ''; return; }
-      d.vagaId = v.id;
-      if (!d.entrevistadoPor) d.entrevistadoPor = v.responsavel;
-      if (!d.fonteCaptacao) d.fonteCaptacao = v.fonte;
-      renderBody(el, readOnly);
-    });
+    const vagaPanel = el.querySelector('#cf-vaga-panel');
+    if (vagaInp && vagaPanel) {
+      const vagasOrdenadas = (D().vagas || []).filter(x => x.status !== 'Finalizada' && x.status !== 'Cancelada')
+        .sort((a, b) => (b.dataAbertura || '').localeCompare(a.dataAbertura || ''));
+      const renderPainel = termo => {
+        const t = U.normalizeText(termo || '');
+        const filtradas = t ? vagasOrdenadas.filter(v => U.normalizeText(vagaLabel(v)).includes(t)) : vagasOrdenadas;
+        vagaPanel.innerHTML = filtradas.length
+          ? filtradas.slice(0, 50).map(v => `<div class="combo-opt" data-id="${U.escapeHtml(v.id)}">${U.escapeHtml(vagaLabel(v))}</div>`).join('')
+          : '<div class="combo-empty">Nenhuma vaga encontrada.</div>';
+      };
+      vagaInp.addEventListener('focus', () => { renderPainel(''); vagaPanel.hidden = false; vagaInp.select(); });
+      vagaInp.addEventListener('input', () => { renderPainel(vagaInp.value); vagaPanel.hidden = false; });
+      // mousedown (não click) + preventDefault: sem isso, o blur do campo
+      // (abaixo) fecha o painel antes do clique na opção terminar de disparar.
+      vagaPanel.addEventListener('mousedown', e => {
+        const opt = e.target.closest('.combo-opt');
+        if (!opt) return;
+        e.preventDefault();
+        const v = vagasOrdenadas.find(x => x.id === opt.dataset.id);
+        if (!v) return;
+        d.vagaId = v.id;
+        if (!d.entrevistadoPor) d.entrevistadoPor = v.responsavel;
+        if (!d.fonteCaptacao) d.fonteCaptacao = v.fonte;
+        vagaPanel.hidden = true;
+        renderBody(el, readOnly);
+      });
+      vagaInp.addEventListener('blur', () => {
+        vagaPanel.hidden = true;
+        const atual = (D().vagas || []).find(x => x.id === d.vagaId);
+        vagaInp.value = atual ? vagaLabel(atual) : '';
+      });
+      vagaInp.addEventListener('keydown', e => { if (e.key === 'Escape') vagaInp.blur(); });
+    }
 
     // Telefone com máscara + botão WhatsApp
     const contatoInp = el.querySelector('#cf_contato');

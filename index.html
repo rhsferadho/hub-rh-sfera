@@ -114,6 +114,18 @@ p{margin:0}
 .msel-opt:hover{background:#F7F9FC}
 .msel-opt input{margin:0;flex-shrink:0}
 .msel-opt span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Combobox de busca com sugestões largas (ex.: Código da Vaga em
+   Candidatos) — como <datalist> nativo trava a largura/corta texto longo
+   sem dar controle nenhum via CSS, isso é um dropdown próprio, tão largo
+   quanto o campo (não uma largura fixa curta como .msel-panel acima). */
+.combo-wrap{position:relative}
+.combo-panel{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 28px rgba(16,24,40,.14);z-index:20;max-height:280px;overflow-y:auto}
+.combo-panel[hidden]{display:none}
+.combo-opt{padding:9px 12px;font-size:13px;line-height:1.4;cursor:pointer;border-bottom:1px solid var(--border)}
+.combo-opt:last-child{border-bottom:none}
+.combo-opt:hover{background:#F7F9FC}
+.combo-empty{padding:10px 12px;font-size:12.5px;color:var(--muted)}
 .msel-empty{padding:10px 6px;font-size:12px;color:var(--muted);text-align:center}
 
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:14px;margin-bottom:20px}
