@@ -193,6 +193,7 @@
   let rootEl = null;
   let editingCandId = null;
   let candForm = {};
+  let salvando = false;
 
   // `f` (filtro compartilhado da barra superior) é ignorado de propósito —
   // esta é uma tela operacional com seu próprio painel de filtros. Parâmetro
@@ -1074,14 +1075,20 @@
   }
 
   async function salvarCandidato(el, opcao) {
+    if (salvando) return;
     if (!validar(el)) return;
     const d = candForm;
     const vaga = (D().vagas || []).find(v => v.id === d.vagaId);
     if (vaga) { d.cargo = vaga.cargo; d.unidade = vaga.unidade; d.departamento = vaga.departamento; d.nivelVaga = vaga.nivelVaga || ''; }
     d.atualizadoPor = (HUB_USER && (HUB_USER.nome || HUB_USER.email)) || 'Desconhecido';
 
+    salvando = true;
     const btn = el.querySelector('#cf-salvar-voltar');
-    if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
+    const btnSalvar = el.querySelector('#cf-salvar');
+    const btnNovo = el.querySelector('#cf-salvar-novo');
+    const btnTextoOriginal = btn ? btn.textContent : '';
+    [btn, btnSalvar, btnNovo].forEach(b => { if (b) b.disabled = true; });
+    if (btn) btn.textContent = 'Salvando...';
     try {
       if (editingCandId) {
         await R.updateRow('candidatos', editingCandId, d);
@@ -1102,13 +1109,16 @@
         }
       }
       await R.reload();
+      salvando = false;
       if (opcao === 'novo') { openForm(null); }
       else if (opcao === 'continuar') { openForm(editingCandId); }
       else { view = 'list'; render(); }
     } catch (err) {
+      salvando = false;
       const msg = el.querySelector('#cf-msg');
       msg.textContent = 'Erro ao salvar: ' + err.message; msg.style.display = 'block';
-      if (btn) { btn.disabled = false; btn.textContent = 'Salvar e voltar para a lista'; }
+      [btn, btnSalvar, btnNovo].forEach(b => { if (b) b.disabled = false; });
+      if (btn) btn.textContent = btnTextoOriginal;
     }
   }
 
