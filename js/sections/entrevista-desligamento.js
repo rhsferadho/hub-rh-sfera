@@ -195,19 +195,22 @@
     btn.disabled = true; btn.textContent = 'Gerando...';
     const token = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
     const c = modalColab;
-    const row = {
-      id: U.nextCode('ED', registros().map(r => r.id)),
-      colaboradorExternalId: c.external_id || '', colaboradorNome: c.nome_completo || c.nome || '',
-      colaboradorCpf: c.cpf || '', colaboradorEmail: c.email || '', colaboradorTelefone: '',
-      cargo: c.cargo || '', dataAdmissao: c.data_admissao || null, dataDesligamento: c.ultimo_dia_trabalhado || null,
-      unidade: c.unidade || '', departamento: c.departamento || '',
-      unidadeTrabalho: modalUnidadeTrabalho, local: op.next === 14 ? null : modalLocal,
-      departamentoForms: op.next === 14 ? modalDepartamentoForms : null,
-      respostas: {}, status: 'Pendente', linkToken: token,
-      geradoPor: (HUB_USER && (HUB_USER.nome || HUB_USER.email)) || 'Desconhecido'
-    };
+    let row;
     try {
-      await R.insertRow('entrevistas_desligamento', row);
+      row = await U.insertWithRetryId('ED', registros().map(r => r.id), async id => {
+        const built = {
+          id, colaboradorExternalId: c.external_id || '', colaboradorNome: c.nome_completo || c.nome || '',
+          colaboradorCpf: c.cpf || '', colaboradorEmail: c.email || '', colaboradorTelefone: '',
+          cargo: c.cargo || '', dataAdmissao: c.data_admissao || null, dataDesligamento: c.ultimo_dia_trabalhado || null,
+          unidade: c.unidade || '', departamento: c.departamento || '',
+          unidadeTrabalho: modalUnidadeTrabalho, local: op.next === 14 ? null : modalLocal,
+          departamentoForms: op.next === 14 ? modalDepartamentoForms : null,
+          respostas: {}, status: 'Pendente', linkToken: token,
+          geradoPor: (HUB_USER && (HUB_USER.nome || HUB_USER.email)) || 'Desconhecido'
+        };
+        await R.insertRow('entrevistas_desligamento', built);
+        return built;
+      });
     } catch (err) {
       msgEl.textContent = 'Erro ao gerar o link: ' + err.message; msgEl.style.display = 'block';
       btn.disabled = false; btn.textContent = 'Gerar link de entrevista';

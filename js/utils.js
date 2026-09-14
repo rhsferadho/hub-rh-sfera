@@ -206,6 +206,28 @@
     return `${prefix}-${year}-${String(max + 1).padStart(3, '0')}`;
   }
 
+  // nextCode() calcula o próximo id a partir de uma lista carregada no
+  // cliente — se duas pessoas (ou duas abas) salvarem quase ao mesmo tempo,
+  // as duas podem calcular o MESMO "próximo" id antes que a primeira grave,
+  // e a segunda gravação falha com "duplicate key" (constraint de chave
+  // primária). insertWithRetryId tenta gravar com o id calculado e, se vier
+  // esse erro específico, soma o id que já falhou à lista de existentes e
+  // tenta de novo — sem precisar buscar dados novos do banco a cada vez.
+  async function insertWithRetryId(prefix, existingCodes, buildAndInsert, maxAttempts) {
+    maxAttempts = maxAttempts || 5;
+    const ids = (existingCodes || []).slice();
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const id = nextCode(prefix, ids);
+      try {
+        return await buildAndInsert(id);
+      } catch (err) {
+        const isDupKey = err && (err.code === '23505' || /duplicate key/i.test(err.message || ''));
+        if (!isDupKey || attempt === maxAttempts - 1) throw err;
+        ids.push(id);
+      }
+    }
+  }
+
   // Espelha uma barra de rolagem horizontal ACIMA de uma tabela larga
   // (dentro de .table-wrap), sincronizada com a rolagem nativa de baixo —
   // usado nas listas de Vagas/Candidatos para não obrigar o usuário a
@@ -248,6 +270,6 @@
     color, CHART_COLORS, STATUS_COLORS, todayISO, fmtDateBR, addDays, fmtInt, fmtPct, fmt1,
     inRange, monthKey, monthLabel, monthsBetween, ageYears, tenureMonths, tenureLabel,
     uniqueSorted, uniqueSortedNormalized, normalizeText, normEq, normIncludes, matchesAny, escapeHtml,
-    extractMentions, nextCode, wireTableTopScroll, fitColor
+    extractMentions, nextCode, insertWithRetryId, wireTableTopScroll, fitColor
   };
 })();

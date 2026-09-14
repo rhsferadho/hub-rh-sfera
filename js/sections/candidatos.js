@@ -719,13 +719,12 @@
       if (existente && existente.status === 'Pendente') {
         await R.updateRow('pareceres_gestor', existente.id, { modelo });
       } else if (!existente) {
-        await R.insertRow('pareceres_gestor', {
-          id: U.nextCode('PG', (D()['pareceres_gestor'] || []).map(p => p.id)),
-          candidatoId: c.id, candidatoNome: c.nome, vagaId: c.vagaId, cargo: c.cargo,
+        await U.insertWithRetryId('PG', (D()['pareceres_gestor'] || []).map(p => p.id), id => R.insertRow('pareceres_gestor', {
+          id, candidatoId: c.id, candidatoNome: c.nome, vagaId: c.vagaId, cargo: c.cargo,
           unidade: c.unidade, departamento: c.departamento, modelo,
           recrutador: (HUB_USER && (HUB_USER.nome || HUB_USER.email)) || 'Desconhecido',
           status: 'Pendente', dados: {}
-        });
+        }));
       }
     } catch (err) { alert('Erro ao definir o modelo de parecer: ' + err.message); }
     await reloadAndRender();
@@ -1095,14 +1094,16 @@
         await sincronizarEntrevistaRH(vaga);
         await R.logAcao({ acao: 'Edição de Candidato', vagaId: d.vagaId, detalhes: `Candidato ${editingCandId} atualizado: ${d.nome}` });
       } else {
-        const id = U.nextCode('CAND', (D().candidatos || []).map(c => c.id));
-        const novo = Object.assign({}, d, { id, criadoEm: new Date().toISOString() });
-        await R.insertRow('candidatos', novo);
-        editingCandId = id;
-        await R.logAcao({ acao: 'Novo Candidato', vagaId: novo.vagaId, detalhes: `Candidato ${id} cadastrado: ${novo.nome}` });
+        const novo = await U.insertWithRetryId('CAND', (D().candidatos || []).map(c => c.id), async id => {
+          const row = Object.assign({}, d, { id, criadoEm: new Date().toISOString() });
+          await R.insertRow('candidatos', row);
+          return row;
+        });
+        editingCandId = novo.id;
+        await R.logAcao({ acao: 'Novo Candidato', vagaId: novo.vagaId, detalhes: `Candidato ${novo.id} cadastrado: ${novo.nome}` });
         if (d.dataEntrevista && d.horarioEntrevista) {
           await R.insertRow('entrevistas', {
-            candidatoId: id, candidatoNome: novo.nome, vagaId: novo.vagaId, cargo: novo.cargo, unidade: novo.unidade,
+            candidatoId: novo.id, candidatoNome: novo.nome, vagaId: novo.vagaId, cargo: novo.cargo, unidade: novo.unidade,
             recrutador: novo.entrevistadoPor, etapa: 'Entrevista (RH)', tipoEntrevista: 'RH', data: novo.dataEntrevista, horario: novo.horarioEntrevista,
             duracao: 60, status: 'Agendada', tipoProcesso: vaga ? vaga.tipoRecrutamento : 'Externo', nivelVaga: novo.nivelVaga, observacao: ''
           });

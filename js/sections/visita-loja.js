@@ -561,12 +561,14 @@
     const btn = el.querySelector('#vl-avancar');
     btn.disabled = true; btn.textContent = 'Salvando...';
     try {
-      const registro = Object.assign({}, vlDados, {
-        id: U.nextCode('VL', (D()['visitas_loja'] || []).map(v => v.id)),
-        criadoPor: (HUB_USER && (HUB_USER.nome || HUB_USER.email)) || 'Desconhecido',
-        criadoEm: new Date().toISOString()
+      await U.insertWithRetryId('VL', (D()['visitas_loja'] || []).map(v => v.id), async id => {
+        const registro = Object.assign({}, vlDados, {
+          id, criadoPor: (HUB_USER && (HUB_USER.nome || HUB_USER.email)) || 'Desconhecido',
+          criadoEm: new Date().toISOString()
+        });
+        await R.insertRow('visitas_loja', registro);
+        return registro;
       });
-      await R.insertRow('visitas_loja', registro);
       view = 'list';
       await reloadAndRender();
     } catch (err) {

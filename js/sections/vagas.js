@@ -1005,24 +1005,26 @@
     const btn = el.querySelector('#nv-avancar');
     if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
     try {
-      const id = U.nextCode('VAG', (D().vagas || []).map(v => v.id));
-      const vaga = {
-        id, dataAbertura: dados.dataAbertura || U.todayISO(), motivoSla: dados.motivoSla || '',
-        departamento: dados.departamento || '', unidade: dados.unidade || '',
-        nivelVaga: dados.nivelVaga || '', solicitante: dados.solicitante || '', cargo: dados.cargo || '',
-        sigilosa: dados.sigilosa || 'Não', tipoVaga: dados.tipoVaga || 'Operacional', responsavel: dados.responsavel || '',
-        status: dados.status || 'Aberto', tipoMovimentacao: dados.tipoMovimentacao || '', motivoAumento: dados.motivoAumento || '',
-        pessoaSubstituida: dados.pessoaSubstituida || '', tipoRecrutamento: dados.tipoRecrutamento || 'Externo',
-        etapa: dados.etapa || 'Divulgação', dataCongelamento: '', dataRetorno: '', dataCancelamento: '',
-        finalistas: dados.finalistas || '', contratado: dados.contratado || '', fitPct: dados.fitPct || 0,
-        dataFechamento: '', dataInicio: dados.dataInicio || '', dataPrevistaAdmissao: dados.dataPrevistaAdmissao || '',
-        ultimaDivulgacao: dados.ultimaDivulgacao || '', dataUltimaDivulgacao: dados.dataUltimaDivulgacao || dados.ultimaDivulgacao || '',
-        numInscricoes: parseInt(dados.numInscricoes) || 0, fontesDivulgadas: dados.portaisAtivos || [],
-        motivoSlaText: dados.motivoSlaText || '', fonte: dados.fonte || '', quemIndicou: dados.quemIndicou || '',
-        observacoes: dados.observacoes || '', portaisAtivos: dados.portaisAtivos || [],
-        cota: dados.cota || 'Não', tipoCota: dados.cota === 'Sim' ? (dados.tipoCota || '') : ''
-      };
-      await R.insertRow('vagas', vaga);
+      const vaga = await U.insertWithRetryId('VAG', (D().vagas || []).map(v => v.id), async id => {
+        const row = {
+          id, dataAbertura: dados.dataAbertura || U.todayISO(), motivoSla: dados.motivoSla || '',
+          departamento: dados.departamento || '', unidade: dados.unidade || '',
+          nivelVaga: dados.nivelVaga || '', solicitante: dados.solicitante || '', cargo: dados.cargo || '',
+          sigilosa: dados.sigilosa || 'Não', tipoVaga: dados.tipoVaga || 'Operacional', responsavel: dados.responsavel || '',
+          status: dados.status || 'Aberto', tipoMovimentacao: dados.tipoMovimentacao || '', motivoAumento: dados.motivoAumento || '',
+          pessoaSubstituida: dados.pessoaSubstituida || '', tipoRecrutamento: dados.tipoRecrutamento || 'Externo',
+          etapa: dados.etapa || 'Divulgação', dataCongelamento: '', dataRetorno: '', dataCancelamento: '',
+          finalistas: dados.finalistas || '', contratado: dados.contratado || '', fitPct: dados.fitPct || 0,
+          dataFechamento: '', dataInicio: dados.dataInicio || '', dataPrevistaAdmissao: dados.dataPrevistaAdmissao || '',
+          ultimaDivulgacao: dados.ultimaDivulgacao || '', dataUltimaDivulgacao: dados.dataUltimaDivulgacao || dados.ultimaDivulgacao || '',
+          numInscricoes: parseInt(dados.numInscricoes) || 0, fontesDivulgadas: dados.portaisAtivos || [],
+          motivoSlaText: dados.motivoSlaText || '', fonte: dados.fonte || '', quemIndicou: dados.quemIndicou || '',
+          observacoes: dados.observacoes || '', portaisAtivos: dados.portaisAtivos || [],
+          cota: dados.cota || 'Não', tipoCota: dados.cota === 'Sim' ? (dados.tipoCota || '') : ''
+        };
+        await R.insertRow('vagas', row);
+        return row;
+      });
       await R.logAcao({ acao: 'Criação de Vaga', vagaId: vaga.id, detalhes: `Vaga criada: ${vaga.cargo} (${vaga.unidade})` });
       view = 'list';
       await reloadAndRender();
