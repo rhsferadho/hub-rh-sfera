@@ -50,14 +50,33 @@
     return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
   }
 
+  // O Supabase/PostgREST limita cada select('*') sem paginação a no máximo
+  // 1000 linhas por padrão — acima disso, ele NÃO retorna erro, só devolve
+  // as primeiras 1000 e trunca o resto silenciosamente. Isso é o oposto de
+  // "sem dados": as telas continuavam funcionando, só que com uma lista
+  // incompleta de candidatos/vagas por trás — e como U.nextCode calcula o
+  // próximo código de negócio (CAND-2026-XXX) a partir dessa lista truncada,
+  // ele gerava IDs que colidiam com linhas reais só que invisíveis no
+  // cliente (erro "duplicate key" persistente mesmo com poucos usuários
+  // simultâneos). dal-indicadores.js já pagina (ver PAGE=1000 lá); aqui não
+  // paginava — corrigido buscando em blocos de 1000 até a página vir vazia.
+  const PAGE = 1000;
   async function fetchAll(table) {
-    const { data, error } = await withTimeout(
-      sb.from(table).select('*'),
-      QUERY_TIMEOUT_MS,
-      `tempo esgotado buscando "${table}" (conexão lenta ou projeto Supabase inativo)`
-    );
-    if (error) throw error;
-    return (data || []).map(toCamelRow);
+    let all = [];
+    let from = 0;
+    for (;;) {
+      const { data, error } = await withTimeout(
+        sb.from(table).select('*').range(from, from + PAGE - 1),
+        QUERY_TIMEOUT_MS,
+        `tempo esgotado buscando "${table}" (conexão lenta ou projeto Supabase inativo)`
+      );
+      if (error) throw error;
+      if (!data.length) break;
+      all = all.concat(data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+    return all.map(toCamelRow);
   }
 
   // Recarrega as 3 tabelas operacionais (vagas/candidatos/entrevistas) — é
