@@ -519,6 +519,10 @@
           unidade: null, departamento: null, gestor: null, gestor_direto: null, gestor_avaliador: null,
           data_admissao: admISO || null, data_avaliacao: null, data_autoavaliacao: null,
           status_gestor: null, status_auto: null, martelo: null, martelo_comentario: null,
+          // Sempre presentes (mesmo em quem só aparece na aba "Ações Feitas",
+          // sem nenhuma resposta): as colunas são NOT NULL no banco, e o
+          // insert em lote do supabase-js manda null pra chave ausente.
+          notas_gestor: {}, notas_auto: {}, comentarios_gestor: {}, comentarios_auto: {},
           _slots: { gestor: new Map(), auto: new Map() }, _acaoGestor: null, _acaoAuto: null
         });
       }
