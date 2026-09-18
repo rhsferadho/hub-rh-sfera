@@ -460,6 +460,171 @@
   }
 
   // ---------------------------------------------------------------------
+  // 28. Avaliação da Experiência (AVE 45 DIAS.xlsx / AVE 90 DIAS.xlsx)
+  // ---------------------------------------------------------------------
+  // Cada planilha tem 2 abas: "Respostas da avaliação" (formato LONGO — uma
+  // linha por colaborador × competência × tipo de avaliação, com nota 1-4 e
+  // comentário) e "Ações Feitas" (adesão — uma linha por ação esperada:
+  // autoavaliação do colaborador / avaliação do gestor, com o status "Realizou"
+  // ou "Não realizou"). Aqui as duas são consolidadas em UMA LINHA POR
+  // COLABORADOR AVALIADO, que é o formato guardado no Supabase (~1,5 mil
+  // linhas por ciclo em vez de ~15 mil): as notas e os comentários por
+  // competência ficam em colunas JSON.
+  function normNome(s) {
+    return String(s == null ? '' : s).normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  // "Data da resposta" vem como DD-MM-AAAA, "Data de admissão" como
+  // AAAA-MM-DD hh:mm:ss (texto) ou como DD/MM/AAAA na aba de Ações — nenhum
+  // desses é o MM/DD/AAAA (formato americano) que toISODate assume.
+  function toISODateAve(v) {
+    if (v === undefined || v === null || v === '') return null;
+    if (v instanceof Date || typeof v === 'number') return toISODate(v);
+    const s = String(v).trim();
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+    if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    return null;
+  }
+
+  const AVE_ABA_RESPOSTAS = 'Respostas da avaliação';
+  const AVE_ABA_ACOES = 'Ações Feitas';
+
+  function pickAveSheet(wb, nomeAba, sig, minMatches) {
+    let rows = null;
+    for (const name of wb.SheetNames) {
+      if (normHeader(name) === normHeader(nomeAba)) { rows = sheetToRows(wb.Sheets[name]); break; }
+    }
+    if (!rows) {
+      const picked = pickSheet(wb, sig);
+      rows = picked ? picked.rows : null;
+    }
+    requireSignature(rows, sig, minMatches, 'Avaliação da Experiência (aba "' + nomeAba + '")');
+    return rows;
+  }
+
+  function parseAveExperiencia(wb, ciclo) {
+    const respostas = pickAveSheet(wb, AVE_ABA_RESPOSTAS,
+      ['Nome', 'Competência', 'Tipo de Avaliação', 'Status', 'Nota', 'Data da resposta', 'Unidade no Ciclo'], 5);
+    const acoes = pickAveSheet(wb, AVE_ABA_ACOES,
+      ['Nome do participante', 'Ação do participante', 'Status da ação do participante', 'Nome do avaliado'], 3);
+
+    const pessoas = new Map();
+    function pessoa(nome, admISO) {
+      const key = normNome(nome) + '|' + (admISO || '');
+      if (!pessoas.has(key)) {
+        pessoas.set(key, {
+          pessoa_key: key, ciclo, cpf: null, matricula: null, nome: str(nome), cargo: null, papel: null,
+          unidade: null, departamento: null, gestor: null, gestor_direto: null, gestor_avaliador: null,
+          data_admissao: admISO || null, data_avaliacao: null, data_autoavaliacao: null,
+          status_gestor: null, status_auto: null, martelo: null, martelo_comentario: null,
+          _slots: { gestor: new Map(), auto: new Map() }, _acaoGestor: null, _acaoAuto: null
+        });
+      }
+      return pessoas.get(key);
+    }
+    function preencher(p, campo, valor) {
+      const v = str(valor);
+      if (v && !p[campo]) p[campo] = v;
+    }
+    function papelAve(v) {
+      const s = normHeader(v);
+      if (s.startsWith('admin')) return 'Admin';
+      if (s.startsWith('gestor')) return 'Gestor';
+      if (s.startsWith('colaborador')) return 'Colaborador';
+      return str(v);
+    }
+
+    for (const row of respostas) {
+      const idx = buildIndex(row);
+      const g = (...c) => pick(row, idx, c);
+      const nome = g('Nome');
+      if (!str(nome)) continue;
+      const p = pessoa(nome, toISODateAve(g('Data de admissão')));
+      preencher(p, 'cpf', g('Cpf')); preencher(p, 'matricula', g('Matrícula'));
+      preencher(p, 'cargo', g('Cargo no Ciclo')); preencher(p, 'unidade', g('Unidade no Ciclo'));
+      preencher(p, 'departamento', g('Departamento no Ciclo'));
+      preencher(p, 'gestor', g('Gestor(es) na avaliação')); preencher(p, 'gestor_direto', g('Gestor direto atual'));
+      if (!p.papel) p.papel = papelAve(g('Papel'));
+
+      const tipo = normHeader(g('Tipo de Avaliação'));
+      const lado = tipo === 'autoavaliação' ? 'auto' : tipo === 'avaliação do gestor' ? 'gestor' : null;
+      const comp = str(g('Competência'));
+      if (!lado || !comp) continue;
+      const concluida = normHeader(g('Status')).startsWith('conclu');
+      const nota = intOrNull(g('Nota'));
+      const data = toISODateAve(g('Data da resposta'));
+      const slot = p._slots[lado];
+      const atual = slot.get(comp);
+      const melhor = !atual
+        || (concluida && !atual.concluida)
+        || (concluida === atual.concluida && (data || '') > (atual.data || ''));
+      if (melhor) slot.set(comp, { concluida, nota, data, feedback: str(g('Feedback')) });
+    }
+
+    const MARTELO = 'batendo o martelo';
+    for (const p of pessoas.values()) {
+      for (const lado of ['gestor', 'auto']) {
+        const notas = {}, coment = {};
+        let ultima = null, temRascunho = false, temConcluida = false;
+        for (const [comp, s] of p._slots[lado]) {
+          if (!s.concluida) { temRascunho = true; continue; }
+          if (s.nota === null || s.nota < 1 || s.nota > 4) continue;
+          temConcluida = true;
+          if (s.data && (!ultima || s.data > ultima)) ultima = s.data;
+          if (lado === 'gestor' && normHeader(comp).startsWith(MARTELO)) {
+            p.martelo = s.nota;
+            if (s.feedback) p.martelo_comentario = s.feedback.slice(0, 1500);
+            continue;
+          }
+          notas[comp] = s.nota;
+          if (s.feedback) coment[comp] = s.feedback.slice(0, 1500);
+        }
+        if (lado === 'gestor') {
+          p.notas_gestor = notas; p.comentarios_gestor = coment; p.data_avaliacao = ultima;
+          p.status_gestor = temConcluida ? 'concluida' : temRascunho ? 'rascunho' : null;
+        } else {
+          p.notas_auto = notas; p.comentarios_auto = coment; p.data_autoavaliacao = ultima;
+          p.status_auto = temConcluida ? 'concluida' : temRascunho ? 'rascunho' : null;
+        }
+      }
+    }
+
+    for (const row of acoes) {
+      const idx = buildIndex(row);
+      const g = (...c) => pick(row, idx, c);
+      const acao = normHeader(g('Ação do participante'));
+      const status = normHeader(g('Status da ação do participante'));
+      const feita = status.startsWith('realizou');
+      if (acao.startsWith('autoavalia')) {
+        const p = pessoa(g('Nome do participante'), toISODateAve(g('Data de admissão do participante')));
+        preencher(p, 'cpf', g('CPF do participante')); preencher(p, 'matricula', g('Matrícula do participante'));
+        preencher(p, 'cargo', g('Cargo do participante no ciclo')); preencher(p, 'unidade', g('Unidade do participante no ciclo'));
+        preencher(p, 'departamento', g('Departamento do participante no Ciclo'));
+        preencher(p, 'gestor', g('Gestor(es) do participante na avaliação')); preencher(p, 'gestor_direto', g('Gestor direto atual do participante'));
+        if (!p.papel) p.papel = papelAve(g('Papel do participante no ciclo'));
+        p._acaoAuto = feita ? 'concluida' : 'pendente';
+      } else if (acao.startsWith('avaliação como gestor')) {
+        const p = pessoa(g('Nome do avaliado'), toISODateAve(g('Data de admissão do avaliado')));
+        preencher(p, 'unidade', g('Unidade do avaliado')); preencher(p, 'departamento', g('Departamento do avaliado'));
+        preencher(p, 'gestor_avaliador', g('Nome do participante'));
+        p._acaoGestor = feita ? 'concluida' : 'pendente';
+      }
+    }
+
+    const rows = [];
+    for (const p of pessoas.values()) {
+      if (!p.status_gestor) p.status_gestor = p._acaoGestor;
+      if (!p.status_auto) p.status_auto = p._acaoAuto;
+      delete p._slots; delete p._acaoGestor; delete p._acaoAuto;
+      if (p.nome) rows.push(p);
+    }
+    rows.sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
+    return rows;
+  }
+
+  // ---------------------------------------------------------------------
   function readWorkbook(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -486,6 +651,7 @@
     parseTwygoUsuarios,
     parseTwygoConteudos,
     parseVagas,
+    parseAveExperiencia,
     _internal: { normHeader, toISODate, num, str, intOrNull, parseDuracaoTexto }
   };
 })();

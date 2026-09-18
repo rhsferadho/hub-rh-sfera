@@ -86,8 +86,13 @@
       if (error) throw new Error('Erro ao gravar dados (linha ' + i + '): ' + error.message);
       if (onProgress) onProgress(Math.min(i + BATCH_SIZE, rows.length), rows.length);
     }
-    window.HUB_DATA = window.HUB_DATA || {};
-    window.HUB_DATA[table] = rows;
+    // Tabelas fora de TABLES (ex.: Avaliação da Experiência, carregada sob
+    // demanda por dal-experiencia.js) não entram em HUB_DATA — senão
+    // inflariam a contagem de "registros carregados" e o noDataGate.
+    if (TABLES.includes(table)) {
+      window.HUB_DATA = window.HUB_DATA || {};
+      window.HUB_DATA[table] = rows;
+    }
   }
 
   async function loadAll(onProgress) {

@@ -13,7 +13,7 @@
 
   const NAV_TITLES = {
     dashboard: 'Dashboard',
-    'ind-headcount': 'Headcount', 'ind-recrutamento': 'Recrutamento', 'ind-rotatividade': 'Rotatividade',
+    'ind-headcount': 'Headcount', 'ind-recrutamento': 'Recrutamento', 'ind-rotatividade': 'Rotatividade', 'ind-experiencia': 'Avaliação da Experiência',
     'ind-desligamento': 'Entrevista de Desligamento', 'ind-feedbacks': 'Feedbacks', 'ind-oneonone': '1:1',
     'ind-treinamentos': 'Treinamentos', 'ind-celebracoes': 'Celebrações',
     'rec-dashboard': 'Dashboard — Recrutamento', 'rec-vagas': 'Controle de Vagas', 'rec-candidatos': 'Candidatos',
@@ -28,7 +28,7 @@
   // lateral e para o conteúdo ser renderizado.
   const NAV_PERMISSIONS = {
     'ind-headcount': 'indicadores.headcount', 'ind-recrutamento': 'indicadores.recrutamento',
-    'ind-rotatividade': 'indicadores.rotatividade', 'ind-desligamento': 'indicadores.desligamento',
+    'ind-rotatividade': 'indicadores.rotatividade', 'ind-experiencia': 'indicadores.experiencia', 'ind-desligamento': 'indicadores.desligamento',
     'ind-feedbacks': 'indicadores.feedbacks', 'ind-oneonone': 'indicadores.oneonone',
     'ind-treinamentos': 'indicadores.treinamentos', 'ind-celebracoes': 'indicadores.celebracoes',
     'rec-dashboard': 'recrutamento.dashboard', 'rec-vagas': 'recrutamento.vagas', 'rec-candidatos': 'recrutamento.candidatos',
@@ -54,6 +54,7 @@
       case 'ind-headcount': return HUB_SECTIONS.renderHeadcount(el, f);
       case 'ind-recrutamento': return HUB_SECTIONS.renderRecrutamentoDashboard(el, f);
       case 'ind-rotatividade': return HUB_SECTIONS.renderRotatividade(el, f);
+      case 'ind-experiencia': return HUB_SECTIONS.renderExperiencia(el, f);
       case 'ind-desligamento': return HUB_SECTIONS.renderDesligamento(el, f);
       case 'ind-feedbacks': return HUB_SECTIONS.renderFeedbacks(el, f);
       case 'ind-oneonone': return HUB_SECTIONS.renderOneOnOne(el, f);
@@ -248,11 +249,21 @@
     return s;
   }
 
+  // Avaliação da Experiência não vive em HUB_DATA (é carregada sob demanda,
+  // ver dal-experiencia.js) — mas quando já foi carregada, as unidades,
+  // departamentos, gestores e colaboradores dela também entram nos filtros.
+  function experienciaRows() {
+    const d = window.HUB_EXPERIENCIA_DATA || {};
+    return (d[45] || []).concat(d[90] || []);
+  }
+
   function populateFilterOptions() {
     const ativos = activeColaboradores();
     const nomesAtivos = activeColaboradorNamesSet();
-    const unidades = U.uniqueSortedNormalized(ativos.map(r => r.unidade));
-    const gestores = U.uniqueSortedNormalized(ativos.map(r => r.gestor_direto).filter(n => n && nomesAtivos.has(U.normalizeText(n))));
+    const ave = experienciaRows();
+    const unidades = U.uniqueSortedNormalized(ativos.map(r => r.unidade).concat(ave.map(r => r.unidade)));
+    const gestores = U.uniqueSortedNormalized(ativos.map(r => r.gestor_direto).filter(n => n && nomesAtivos.has(U.normalizeText(n)))
+      .concat(ave.map(r => r.gestor_avaliador || r.gestor_direto)));
     const tipos = U.uniqueSortedNormalized((HUB_DATA.twygo_participantes || []).map(r => r.content_type)
       .concat((HUB_DATA.twygo_conteudos || []).map(r => r.tipo)));
     const conteudos = U.uniqueSortedNormalized((HUB_DATA.twygo_participantes || []).map(r => r.content_title)
@@ -264,6 +275,7 @@
     populateDatalist('f-conteudo', conteudos);
     updateDependentFilters();
   }
+  window.HUB_REFRESH_FILTER_OPTIONS = populateFilterOptions;
 
   function updateDependentFilters() {
     const ativos = activeColaboradores();
@@ -272,7 +284,9 @@
     const nomesAtivos = activeColaboradorNamesSet();
 
     const deptosBase = selUnidades.length ? ativos.filter(r => U.matchesAny(r.unidade, selUnidades)) : ativos;
-    const deptos = U.uniqueSortedNormalized(deptosBase.map(r => r.departamento));
+    const ave = experienciaRows();
+    const aveBase = selUnidades.length ? ave.filter(r => U.matchesAny(r.unidade, selUnidades)) : ave;
+    const deptos = U.uniqueSortedNormalized(deptosBase.map(r => r.departamento).concat(aveBase.map(r => r.departamento)));
 
     const pessoas = [];
     for (const src of filterSources()) {
@@ -285,6 +299,11 @@
         }
         if (src.n && r[src.n] && nomesAtivos.has(U.normalizeText(r[src.n]))) pessoas.push(r[src.n]);
       }
+    }
+    for (const r of ave) {
+      if (selUnidades.length && !U.matchesAny(r.unidade, selUnidades)) continue;
+      if (selDepartamentos.length && !U.matchesAny(r.departamento, selDepartamentos)) continue;
+      if (r.nome) pessoas.push(r.nome);
     }
     departamentoMS.setOptions(deptos);
     populateDatalist('f-colaborador', U.uniqueSortedNormalized(pessoas));

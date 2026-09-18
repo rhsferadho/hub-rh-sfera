@@ -13,6 +13,7 @@
         { key: 'indicadores.headcount', label: 'Headcount' },
         { key: 'indicadores.recrutamento', label: 'Recrutamento' },
         { key: 'indicadores.rotatividade', label: 'Rotatividade' },
+        { key: 'indicadores.experiencia', label: 'Avaliação da Experiência' },
         { key: 'indicadores.desligamento', label: 'Entrevistas de Desligamento' },
         { key: 'indicadores.desligamento_gerar_link', label: 'Entrevistas de Desligamento — Gerar link' },
         { key: 'indicadores.feedbacks', label: 'Feedbacks' },
@@ -61,12 +62,13 @@
   const PRESETS = {
     admin: ALL_KEYS,
     rh: ALL_KEYS.filter(k => k !== 'admin.usuarios'),
-    // "Gerar link" da Entrevista de Desligamento fica de fora do preset
-    // Gestor de propósito — envolve dado sensível (CPF/e-mail de ex-
-    // colaborador) e deve ser ligado individualmente pelo administrador,
-    // não vir junto de tudo mais que já é padrão pra esse perfil.
+    // "Gerar link" da Entrevista de Desligamento e a Avaliação da Experiência
+    // ficam de fora do preset Gestor de propósito — envolvem dado sensível
+    // (CPF/e-mail de ex-colaborador; nota individual e decisão de aprovar ou
+    // reprovar cada colaborador) e devem ser ligados individualmente pelo
+    // administrador, não vir junto de tudo mais que já é padrão pra esse perfil.
     gestor: CATALOG.find(g => g.group === 'indicadores').items.map(i => i.key)
-      .filter(k => k !== 'indicadores.desligamento_gerar_link')
+      .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.experiencia')
       .concat(['recrutamento.parecer_gestor'])
   };
 

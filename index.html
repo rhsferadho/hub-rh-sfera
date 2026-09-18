@@ -185,6 +185,29 @@ table.dt tr:hover td{background:#F7F9FC}
 .nps-seg.neutro{background:var(--warning)}
 .nps-seg.promotor{background:var(--good)}
 
+/* Indicadores → Avaliação da Experiência (js/sections/experiencia.js) */
+.ave-top{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between;margin-bottom:16px}
+.ave-ciclos{display:flex;gap:8px;flex-wrap:wrap}
+.ave-ciclo{border:1.5px solid var(--border);background:var(--card);border-radius:10px;padding:9px 16px;cursor:pointer;font-family:inherit;text-align:left;min-width:170px}
+.ave-ciclo b{display:block;font-size:13.5px;color:var(--text)}
+.ave-ciclo span{font-size:11px;color:var(--muted)}
+.ave-ciclo:hover{border-color:var(--p1)}
+.ave-ciclo.active{border-color:var(--p1);background:rgba(28,124,236,.08)}
+.ave-ciclo.active b{color:var(--p1)}
+.ave-termo{display:flex;height:56px;border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+.ave-termo-seg{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1px;color:#fff;overflow:hidden;min-width:0}
+.ave-termo-seg .n{font-size:15px;font-weight:700;white-space:nowrap}
+.ave-termo-seg .l{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;opacity:.92;white-space:nowrap}
+.ave-legenda{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:14px}
+.ave-leg{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--border);border-radius:10px}
+.ave-leg i{width:12px;height:12px;border-radius:3px;flex-shrink:0;margin-top:3px;background:var(--c)}
+.ave-leg b{display:block;font-size:12.5px}
+.ave-leg span{font-size:11px;color:var(--muted)}
+.ave-pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap;color:var(--c);background:#f3f4f6;border:1px solid #e2e5ea}
+@supports (background:color-mix(in srgb,red 10%,white)){.ave-pill{background:color-mix(in srgb,var(--c) 12%,#fff);border-color:color-mix(in srgb,var(--c) 32%,#fff)}}
+.ave-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:5px}
+.ave-mini{display:flex;height:10px;border-radius:5px;overflow:hidden;min-width:120px;background:#eceef2}
+
 /* Perguntas da Entrevista de Desligamento (js/entrevista-desligamento/render-comum.js)
    — mesmas classes da página pública sem login, reaproveitadas aqui no modal
    "Ver respostas" (Indicadores/Entrevista Desligamento > Lista de Colaboradores). */
@@ -377,6 +400,7 @@ details.blk > .blk-body{padding:16px}
       <div class="nav-item" data-section="ind-headcount"><span class="ic">&#128101;</span>Headcount</div>
       <div class="nav-item" data-section="ind-recrutamento"><span class="ic">&#128188;</span>Recrutamento</div>
       <div class="nav-item" data-section="ind-rotatividade"><span class="ic">&#128260;</span>Rotatividade</div>
+      <div class="nav-item" data-section="ind-experiencia"><span class="ic">&#127919;</span>Avaliação da Experiência</div>
       <div class="nav-item" data-section="ind-desligamento"><span class="ic">&#128682;</span>Entrevista Desligamento</div>
       <div class="nav-item" data-section="ind-feedbacks"><span class="ic">&#128172;</span>Feedbacks</div>
       <div class="nav-item" data-section="ind-oneonone"><span class="ic">&#129309;</span>1:1</div>
@@ -460,6 +484,7 @@ details.blk > .blk-body{padding:16px}
       <div class="section" id="sec-ind-headcount"></div>
       <div class="section" id="sec-ind-recrutamento"></div>
       <div class="section" id="sec-ind-rotatividade"></div>
+      <div class="section" id="sec-ind-experiencia"></div>
       <div class="section" id="sec-ind-desligamento"></div>
       <div class="section" id="sec-ind-feedbacks"></div>
       <div class="section" id="sec-ind-oneonone"></div>
@@ -483,43 +508,46 @@ details.blk > .blk-body{padding:16px}
   </div>
 </div>
 
-<script src="js/config.js?v=202609151030"></script>
-<script src="js/supabaseClient.js?v=202609151030"></script>
-<script src="js/utils.js?v=202609151030"></script>
-<script src="js/permissions.js?v=202609151030"></script>
-<script src="js/ui-charts.js?v=202609151030"></script>
-<script src="js/parsers.js?v=202609151030"></script>
-<script src="js/dal-indicadores.js?v=202609151030"></script>
-<script src="js/dal-recrutamento.js?v=202609151030"></script>
-<script src="js/pareceres/comum.js?v=202609151030"></script>
-<script src="js/pareceres/vd-comum.js?v=202609151030"></script>
-<script src="js/pareceres/modelo-hering.js?v=202609151030"></script>
-<script src="js/pareceres/modelo-levis.js?v=202609151030"></script>
-<script src="js/pareceres/modelo-boticario-loja.js?v=202609151030"></script>
-<script src="js/pareceres/modelo-boticario-vd-er.js?v=202609151030"></script>
-<script src="js/pareceres/modelo-boticario-vd-campo.js?v=202609151030"></script>
-<script src="js/pareceres/modelo-boticario-vd-logistica.js?v=202609151030"></script>
-<script src="js/pareceres/render-comum.js?v=202609151030"></script>
-<script src="js/entrevista-desligamento/modelo.js?v=202609151030"></script>
-<script src="js/entrevista-desligamento/render-comum.js?v=202609151030"></script>
-<script src="js/metrics-indicadores.js?v=202609151030"></script>
-<script src="js/metrics-recrutamento.js?v=202609151030"></script>
-<script src="js/sections/entrevista-desligamento.js?v=202609151030"></script>
-<script src="js/sections/indicadores.js?v=202609151030"></script>
-<script src="js/sections/recrutamento-dashboard.js?v=202609151030"></script>
-<script src="js/sections/vagas.js?v=202609151030"></script>
-<script src="js/sections/candidatos.js?v=202609151030"></script>
-<script src="js/sections/agenda.js?v=202609151030"></script>
-<script src="js/sections/banco-talentos.js?v=202609151030"></script>
-<script src="js/sections/aprovacoes.js?v=202609151030"></script>
-<script src="js/sections/historico.js?v=202609151030"></script>
-<script src="js/sections/transferencia.js?v=202609151030"></script>
-<script src="js/sections/parecer-gestor.js?v=202609151030"></script>
-<script src="js/sections/onboarding.js?v=202609151030"></script>
-<script src="js/sections/visita-loja.js?v=202609151030"></script>
-<script src="js/admin/upload.js?v=202609151030"></script>
-<script src="js/admin/cadastros.js?v=202609151030"></script>
-<script src="js/admin/usuarios.js?v=202609151030"></script>
-<script src="js/app.js?v=202609151030"></script>
+<script src="js/config.js?v=202609181700"></script>
+<script src="js/supabaseClient.js?v=202609181700"></script>
+<script src="js/utils.js?v=202609181700"></script>
+<script src="js/permissions.js?v=202609181700"></script>
+<script src="js/ui-charts.js?v=202609181700"></script>
+<script src="js/parsers.js?v=202609181700"></script>
+<script src="js/dal-indicadores.js?v=202609181700"></script>
+<script src="js/dal-recrutamento.js?v=202609181700"></script>
+<script src="js/dal-experiencia.js?v=202609181700"></script>
+<script src="js/pareceres/comum.js?v=202609181700"></script>
+<script src="js/pareceres/vd-comum.js?v=202609181700"></script>
+<script src="js/pareceres/modelo-hering.js?v=202609181700"></script>
+<script src="js/pareceres/modelo-levis.js?v=202609181700"></script>
+<script src="js/pareceres/modelo-boticario-loja.js?v=202609181700"></script>
+<script src="js/pareceres/modelo-boticario-vd-er.js?v=202609181700"></script>
+<script src="js/pareceres/modelo-boticario-vd-campo.js?v=202609181700"></script>
+<script src="js/pareceres/modelo-boticario-vd-logistica.js?v=202609181700"></script>
+<script src="js/pareceres/render-comum.js?v=202609181700"></script>
+<script src="js/entrevista-desligamento/modelo.js?v=202609181700"></script>
+<script src="js/entrevista-desligamento/render-comum.js?v=202609181700"></script>
+<script src="js/metrics-indicadores.js?v=202609181700"></script>
+<script src="js/metrics-recrutamento.js?v=202609181700"></script>
+<script src="js/metrics-experiencia.js?v=202609181700"></script>
+<script src="js/sections/entrevista-desligamento.js?v=202609181700"></script>
+<script src="js/sections/indicadores.js?v=202609181700"></script>
+<script src="js/sections/experiencia.js?v=202609181700"></script>
+<script src="js/sections/recrutamento-dashboard.js?v=202609181700"></script>
+<script src="js/sections/vagas.js?v=202609181700"></script>
+<script src="js/sections/candidatos.js?v=202609181700"></script>
+<script src="js/sections/agenda.js?v=202609181700"></script>
+<script src="js/sections/banco-talentos.js?v=202609181700"></script>
+<script src="js/sections/aprovacoes.js?v=202609181700"></script>
+<script src="js/sections/historico.js?v=202609181700"></script>
+<script src="js/sections/transferencia.js?v=202609181700"></script>
+<script src="js/sections/parecer-gestor.js?v=202609181700"></script>
+<script src="js/sections/onboarding.js?v=202609181700"></script>
+<script src="js/sections/visita-loja.js?v=202609181700"></script>
+<script src="js/admin/upload.js?v=202609181700"></script>
+<script src="js/admin/cadastros.js?v=202609181700"></script>
+<script src="js/admin/usuarios.js?v=202609181700"></script>
+<script src="js/app.js?v=202609181700"></script>
 </body>
 </html>

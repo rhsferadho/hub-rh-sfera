@@ -12,7 +12,9 @@
     { key: 'celebracoes', table: 'celebracoes', label: '20. Celebrações', file: 'Celebrações.xlsx', icon: '&#127881;', parse: wb => P.parseCelebracoes(wb) },
     { key: 'twygo_part', table: 'twygo_participantes', label: '27. Twygo', file: 'Twygo.xlsx', icon: '&#128218;', parse: wb => P.parseTwygoParticipantes(wb) },
     { key: 'twygo_usu', table: 'twygo_usuarios', label: '27.1. Twygo usuários', file: 'Twygo usuários.xlsx', icon: '&#128100;', parse: wb => P.parseTwygoUsuarios(wb) },
-    { key: 'twygo_cont', table: 'twygo_conteudos', label: '27.1. Twygo conteúdos', file: 'Twygo conteúdos.xlsx', icon: '&#127891;', parse: wb => P.parseTwygoConteudos(wb) }
+    { key: 'twygo_cont', table: 'twygo_conteudos', label: '27.1. Twygo conteúdos', file: 'Twygo conteúdos.xlsx', icon: '&#127891;', parse: wb => P.parseTwygoConteudos(wb) },
+    { key: 'ave45', table: 'avaliacao_experiencia_45', label: '28. Avaliação da Experiência — 45 dias', file: 'AVE 45 DIAS.xlsx', icon: '&#128221;', parse: wb => P.parseAveExperiencia(wb, 45) },
+    { key: 'ave90', table: 'avaliacao_experiencia_90', label: '28.1. Avaliação da Experiência — 90 dias', file: 'AVE 90 DIAS.xlsx', icon: '&#128221;', parse: wb => P.parseAveExperiencia(wb, 90) }
   ];
 
   function render(el) {
@@ -55,6 +57,11 @@
       bar.style.width = '100%';
       statusEl.classList.add('ok-t');
       card.classList.add('ok');
+      // Avaliação da Experiência não entra em HUB_DATA (carregada sob
+      // demanda): descarta o cache do ciclo para a próxima abertura buscar
+      // as linhas novas (que só ganham "id" no banco).
+      const cicloAve = window.HUB_EXPERIENCIA && HUB_EXPERIENCIA.cicloDaTabela(cfg.table);
+      if (cicloAve) HUB_EXPERIENCIA.invalidar(cicloAve);
       await HUB_RELOAD_DATA(false);
     } catch (err) {
       statusEl.classList.add('err-t');
