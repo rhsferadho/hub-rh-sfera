@@ -13,7 +13,7 @@
 
   const NAV_TITLES = {
     dashboard: 'Dashboard',
-    'ind-headcount': 'Headcount', 'ind-recrutamento': 'Recrutamento', 'ind-rotatividade': 'Rotatividade', 'ind-experiencia': 'Avaliação da Experiência',
+    'ind-headcount': 'Headcount', 'ind-recrutamento': 'Recrutamento', 'ind-rotatividade': 'Rotatividade', 'ind-experiencia': 'Avaliação da Experiência', 'ind-pesquisa-clima': 'Pesquisa de Clima',
     'ind-desligamento': 'Entrevista de Desligamento', 'ind-feedbacks': 'Feedbacks', 'ind-oneonone': '1:1',
     'ind-treinamentos': 'Treinamentos', 'ind-celebracoes': 'Celebrações',
     'rec-dashboard': 'Dashboard — Recrutamento', 'rec-vagas': 'Controle de Vagas', 'rec-candidatos': 'Candidatos',
@@ -28,7 +28,7 @@
   // lateral e para o conteúdo ser renderizado.
   const NAV_PERMISSIONS = {
     'ind-headcount': 'indicadores.headcount', 'ind-recrutamento': 'indicadores.recrutamento',
-    'ind-rotatividade': 'indicadores.rotatividade', 'ind-experiencia': 'indicadores.experiencia', 'ind-desligamento': 'indicadores.desligamento',
+    'ind-rotatividade': 'indicadores.rotatividade', 'ind-experiencia': 'indicadores.experiencia', 'ind-pesquisa-clima': 'indicadores.pesquisa_clima', 'ind-desligamento': 'indicadores.desligamento',
     'ind-feedbacks': 'indicadores.feedbacks', 'ind-oneonone': 'indicadores.oneonone',
     'ind-treinamentos': 'indicadores.treinamentos', 'ind-celebracoes': 'indicadores.celebracoes',
     'rec-dashboard': 'recrutamento.dashboard', 'rec-vagas': 'recrutamento.vagas', 'rec-candidatos': 'recrutamento.candidatos',
@@ -60,6 +60,7 @@
       case 'ind-oneonone': return HUB_SECTIONS.renderOneOnOne(el, f);
       case 'ind-treinamentos': return HUB_SECTIONS.renderTreinamentos(el, f);
       case 'ind-celebracoes': return HUB_SECTIONS.renderCelebracoes(el, f);
+      case 'ind-pesquisa-clima': return HUB_SECTIONS.renderPesquisaClima(el, f);
       case 'rec-dashboard': return HUB_SECTIONS.renderRecrutamentoDashboard(el, f);
       case 'rec-vagas': return HUB_SECTIONS.renderVagas(el, f);
       case 'rec-candidatos': return HUB_SECTIONS.renderCandidatos(el, f);
@@ -261,9 +262,12 @@
     const ativos = activeColaboradores();
     const nomesAtivos = activeColaboradorNamesSet();
     const ave = experienciaRows();
-    const unidades = U.uniqueSortedNormalized(ativos.map(r => r.unidade).concat(ave.map(r => r.unidade)));
+    // Pesquisa de Clima (carregada sob demanda, ver dal-pesquisa-clima.js): quando já
+    // foi carregada, suas unidades/departamentos/líderes também entram nos filtros.
+    const pesq = HUB_DATA.pesquisa_clima || [];
+    const unidades = U.uniqueSortedNormalized(ativos.map(r => r.unidade).concat(ave.map(r => r.unidade), pesq.map(r => r.unidade)));
     const gestores = U.uniqueSortedNormalized(ativos.map(r => r.gestor_direto).filter(n => n && nomesAtivos.has(U.normalizeText(n)))
-      .concat(ave.map(r => r.gestor_avaliador || r.gestor_direto)));
+      .concat(ave.map(r => r.gestor_avaliador || r.gestor_direto), pesq.map(r => r.lider)));
     const tipos = U.uniqueSortedNormalized((HUB_DATA.twygo_participantes || []).map(r => r.content_type)
       .concat((HUB_DATA.twygo_conteudos || []).map(r => r.tipo)));
     const conteudos = U.uniqueSortedNormalized((HUB_DATA.twygo_participantes || []).map(r => r.content_title)
@@ -286,7 +290,8 @@
     const deptosBase = selUnidades.length ? ativos.filter(r => U.matchesAny(r.unidade, selUnidades)) : ativos;
     const ave = experienciaRows();
     const aveBase = selUnidades.length ? ave.filter(r => U.matchesAny(r.unidade, selUnidades)) : ave;
-    const deptos = U.uniqueSortedNormalized(deptosBase.map(r => r.departamento).concat(aveBase.map(r => r.departamento)));
+    const pesqBase = (HUB_DATA.pesquisa_clima || []).filter(r => !selUnidades.length || U.matchesAny(r.unidade, selUnidades));
+    const deptos = U.uniqueSortedNormalized(deptosBase.map(r => r.departamento).concat(aveBase.map(r => r.departamento), pesqBase.map(r => r.departamento)));
 
     const pessoas = [];
     for (const src of filterSources()) {

@@ -192,3 +192,7 @@ produção — projetos pagos não pausam por inatividade.
 - Os dados de Recrutamento (vagas, candidatos, entrevistas) são editados
   direto nas telas do módulo — não há upload nem substituição em lote para
   eles.
+
+### 2.1. Pesquisa de Clima (opcional)
+
+Rode [`supabase-pesquisa-clima.sql`](supabase-pesquisa-clima.sql) no SQL Editor: cria `pesquisa_clima` e `pesquisa_clima_hc` (sem nome/CPF/e-mail — a pesquisa é anônima), liberadas só para quem tiver a permissão `indicadores.pesquisa_clima` (respeitando unidade/departamento via `can_see`). Não há upload: os dados foram importados uma única vez, e a tela (Indicadores → Pesquisa de Clima) os busca sob demanda, na primeira abertura da sessão. Os arquivos de importação contêm os comentários e ficam fora deste repositório.
