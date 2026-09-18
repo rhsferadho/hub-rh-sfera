@@ -19,7 +19,8 @@
         { key: 'indicadores.feedbacks', label: 'Feedbacks' },
         { key: 'indicadores.oneonone', label: '1:1' },
         { key: 'indicadores.treinamentos', label: 'Treinamentos' },
-        { key: 'indicadores.celebracoes', label: 'Celebrações' }
+        { key: 'indicadores.celebracoes', label: 'Celebrações' },
+        { key: 'indicadores.pesquisa_clima', label: 'Pesquisa de Clima — resultados e comentários (dado sensível: liberar só RH/diretoria)' }
       ]
     },
     {
@@ -68,7 +69,7 @@
     // reprovar cada colaborador) e devem ser ligados individualmente pelo
     // administrador, não vir junto de tudo mais que já é padrão pra esse perfil.
     gestor: CATALOG.find(g => g.group === 'indicadores').items.map(i => i.key)
-      .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.experiencia')
+      .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.experiencia' && k !== 'indicadores.pesquisa_clima')
       .concat(['recrutamento.parecer_gestor'])
   };
 
