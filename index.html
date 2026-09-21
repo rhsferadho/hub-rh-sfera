@@ -139,6 +139,7 @@ p{margin:0}
 .grid2-fixed{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
 .card{background:var(--card);border-radius:var(--radius);padding:20px;border:1px solid var(--border)}
 .card.full{grid-column:1/-1}
+.grid2>.card{min-width:0} /* evita que uma tabela larga estique a coluna do grid além da tela */
 .card h3{font-size:13.5px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .chart-h{position:relative;height:280px}
 .chart-h.short{height:210px}
@@ -153,6 +154,13 @@ table.dt{width:100%;border-collapse:collapse;font-size:12px}
 table.dt th{position:sticky;top:0;background:#F7F9FC;padding:9px 12px;text-align:left;font-weight:700;color:var(--muted);text-transform:uppercase;font-size:9.5px;letter-spacing:.4px;border-bottom:2px solid var(--border);white-space:nowrap}
 table.dt td{padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
 table.dt tr:hover td{background:#F7F9FC}
+/* Cadastro de Acessos: escopo resumido em chips + coluna de ações sempre visível */
+table.dt td.acc-scope{max-width:260px}
+.scope-chips{display:flex;gap:4px;align-items:center;flex-wrap:nowrap}
+.scope-chip{display:inline-block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px 8px;border-radius:999px;background:#EEF3FB;color:var(--p1);font-size:11px}
+.scope-chip.scope-more{background:var(--p1);color:#fff;font-weight:700;cursor:help;flex:none}
+table.dt td.acc-actions{position:sticky;right:0;background:var(--card);white-space:nowrap;box-shadow:-6px 0 8px -6px rgba(0,0,0,.12)}
+table.dt tr:hover td.acc-actions{background:#F7F9FC}
 
 .empty{text-align:center;padding:54px 20px;color:var(--muted)}
 .empty .ic{font-size:32px;display:block;margin-bottom:10px;opacity:.5}
@@ -510,49 +518,49 @@ details.blk > .blk-body{padding:16px}
   </div>
 </div>
 
-<script src="js/config.js?v=202609182100"></script>
-<script src="js/supabaseClient.js?v=202609182100"></script>
-<script src="js/utils.js?v=202609182100"></script>
-<script src="js/permissions.js?v=202609182100"></script>
-<script src="js/ui-charts.js?v=202609182100"></script>
-<script src="js/parsers.js?v=202609182100"></script>
-<script src="js/dal-indicadores.js?v=202609182100"></script>
-<script src="js/dal-recrutamento.js?v=202609182100"></script>
-<script src="js/dal-experiencia.js?v=202609182100"></script>
-<script src="js/dal-pesquisa-clima.js?v=202609182100"></script>
-<script src="js/pareceres/comum.js?v=202609182100"></script>
-<script src="js/pareceres/vd-comum.js?v=202609182100"></script>
-<script src="js/pareceres/modelo-hering.js?v=202609182100"></script>
-<script src="js/pareceres/modelo-levis.js?v=202609182100"></script>
-<script src="js/pareceres/modelo-boticario-loja.js?v=202609182100"></script>
-<script src="js/pareceres/modelo-boticario-vd-er.js?v=202609182100"></script>
-<script src="js/pareceres/modelo-boticario-vd-campo.js?v=202609182100"></script>
-<script src="js/pareceres/modelo-boticario-vd-logistica.js?v=202609182100"></script>
-<script src="js/pareceres/render-comum.js?v=202609182100"></script>
-<script src="js/entrevista-desligamento/modelo.js?v=202609182100"></script>
-<script src="js/entrevista-desligamento/render-comum.js?v=202609182100"></script>
-<script src="js/metrics-indicadores.js?v=202609182100"></script>
-<script src="js/metrics-recrutamento.js?v=202609182100"></script>
-<script src="js/metrics-experiencia.js?v=202609182100"></script>
-<script src="js/metrics-pesquisa-clima.js?v=202609182100"></script>
-<script src="js/sections/entrevista-desligamento.js?v=202609182100"></script>
-<script src="js/sections/indicadores.js?v=202609182100"></script>
-<script src="js/sections/experiencia.js?v=202609182100"></script>
-<script src="js/sections/pesquisa-clima.js?v=202609182100"></script>
-<script src="js/sections/recrutamento-dashboard.js?v=202609182100"></script>
-<script src="js/sections/vagas.js?v=202609182100"></script>
-<script src="js/sections/candidatos.js?v=202609182100"></script>
-<script src="js/sections/agenda.js?v=202609182100"></script>
-<script src="js/sections/banco-talentos.js?v=202609182100"></script>
-<script src="js/sections/aprovacoes.js?v=202609182100"></script>
-<script src="js/sections/historico.js?v=202609182100"></script>
-<script src="js/sections/transferencia.js?v=202609182100"></script>
-<script src="js/sections/parecer-gestor.js?v=202609182100"></script>
-<script src="js/sections/onboarding.js?v=202609182100"></script>
-<script src="js/sections/visita-loja.js?v=202609182100"></script>
-<script src="js/admin/upload.js?v=202609182100"></script>
-<script src="js/admin/cadastros.js?v=202609182100"></script>
-<script src="js/admin/usuarios.js?v=202609182100"></script>
-<script src="js/app.js?v=202609182100"></script>
+<script src="js/config.js?v=202609211800"></script>
+<script src="js/supabaseClient.js?v=202609211800"></script>
+<script src="js/utils.js?v=202609211800"></script>
+<script src="js/permissions.js?v=202609211800"></script>
+<script src="js/ui-charts.js?v=202609211800"></script>
+<script src="js/parsers.js?v=202609211800"></script>
+<script src="js/dal-indicadores.js?v=202609211800"></script>
+<script src="js/dal-recrutamento.js?v=202609211800"></script>
+<script src="js/dal-experiencia.js?v=202609211800"></script>
+<script src="js/dal-pesquisa-clima.js?v=202609211800"></script>
+<script src="js/pareceres/comum.js?v=202609211800"></script>
+<script src="js/pareceres/vd-comum.js?v=202609211800"></script>
+<script src="js/pareceres/modelo-hering.js?v=202609211800"></script>
+<script src="js/pareceres/modelo-levis.js?v=202609211800"></script>
+<script src="js/pareceres/modelo-boticario-loja.js?v=202609211800"></script>
+<script src="js/pareceres/modelo-boticario-vd-er.js?v=202609211800"></script>
+<script src="js/pareceres/modelo-boticario-vd-campo.js?v=202609211800"></script>
+<script src="js/pareceres/modelo-boticario-vd-logistica.js?v=202609211800"></script>
+<script src="js/pareceres/render-comum.js?v=202609211800"></script>
+<script src="js/entrevista-desligamento/modelo.js?v=202609211800"></script>
+<script src="js/entrevista-desligamento/render-comum.js?v=202609211800"></script>
+<script src="js/metrics-indicadores.js?v=202609211800"></script>
+<script src="js/metrics-recrutamento.js?v=202609211800"></script>
+<script src="js/metrics-experiencia.js?v=202609211800"></script>
+<script src="js/metrics-pesquisa-clima.js?v=202609211800"></script>
+<script src="js/sections/entrevista-desligamento.js?v=202609211800"></script>
+<script src="js/sections/indicadores.js?v=202609211800"></script>
+<script src="js/sections/experiencia.js?v=202609211800"></script>
+<script src="js/sections/pesquisa-clima.js?v=202609211800"></script>
+<script src="js/sections/recrutamento-dashboard.js?v=202609211800"></script>
+<script src="js/sections/vagas.js?v=202609211800"></script>
+<script src="js/sections/candidatos.js?v=202609211800"></script>
+<script src="js/sections/agenda.js?v=202609211800"></script>
+<script src="js/sections/banco-talentos.js?v=202609211800"></script>
+<script src="js/sections/aprovacoes.js?v=202609211800"></script>
+<script src="js/sections/historico.js?v=202609211800"></script>
+<script src="js/sections/transferencia.js?v=202609211800"></script>
+<script src="js/sections/parecer-gestor.js?v=202609211800"></script>
+<script src="js/sections/onboarding.js?v=202609211800"></script>
+<script src="js/sections/visita-loja.js?v=202609211800"></script>
+<script src="js/admin/upload.js?v=202609211800"></script>
+<script src="js/admin/cadastros.js?v=202609211800"></script>
+<script src="js/admin/usuarios.js?v=202609211800"></script>
+<script src="js/app.js?v=202609211800"></script>
 </body>
 </html>

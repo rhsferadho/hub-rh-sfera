@@ -42,6 +42,17 @@
       .catch(err => { document.getElementById('acc-list').innerHTML = `<div class="empty"><p>Erro ao carregar contas: ${U.escapeHtml(err.message)}</p></div>`; });
   }
 
+  // Lista longa vira os 2 primeiros itens + "+N" (tooltip com a lista completa);
+  // a lista inteira continua visível ao clicar em Editar.
+  const SCOPE_VISIBLE = 2;
+  function scopeCell(items, allLabel) {
+    if (!items || !items.length) return `<em>${allLabel}</em>`;
+    const chips = items.slice(0, SCOPE_VISIBLE).map(i => `<span class="scope-chip" title="${U.escapeHtml(i)}">${U.escapeHtml(i)}</span>`).join('');
+    const rest = items.length - SCOPE_VISIBLE;
+    const more = rest > 0 ? `<span class="scope-chip scope-more" title="${U.escapeHtml(items.join('\n'))}">+${rest}</span>` : '';
+    return `<div class="scope-chips">${chips}${more}</div>`;
+  }
+
   function renderAccessList(el, profiles) {
     if (!profiles.length) { el.innerHTML = '<div class="empty"><p>Nenhuma conta cadastrada além da sua.</p></div>'; return; }
     el.innerHTML = `<div class="table-wrap"><table class="dt"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Permissões</th><th>Unidades</th><th>Departamentos</th><th></th></tr></thead><tbody>
@@ -51,9 +62,9 @@
         <td>${U.escapeHtml(p.nome)}</td><td>${U.escapeHtml(p.email)}</td>
         <td><span class="badge b1">${PERM.PERFIL_LABELS[p.perfil] || p.perfil}</span></td>
         <td>${n} de ${PERM.ALL_KEYS.length}</td>
-        <td>${(p.unidades || []).length ? U.escapeHtml(p.unidades.join(', ')) : '<em>Todas</em>'}</td>
-        <td>${(p.departamentos || []).length ? U.escapeHtml(p.departamentos.join(', ')) : '<em>Todos</em>'}</td>
-        <td style="white-space:nowrap">
+        <td class="acc-scope">${scopeCell(p.unidades, 'Todas')}</td>
+        <td class="acc-scope">${scopeCell(p.departamentos, 'Todos')}</td>
+        <td class="acc-actions">
           <button class="btn btn-outline btn-sm" data-edit="${p.id}">Editar</button>
           <button class="btn btn-danger btn-sm" data-del="${p.id}">Remover</button>
         </td>

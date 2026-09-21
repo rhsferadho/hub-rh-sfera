@@ -95,6 +95,24 @@
     }
   }
 
+  // Log de uploads (tabela upload_log — ver supabase-upload-log.sql). Falhas aqui
+  // nunca devem quebrar o upload em si, então retornam vazio/silenciam.
+  async function logUpload(entry) {
+    const u = window.HUB_USER || {};
+    const { error } = await sb.from('upload_log').insert({
+      tabela: entry.tabela, arquivo: entry.arquivo, linhas: entry.linhas,
+      status: entry.status, erro: entry.erro || null,
+      usuario_id: u.id || null, usuario_nome: u.nome || u.email || null
+    });
+    return error || null;
+  }
+
+  async function listUploadLog(limit) {
+    const { data, error } = await sb.from('upload_log').select('*').order('created_at', { ascending: false }).limit(limit || 300);
+    if (error) throw error;
+    return data || [];
+  }
+
   async function loadAll(onProgress) {
     window.HUB_DATA = window.HUB_DATA || {};
     const errors = [];
@@ -129,5 +147,5 @@
     if (error) throw error;
   }
 
-  window.HUB_DAL = { TABLES, loadAll, replaceTable, listProfiles, upsertProfile, deleteProfile };
+  window.HUB_DAL = { TABLES, loadAll, replaceTable, logUpload, listUploadLog, listProfiles, upsertProfile, deleteProfile };
 })();
