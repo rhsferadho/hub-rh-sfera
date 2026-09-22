@@ -24,6 +24,8 @@
   const MARTELO_CURTO = { 1: 'Reprovado — cultura', 2: 'Reprovado — performance', 3: 'Aprovado c/ ressalvas', 4: 'Aprovado s/ ressalvas' };
   const CORES_CONCEITO = { 1: '#d03b3b', 2: '#f29a3d', 3: '#6cbf6c', 4: '#0c8a3c' };
   const CORES_MARTELO = { 1: '#9b1c1c', 2: '#e5533d', 3: '#eda100', 4: '#1baf7a' };
+  const SITUACOES = { ativo: 'Ativo', desativado: 'Desativado', desligado: 'Desligado' };
+  const CORES_SITUACAO = { ativo: '#1baf7a', desativado: '#8A8F98', desligado: '#d03b3b' };
 
   function norm(s) { return U.normalizeText(s || ''); }
   function media(arr) { return arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null; }
@@ -57,11 +59,39 @@
     return String(s || '').split(/[,;]/).map(x => x.trim()).filter(Boolean)[0] || null;
   }
 
+  // Situação atual do colaborador (Ativo/Desativado/Desligado), cruzada com
+  // o cadastro de Colaboradores (Headcount) por matrícula, com CPF como
+  // reserva — a avaliação de experiência não tem essa coluna própria.
+  function mapaSituacaoColaboradores() {
+    const map = new Map();
+    const rows = (window.HUB_DATA && window.HUB_DATA.colaboradores) || [];
+    for (const c of rows) {
+      const sit = norm(c.situacao);
+      if (!sit) continue;
+      if (c.matricula != null && String(c.matricula).trim()) map.set('m:' + String(c.matricula).trim(), sit);
+      if (c.cpf != null && String(c.cpf).trim()) map.set('c:' + String(c.cpf).trim(), sit);
+    }
+    return map;
+  }
+
+  function situacaoDe(r, mapa) {
+    if (r.matricula != null && String(r.matricula).trim()) {
+      const s = mapa.get('m:' + String(r.matricula).trim());
+      if (s) return s;
+    }
+    if (r.cpf != null && String(r.cpf).trim()) {
+      const s = mapa.get('c:' + String(r.cpf).trim());
+      if (s) return s;
+    }
+    return null;
+  }
+
   // ------------------------------------------------------------------
   // Campos derivados de cada linha (calculados uma vez por carga de dados)
   // ------------------------------------------------------------------
   function preparar(rows, ciclo) {
     if (rows._preparado === ciclo) return rows;
+    const mapaSituacao = mapaSituacaoColaboradores();
     for (const r of rows) {
       const ng = r.notas_gestor || {}, na = r.notas_auto || {};
       const gCore = CORE.map(c => ng[c]).filter(v => v >= 1 && v <= 4);
@@ -77,7 +107,8 @@
         dias,
         conceito: conceitoDaMedia(mg),
         cargo: r.cargo || 'Não informado',
-        depto: r.departamento || 'Não informado'
+        depto: r.departamento || 'Não informado',
+        situacao: situacaoDe(r, mapaSituacao)
       };
     }
     rows._preparado = ciclo;
@@ -365,6 +396,7 @@
 
   window.HUB_EXP_METRICS = {
     CORE, NEGOCIO, CONCEITOS, MARTELO, MARTELO_CURTO, CORES_CONCEITO, CORES_MARTELO,
+    SITUACOES, CORES_SITUACAO,
     conceitoDaMedia, marcaDe, preparar, filtrar, calcular, comparar, agrupar, resumoGrupo
   };
 })();
