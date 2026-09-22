@@ -14,7 +14,7 @@
 
   let ciclo = 45;               // 45 | 90 | 'evolucao'
   let aba = 'indicadores';      // 'indicadores' | 'lista'
-  const lista = { busca: '', conceito: 'todos', status: 'todos', ordem: 'recentes', pagina: 1 };
+  const lista = { busca: '', conceito: 'todos', status: 'todos', situacaoColab: 'todos', ordem: 'recentes', pagina: 1 };
   const PAGE_SIZE = 25;
   let tokenRender = 0;
   let ultimoFiltro = '';
@@ -31,6 +31,10 @@
   function pillMartelo(v) {
     if (!(v >= 1 && v <= 4)) return '<span class="ave-pill" style="--c:#8A8F98">Sem decisão</span>';
     return `<span class="ave-pill" style="--c:${M.CORES_MARTELO[v]}">${esc(M.MARTELO_CURTO[v])}</span>`;
+  }
+  function pillSituacao(s) {
+    if (!s || !M.SITUACOES[s]) return '<span class="ave-pill" style="--c:#C9D0DA" title="Não encontrado no cadastro de Colaboradores (Headcount)">Não encontrado</span>';
+    return `<span class="ave-pill" style="--c:${M.CORES_SITUACAO[s]}">${esc(M.SITUACOES[s])}</span>`;
   }
   function pillConceito(v) {
     if (!(v >= 1 && v <= 4)) return '<span style="color:var(--muted)">—</span>';
@@ -306,6 +310,11 @@
       if (s === 'auto_pend' && r.status_auto === 'concluida') return false;
       if (s === 'auto_pend' && !r.status_auto) return false;
       if (s === 'ambas' && !(r.status_gestor === 'concluida' && r.status_auto === 'concluida')) return false;
+      const sc = lista.situacaoColab;
+      if (sc !== 'todos') {
+        if (sc === 'nao_encontrado') { if (r._d.situacao) return false; }
+        else if (r._d.situacao !== sc) return false;
+      }
       return true;
     });
     const o = lista.ordem;
@@ -341,6 +350,13 @@
           ${opt('auto_pend', 'Autoavaliação pendente', lista.status)}
           ${opt('ambas', 'Ambas concluídas', lista.status)}
         </select>
+        <select id="ave-f-situacao">
+          ${opt('todos', 'Situação do colaborador: todas', lista.situacaoColab)}
+          ${opt('ativo', 'Ativo', lista.situacaoColab)}
+          ${opt('desativado', 'Desativado', lista.situacaoColab)}
+          ${opt('desligado', 'Desligado', lista.situacaoColab)}
+          ${opt('nao_encontrado', 'Não encontrado no cadastro', lista.situacaoColab)}
+        </select>
         <select id="ave-f-ordem">
           ${opt('recentes', 'Mais recentes', lista.ordem)}
           ${opt('nome', 'Nome (A-Z)', lista.ordem)}
@@ -354,6 +370,7 @@
     body.querySelector('#ave-busca').addEventListener('input', e => { lista.busca = e.target.value; lista.pagina = 1; redesenhar(); });
     body.querySelector('#ave-f-conceito').addEventListener('change', e => { lista.conceito = e.target.value; lista.pagina = 1; redesenhar(); });
     body.querySelector('#ave-f-status').addEventListener('change', e => { lista.status = e.target.value; lista.pagina = 1; redesenhar(); });
+    body.querySelector('#ave-f-situacao').addEventListener('change', e => { lista.situacaoColab = e.target.value; lista.pagina = 1; redesenhar(); });
     body.querySelector('#ave-f-ordem').addEventListener('change', e => { lista.ordem = e.target.value; lista.pagina = 1; redesenhar(); });
     body.querySelector('#ave-csv').addEventListener('click', () => exportarCSV(aplicarFiltrosLista(rows)));
     redesenhar();
@@ -371,7 +388,7 @@
       <div class="table-wrap" style="max-height:none"><table class="dt">
         <thead><tr><th>Colaborador</th><th>Unidade / gestor</th><th>Admissão</th><th>Avaliado em</th><th title="Média das 7 competências comuns — avaliação do gestor">Nota gestor</th><th title="Média das 7 competências comuns — autoavaliação">Nota auto</th><th title="Autoavaliação − gestor">Dif.</th><th>Batendo o Martelo</th><th>Comentário do gestor</th><th title="Avaliação do gestor · autoavaliação">Status</th><th></th></tr></thead>
         <tbody>${pagina.map((r, i) => `<tr>
-          <td><b>${esc(r.nome)}</b><div style="font-size:10.5px;color:var(--muted)">${esc(r.cargo || 'Cargo não informado')}</div></td>
+          <td><b>${esc(r.nome)}</b> ${pillSituacao(r._d.situacao)}<div style="font-size:10.5px;color:var(--muted)">${esc(r.cargo || 'Cargo não informado')}</div></td>
           <td>${esc(r.unidade || '—')}<div style="font-size:10.5px;color:var(--muted)">${esc(r._d.gestorRotulo)}</div></td>
           <td>${U.fmtDateBR(r.data_admissao) || '—'}</td>
           <td>${r.data_avaliacao ? U.fmtDateBR(r.data_avaliacao) + (r._d.dias !== null ? ` <span style="color:var(--muted)">(${r._d.dias}d)</span>` : '') : '—'}</td>
@@ -398,12 +415,12 @@
   }
 
   function exportarCSV(linhas) {
-    const cab = ['Colaborador', 'Cargo', 'Unidade', 'Departamento', 'Gestor', 'Admissão', 'Data da avaliação do gestor', 'Dias até a avaliação', 'Média gestor', 'Média autoavaliação', 'Diferença', 'Batendo o Martelo (nota)', 'Batendo o Martelo', 'Comentário do gestor', 'Avaliação do gestor', 'Autoavaliação']
+    const cab = ['Colaborador', 'Situação do colaborador', 'Cargo', 'Unidade', 'Departamento', 'Gestor', 'Admissão', 'Data da avaliação do gestor', 'Dias até a avaliação', 'Média gestor', 'Média autoavaliação', 'Diferença', 'Batendo o Martelo (nota)', 'Batendo o Martelo', 'Comentário do gestor', 'Avaliação do gestor', 'Autoavaliação']
       .concat(M.CORE.map(c => c + ' (gestor)')).concat(M.CORE.map(c => c + ' (auto)'));
     const num = v => (v === null || v === undefined ? '' : String(v).replace('.', ','));
     const cel = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
     const linhasCsv = linhas.map(r => [
-      r.nome, r.cargo, r.unidade, r.departamento, r._d.gestorRotulo, r.data_admissao, r.data_avaliacao, r._d.dias,
+      r.nome, r._d.situacao ? M.SITUACOES[r._d.situacao] : 'Não encontrado', r.cargo, r.unidade, r.departamento, r._d.gestorRotulo, r.data_admissao, r.data_avaliacao, r._d.dias,
       num(r._d.mediaGestor === null ? null : +r._d.mediaGestor.toFixed(2)), num(r._d.mediaAuto === null ? null : +r._d.mediaAuto.toFixed(2)), num(r._d.gap === null ? null : +r._d.gap.toFixed(2)),
       r.martelo, r.martelo ? M.MARTELO[r.martelo] : '', r.martelo_comentario, r.status_gestor, r.status_auto
     ].concat(M.CORE.map(c => (r.notas_gestor || {})[c])).concat(M.CORE.map(c => (r.notas_auto || {})[c])).map(cel).join(';'));
@@ -467,7 +484,7 @@
       </div>
       <div class="table-wrap" style="max-height:none"><table class="dt" style="white-space:normal"><thead><tr><th>Competência</th><th>Gestor</th><th>Autoavaliação</th><th>Dif.</th></tr></thead><tbody>${linhas}</tbody></table></div>
       <p class="sub" id="ave-com-status" style="margin-top:10px;font-size:11.5px;color:var(--muted)">Carregando comentários...</p>`;
-    const modal = abrirModal(esc(r.nome), `${esc(r.cargo || 'Cargo não informado')} · ${esc(r.unidade || '')}${r.departamento ? ' · ' + esc(r.departamento) : ''} · Avaliação de ${ciclo} dias`, corpo);
+    const modal = abrirModal(`${esc(r.nome)} ${pillSituacao(r._d.situacao)}`, `${esc(r.cargo || 'Cargo não informado')} · ${esc(r.unidade || '')}${r.departamento ? ' · ' + esc(r.departamento) : ''} · Avaliação de ${ciclo} dias`, corpo);
 
     // Comentários por competência: buscados só agora, um colaborador por vez.
     HUB_EXPERIENCIA.buscarComentarios(ciclo, r.id).then(cm => {
