@@ -19,6 +19,10 @@
   ];
   const NEGOCIO = ['Meta Atingida', 'Valor de P.A. Atingido', 'Ticket Médio Alcançado', 'Fechamento de Caixa', 'Gestão de Pessoas'];
 
+  // Nota final da avaliação: 85% nota do gestor + 15% nota do colaborador (pesos do Feedz)
+  // (médias das 7 competências comuns). Sem autoavaliação, vale só a do gestor.
+  const PESO_GESTOR = 0.85, PESO_AUTO = 0.15;
+
   const CONCEITOS = { 1: 'Necessita melhora', 2: 'Em desenvolvimento', 3: 'Atinge o esperado', 4: 'É referência' };
   const MARTELO = { 1: 'Reprovado por questões culturais', 2: 'Reprovado por questões de performance', 3: 'Aprovado COM ressalvas', 4: 'Aprovado SEM ressalvas' };
   const MARTELO_CURTO = { 1: 'Reprovado — cultura', 2: 'Reprovado — performance', 3: 'Aprovado c/ ressalvas', 4: 'Aprovado s/ ressalvas' };
@@ -68,8 +72,9 @@
     for (const c of rows) {
       const sit = norm(c.situacao);
       if (!sit) continue;
-      if (c.matricula != null && String(c.matricula).trim()) map.set('m:' + String(c.matricula).trim(), sit);
-      if (c.cpf != null && String(c.cpf).trim()) map.set('c:' + String(c.cpf).trim(), sit);
+      const info = { sit, saida: c.ultimo_dia_trabalhado ? String(c.ultimo_dia_trabalhado).slice(0, 10) : null };
+      if (c.matricula != null && String(c.matricula).trim()) map.set('m:' + String(c.matricula).trim(), info);
+      if (c.cpf != null && String(c.cpf).trim()) map.set('c:' + String(c.cpf).trim(), info);
     }
     return map;
   }
@@ -89,8 +94,39 @@
   // ------------------------------------------------------------------
   // Campos derivados de cada linha (calculados uma vez por carga de dados)
   // ------------------------------------------------------------------
+  // Prazos da avaliação (gestor e colaborador respondem no mesmo intervalo):
+  // a AVE é liberada 15 dias antes do fim do período (dia 30 no ciclo de 45,
+  // dia 75 no de 90) e tem 10 dias para responder — então o PRAZO DE RESPOSTA
+  // é ciclo − 5 dias após a admissão, e o LIMITE FINAL é o vencimento do
+  // período de experiência (admissão + ciclo). Situação (dias = dias após o
+  // prazo de resposta; <= 0 = dentro do prazo / faltam):
+  //   entregue_prazo  — respondeu até o prazo de resposta
+  //   entregue_atraso — respondeu depois do prazo, ainda dentro do período
+  //   entregue_fora   — respondeu depois do fim do período
+  //   a_vencer        — pendente, dentro do prazo (dias < 0 = faltam)
+  //   atrasada        — pendente, prazo de resposta vencido mas o período não acabou
+  //   vencida         — pendente, período de experiência já encerrado
+  const FOLGA_DIAS = 5; // liberada 15 dias antes do fim + 10 de prazo = responder até 5 dias antes do fim
+  //   saiu_antes      — desligado(a) antes do prazo de resposta (não há atraso a cobrar)
+  // Para quem foi DESLIGADO sem responder, o atraso é contado até a data do
+  // desligamento (último dia trabalhado), não até hoje: 'saida' substitui 'hoje'.
+  function prazoResposta(adm, ciclo, status, dataResp, hoje, saida) {
+    const prazoResp = U.addDays(adm, ciclo - FOLGA_DIAS), fim = U.addDays(adm, ciclo);
+    if (!prazoResp) return { prazoResp: null, fim: null, sit: null, dias: null };
+    if (status === 'concluida') {
+      if (!dataResp) return { prazoResp, fim, sit: null, dias: null };
+      const d = daysBetween(prazoResp, dataResp);
+      return { prazoResp, fim, sit: d <= 0 ? 'entregue_prazo' : dataResp <= fim ? 'entregue_atraso' : 'entregue_fora', dias: d };
+    }
+    const ref = saida && saida >= adm && saida < hoje ? saida : hoje;
+    const d = daysBetween(prazoResp, ref);
+    if (d <= 0 && ref !== hoje) return { prazoResp, fim, sit: 'saiu_antes', dias: d };
+    return { prazoResp, fim, sit: d <= 0 ? 'a_vencer' : ref <= fim ? 'atrasada' : 'vencida', dias: d };
+  }
+
   function preparar(rows, ciclo) {
-    if (rows._preparado === ciclo) return rows;
+    const hoje = U.todayISO();
+    if (rows._preparado === ciclo + '|' + hoje) return rows;
     const mapaSituacao = mapaSituacaoColaboradores();
     for (const r of rows) {
       const ng = r.notas_gestor || {}, na = r.notas_auto || {};
@@ -98,20 +134,29 @@
       const aCore = CORE.map(c => na[c]).filter(v => v >= 1 && v <= 4);
       const mg = media(gCore), ma = media(aCore);
       const dias = daysBetween(r.data_admissao, r.data_avaliacao);
+      const info = situacaoDe(r, mapaSituacao);
+      const saida = info && info.sit === 'desligado' ? info.saida : null;
+      const pz = prazoResposta(r.data_admissao, ciclo, r.status_gestor, r.data_avaliacao, hoje, saida);
+      const pa = prazoResposta(r.data_admissao, ciclo, r.status_auto, r.data_autoavaliacao, hoje, saida);
       r._d = {
+        prazoResp: pz.prazoResp, fimPeriodo: pz.fim, prazoSit: pz.sit, prazoDias: pz.dias,
+        autoSit: pa.sit, autoDias: pa.dias,
         marca: marcaDe(r.unidade),
         gestorRotulo: r.gestor_avaliador || primeiroGestor(r.gestor) || r.gestor_direto || 'Não informado',
         dataRef: r.data_avaliacao || r.data_autoavaliacao || U.addDays(r.data_admissao, ciclo),
         mediaGestor: mg, mediaAuto: ma,
+        notaFinal: mg === null ? null : (ma === null ? mg : mg * PESO_GESTOR + ma * PESO_AUTO),
+        notaFinalParcial: mg !== null && ma === null,
         gap: mg !== null && ma !== null ? ma - mg : null,
         dias,
         conceito: conceitoDaMedia(mg),
         cargo: r.cargo || 'Não informado',
         depto: r.departamento || 'Não informado',
-        situacao: situacaoDe(r, mapaSituacao)
+        situacao: info ? info.sit : null,
+        dataSaida: saida
       };
     }
-    rows._preparado = ciclo;
+    rows._preparado = ciclo + '|' + hoje;
     return rows;
   }
 
@@ -145,6 +190,9 @@
     return { concluidas: conc, rascunho: rasc, pendentes: pend, base, taxa: base ? conc / base : null };
   }
 
+  const EM_ATRASO = s => s === 'atrasada' || s === 'vencida';
+  const ENTREGUE = s => s === 'entregue_prazo' || s === 'entregue_atraso' || s === 'entregue_fora';
+
   function resumoGrupo(label, rs) {
     const dec = rs.filter(r => r.martelo >= 1 && r.martelo <= 4);
     const d = dist4(dec.map(r => r.martelo));
@@ -158,6 +206,8 @@
       pctRessalvas: n ? d[2] / n : null, pctSemRessalvas: n ? d[3] / n : null,
       mediaGestor: mg, mediaAuto: ma,
       gestorConcluidas: ag.concluidas, gestorPendentes: ag.pendentes + ag.rascunho, gestorBase: ag.base, adesaoGestor: ag.taxa,
+      emAtraso: rs.filter(r => EM_ATRASO(r._d.prazoSit)).length,
+      atrasoMedioEmAtraso: media(rs.filter(r => EM_ATRASO(r._d.prazoSit)).map(r => r._d.prazoDias)),
       autoConcluidas: aa.concluidas, autoPendentes: aa.pendentes + aa.rascunho, autoBase: aa.base, adesaoAuto: aa.taxa
     };
   }
@@ -262,6 +312,33 @@
       pctTardias: dias.length ? dias.filter(d => d > ciclo).length / dias.length : null,
       distribuicao: faixas.map((label, i) => ({ label, value: faixaVals[i] }))
     };
+    // Prazo de resposta (ciclo − 5 dias) e vencimento do período (ciclo)
+    const sit = s => rows.filter(r => r._d.prazoSit === s);
+    const entregues = rows.filter(r => ENTREGUE(r._d.prazoSit));
+    const foraDoPrazo = entregues.filter(r => r._d.prazoSit !== 'entregue_prazo');
+    const emAtraso = rows.filter(r => EM_ATRASO(r._d.prazoSit));
+    prazo.prazoDia = ciclo - FOLGA_DIAS;
+    prazo.entregues = entregues.length;
+    prazo.noPrazo = sit('entregue_prazo').length;
+    prazo.pctNoPrazo = entregues.length ? prazo.noPrazo / entregues.length : null;
+    prazo.entregueForaPrazo = foraDoPrazo.length;
+    prazo.atrasoMedioEntregues = media(foraDoPrazo.map(r => r._d.prazoDias));
+    prazo.emAtraso = emAtraso.length;
+    prazo.atrasadas = sit('atrasada').length;       // prazo de resposta vencido, mas ainda dá tempo
+    prazo.encerradas = sit('vencida').length;       // período de experiência já acabou sem avaliação
+    prazo.atrasoMedioEmAtraso = media(emAtraso.map(r => r._d.prazoDias));
+    prazo.maiorAtraso = emAtraso.length ? Math.max.apply(null, emAtraso.map(r => r._d.prazoDias)) : null;
+    prazo.emAtrasoDeslig = emAtraso.filter(r => r._d.situacao === 'desligado').length;
+    prazo.saiuAntes = sit('saiu_antes').length;
+    prazo.aVencer = sit('a_vencer').length;
+    prazo.aVencer7 = rows.filter(r => r._d.prazoSit === 'a_vencer' && r._d.prazoDias >= -7).length;
+    // Mesma leitura para a autoavaliação do colaborador
+    const aEnt = rows.filter(r => ENTREGUE(r._d.autoSit));
+    prazo.auto = {
+      entregues: aEnt.length, noPrazo: aEnt.filter(r => r._d.autoSit === 'entregue_prazo').length,
+      pctNoPrazo: aEnt.length ? aEnt.filter(r => r._d.autoSit === 'entregue_prazo').length / aEnt.length : null,
+      emAtraso: rows.filter(r => EM_ATRASO(r._d.autoSit)).length
+    };
 
     // Série mensal (mês da avaliação do gestor)
     const meses = new Map();
@@ -346,6 +423,13 @@
     if (piorComp) {
       out.push({ tipo: 'acao', texto: `A competência com menor nota média dada pelos gestores é "${piorComp.comp}" (${U.fmt1(piorComp.mediaGestor)}) — bom tema para reforçar no onboarding e nas trilhas de desenvolvimento.` });
     }
+    if (d.prazo.emAtraso >= 1) {
+      const top = d.porGestor.filter(g => g.emAtraso > 0).sort((a, b) => b.emAtraso - a.emAtraso).slice(0, 3);
+      const partes = [];
+      if (d.prazo.atrasadas) partes.push(`${U.fmtInt(d.prazo.atrasadas)} ainda dentro do período de experiência (dá tempo de cobrar)`);
+      if (d.prazo.encerradas) partes.push(`${U.fmtInt(d.prazo.encerradas)} com o período já encerrado sem avaliação`);
+      out.push({ tipo: 'alerta', texto: `${U.fmtInt(d.prazo.emAtraso)} avaliação(ões) do gestor passaram do prazo de resposta (dia ${d.prazo.prazoDia} da admissão): ${partes.join(' e ')}. Atraso médio de ${U.fmtInt(Math.round(d.prazo.atrasoMedioEmAtraso))} dias após o prazo. ${top.length ? 'Cobrar primeiro: ' + top.map(g => `${g.label} (${g.emAtraso})`).join(', ') + '.' : ''}${d.prazo.aVencer7 ? ' Outras ' + U.fmtInt(d.prazo.aVencer7) + ' vencem nos próximos 7 dias.' : ''}` });
+    }
     if (d.prazo.n >= 20 && d.prazo.pctTardias >= 0.2) {
       out.push({ tipo: 'alerta', texto: `${pct(d.prazo.pctTardias)} das avaliações do gestor foram feitas depois do dia ${d.ciclo} da admissão (mediana de ${U.fmtInt(d.prazo.mediana)} dias). Avaliação tardia reduz o valor da decisão de aprovar ou não o colaborador.` });
     }
@@ -395,7 +479,7 @@
   }
 
   window.HUB_EXP_METRICS = {
-    CORE, NEGOCIO, CONCEITOS, MARTELO, MARTELO_CURTO, CORES_CONCEITO, CORES_MARTELO,
+    CORE, NEGOCIO, PESO_GESTOR, PESO_AUTO, CONCEITOS, MARTELO, MARTELO_CURTO, CORES_CONCEITO, CORES_MARTELO,
     SITUACOES, CORES_SITUACAO,
     conceitoDaMedia, marcaDe, preparar, filtrar, calcular, comparar, agrupar, resumoGrupo
   };

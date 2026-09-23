@@ -23,6 +23,7 @@
   function canUpload() { return HUB_PERMISSIONS.hasPerm(HUB_USER, 'admin.upload'); }
   const esc = U.escapeHtml;
   const fmt1 = U.fmt1;
+  const fmt2 = v => (v === null || v === undefined ? '—' : v.toFixed(2).replace('.', ','));
   const pct = v => U.fmtPct(v, 0);
   const sinal = v => (v > 0 ? '+' : '') + fmt1(v);
 
@@ -44,6 +45,28 @@
     if (v === null || v === undefined) return '<span style="color:var(--muted)">—</span>';
     const c = M.conceitoDaMedia(v);
     return `<span class="ave-dot" style="--c:${M.CORES_CONCEITO[c]}"></span><b>${fmt1(v)}</b>`;
+  }
+  // Prazo de resposta (ciclo − 5 dias) e fim do período: ver prazoResposta()
+  // em metrics-experiencia.js. sit/dias vêm de r._d (gestor) ou autoSit/autoDias.
+  function prazoPill(sit, n, fim, deslig) {
+    const pl = (cor, txt, title) => `<span class="ave-pill" style="--c:${cor}" title="${esc(title || '')}">${txt}</span>`;
+    const ate = fim ? ` (período termina em ${U.fmtDateBR(fim)})` : '';
+    if (sit === 'entregue_prazo') return pl('#1baf7a', 'No prazo', n < 0 ? `Respondeu ${-n} dia(s) antes do prazo` : 'Respondeu no último dia do prazo');
+    if (sit === 'entregue_atraso') return pl('#eb6834', `+${n}d após o prazo`, `Respondeu ${n} dia(s) depois do prazo, ainda dentro do período`);
+    if (sit === 'entregue_fora') return pl('#9b1c1c', `+${n}d após o prazo`, `Respondeu ${n} dia(s) depois do prazo, já fora do período de experiência`);
+    if (sit === 'saiu_antes') return pl('#8A8F98', 'Saiu antes do prazo', 'Desligado(a) antes do prazo de resposta — não há atraso a cobrar');
+    if (deslig && (sit === 'atrasada' || sit === 'vencida')) return pl(sit === 'vencida' ? '#9b1c1c' : '#e5533d', `Sem resposta até sair · +${n}d`, `Desligado(a) sem responder: atraso contado até a data do desligamento (${n} dia(s) após o prazo de resposta)`);
+    if (sit === 'atrasada') return pl('#e5533d', `Atrasada ${n}d`, `Prazo de resposta venceu há ${n} dia(s)${ate} — ainda dá tempo`);
+    if (sit === 'vencida') return pl('#9b1c1c', `Sem resposta · +${n}d`, `Período de experiência encerrado sem a avaliação (${n} dia(s) após o prazo de resposta)`);
+    if (sit === 'a_vencer') return pl(n >= -7 ? '#eda100' : '#8A8F98', n === 0 ? 'Prazo hoje' : `Faltam ${-n}d`, 'Dentro do prazo de resposta');
+    return '<span style="color:var(--muted)">—</span>';
+  }
+  const EM_ATRASO_UI = s => s === 'atrasada' || s === 'vencida';
+  function notaFinalHtml(d) {
+    if (d.notaFinal === null || d.notaFinal === undefined) return '<span style="color:var(--muted)">—</span>';
+    const c = M.conceitoDaMedia(d.notaFinal);
+    const tip = d.notaFinalParcial ? 'Sem autoavaliação: considera só a nota do gestor' : `Gestor ${fmt1(d.mediaGestor)} × ${M.PESO_GESTOR * 100}% + colaborador ${fmt1(d.mediaAuto)} × ${M.PESO_AUTO * 100}%`;
+    return `<span title="${esc(tip)}"><span class="ave-dot" style="--c:${M.CORES_CONCEITO[c]}"></span><b>${fmt2(d.notaFinal)}</b>${d.notaFinalParcial ? '<sup style="color:var(--muted)">*</sup>' : ''}</span>`;
   }
   function statusIcone(s) {
     if (s === 'concluida') return '<span title="Concluída" style="color:var(--good);font-weight:700">&#10003;</span>';
@@ -179,6 +202,10 @@
         ${kpi('Nota média — gestor', d.mediaGestor === null ? '—' : fmt1(d.mediaGestor), conceitoMedio ? M.CONCEITOS[conceitoMedio] : '', '#4a3aa7')}
         ${kpi('Nota média — autoavaliação', d.mediaAuto === null ? '—' : fmt1(d.mediaAuto), d.mediaAuto === null ? '' : M.CONCEITOS[M.conceitoDaMedia(d.mediaAuto)], '#805AD5')}
         ${kpi('Autoavaliação x gestor', d.gapMedio === null ? '—' : sinal(d.gapMedio), `${U.fmtInt(d.nAmbos)} pessoas com as duas avaliações`, '#e87ba4')}
+        ${kpi('Gestor sem resposta após o prazo', U.fmtInt(d.prazo.emAtraso), d.prazo.emAtraso ? `${U.fmtInt(d.prazo.atrasadas)} ainda dentro do período · ${U.fmtInt(d.prazo.encerradas)} período encerrado · ${U.fmtInt(d.prazo.emAtrasoDeslig)} de desligados (atraso até a saída)${d.prazo.aVencer7 ? ' · +' + U.fmtInt(d.prazo.aVencer7) + ' vencem em 7 dias' : ''}` : (d.prazo.aVencer ? `${U.fmtInt(d.prazo.aVencer)} ainda dentro do prazo` : 'nenhuma pendente'), d.prazo.emAtraso ? 'var(--critical)' : '#1baf7a')}
+        ${kpi('Gestor respondeu no prazo', d.prazo.pctNoPrazo === null ? '—' : pct(d.prazo.pctNoPrazo), `${U.fmtInt(d.prazo.noPrazo)} de ${U.fmtInt(d.prazo.entregues)} até o dia ${d.prazo.prazoDia} da admissão`, d.prazo.pctNoPrazo !== null && d.prazo.pctNoPrazo < 0.8 ? 'var(--critical)' : '#1baf7a')}
+        ${kpi('Atraso médio de quem respondeu fora do prazo', d.prazo.atrasoMedioEntregues === null ? '—' : `${U.fmtInt(Math.round(d.prazo.atrasoMedioEntregues))} dias`, `${U.fmtInt(d.prazo.entregueForaPrazo)} avaliações do gestor entregues após o prazo`, '#eb6834')}
+        ${kpi('Colaborador respondeu no prazo', d.prazo.auto.pctNoPrazo === null ? '—' : pct(d.prazo.auto.pctNoPrazo), `${U.fmtInt(d.prazo.auto.noPrazo)} de ${U.fmtInt(d.prazo.auto.entregues)} autoavaliações · ${U.fmtInt(d.prazo.auto.emAtraso)} pendentes fora do prazo`, d.prazo.auto.pctNoPrazo !== null && d.prazo.auto.pctNoPrazo < 0.7 ? 'var(--critical)' : '#1baf7a')}
         ${kpi('Prazo até a avaliação do gestor', d.prazo.media === null ? '—' : `${U.fmtInt(Math.round(d.prazo.media))} dias`, d.prazo.pctTardias === null ? '' : `${pct(d.prazo.pctTardias)} feitas após o dia ${ciclo}`, '#eb6834')}
       </div>`;
 
@@ -203,9 +230,9 @@
     const negocioHtml = d.negocio.length ? `<div class="table-wrap"><table class="dt"><thead><tr><th>Competência</th><th>Avaliados</th><th>Média (gestor)</th><th>Distribuição de notas</th></tr></thead><tbody>${d.negocio.map(c => `<tr><td>${esc(c.comp)}</td><td>${U.fmtInt(c.nGestor)}</td><td>${notaMedia(c.mediaGestor)}</td><td style="min-width:150px">${miniDist(c.distGestor, M.CORES_CONCEITO)}</td></tr>`).join('')}</tbody></table></div><p class="sub" style="margin-top:8px">Só se aplicam a alguns cargos (vendas, caixa e liderança de loja) e são avaliadas pelo gestor.</p>` : empty('Sem competências de negócio no período.');
 
     // Rankings de gestores
-    const gestPend = d.porGestor.filter(g => g.gestorPendentes > 0).sort((a, b) => b.gestorPendentes - a.gestorPendentes).slice(0, 12);
+    const gestPend = d.porGestor.filter(g => g.gestorPendentes > 0).sort((a, b) => (b.emAtraso - a.emAtraso) || (b.gestorPendentes - a.gestorPendentes)).slice(0, 12);
     const gestDec = d.porGestor.filter(g => g.decididos >= 5).sort((a, b) => (b.pctReprov - a.pctReprov) || (b.decididos - a.decididos)).slice(0, 12);
-    const tabGestPend = gestPend.length ? `<div class="table-wrap"><table class="dt"><thead><tr><th>Gestor</th><th>Pendentes</th><th>Concluídas</th><th>Adesão</th></tr></thead><tbody>${gestPend.map(g => `<tr><td>${esc(g.label)}</td><td><b style="color:var(--critical)">${U.fmtInt(g.gestorPendentes)}</b></td><td>${U.fmtInt(g.gestorConcluidas)}</td><td>${g.adesaoGestor === null ? '—' : pct(g.adesaoGestor)}</td></tr>`).join('')}</tbody></table></div>` : empty('Nenhuma avaliação pendente.');
+    const tabGestPend = gestPend.length ? `<div class="table-wrap"><table class="dt"><thead><tr><th>Gestor</th><th>Pendentes</th><th title="Pendentes com o prazo de resposta (dia ${ciclo - 5}) vencido">Fora do prazo</th><th>Concluídas</th><th>Adesão</th></tr></thead><tbody>${gestPend.map(g => `<tr><td>${esc(g.label)}</td><td><b style="color:var(--critical)">${U.fmtInt(g.gestorPendentes)}</b></td><td>${g.emAtraso ? `<b style="color:var(--critical)">${U.fmtInt(g.emAtraso)}</b> <span style="color:var(--muted);font-size:10.5px">(~${U.fmtInt(Math.round(g.atrasoMedioEmAtraso))}d)</span>` : '<span style="color:var(--muted)">0</span>'}</td><td>${U.fmtInt(g.gestorConcluidas)}</td><td>${g.adesaoGestor === null ? '—' : pct(g.adesaoGestor)}</td></tr>`).join('')}</tbody></table></div>` : empty('Nenhuma avaliação pendente.');
     const tabGestDec = gestDec.length ? `<div class="table-wrap"><table class="dt"><thead><tr><th>Gestor</th><th>Decisões</th><th>Aprov. s/ ress.</th><th>c/ ress.</th><th>Reprovados</th><th>Nota média dada</th></tr></thead><tbody>${gestDec.map(g => `<tr><td>${esc(g.label)}</td><td>${U.fmtInt(g.decididos)}</td><td>${pct(g.pctSemRessalvas)}</td><td>${pct(g.pctRessalvas)}</td><td><b style="color:${g.pctReprov >= 0.3 ? 'var(--critical)' : 'inherit'}">${pct(g.pctReprov)}</b></td><td>${notaMedia(g.mediaGestor)}</td></tr>`).join('')}</tbody></table></div><p class="sub" style="margin-top:8px">Gestores com pelo menos 5 decisões no período, ordenados pela maior taxa de reprovação.</p>` : empty('Poucas decisões por gestor no período.');
 
     // Adesão por unidade
@@ -309,6 +336,10 @@
       if (s === 'gestor_pend' && !r.status_gestor) return false;
       if (s === 'auto_pend' && r.status_auto === 'concluida') return false;
       if (s === 'auto_pend' && !r.status_auto) return false;
+      if (s === 'prazo_atrasada' && r._d.prazoSit !== 'atrasada') return false;
+      if (s === 'prazo_encerrada' && r._d.prazoSit !== 'vencida') return false;
+      if (s === 'prazo_a_vencer' && r._d.prazoSit !== 'a_vencer') return false;
+      if (s === 'auto_fora_prazo' && !(r._d.autoSit === 'atrasada' || r._d.autoSit === 'vencida')) return false;
       if (s === 'ambas' && !(r.status_gestor === 'concluida' && r.status_auto === 'concluida')) return false;
       const sc = lista.situacaoColab;
       if (sc !== 'todos') {
@@ -321,8 +352,22 @@
     const num = (v, dflt) => (v === null || v === undefined ? dflt : v);
     out = out.slice().sort((a, b) => {
       if (o === 'nome') return String(a.nome).localeCompare(String(b.nome), 'pt-BR');
+      if (o === 'prazo_asc' || o === 'prazo_desc') {
+        // pela data do prazo de resposta; sem data (sem admissão) vai sempre para o fim
+        const pa = a._d.prazoResp, pb = b._d.prazoResp;
+        if (!pa && !pb) return 0;
+        if (!pa) return 1;
+        if (!pb) return -1;
+        return o === 'prazo_asc' ? pa.localeCompare(pb) : pb.localeCompare(pa);
+      }
+      if (o === 'prazo') {
+        // atrasadas/encerradas (maior atraso primeiro) → a vencer (mais próximas primeiro) → entregues
+        const peso = r => (EM_ATRASO_UI(r._d.prazoSit) ? 0 : r._d.prazoSit === 'a_vencer' ? 1 : 2);
+        return (peso(a) - peso(b)) || (num(b._d.prazoDias, -999) - num(a._d.prazoDias, -999));
+      }
       if (o === 'menor_nota') return num(a._d.mediaGestor, 99) - num(b._d.mediaGestor, 99);
-      if (o === 'maior_gap') return num(b._d.gap, -99) - num(a._d.gap, -99);
+      if (o === 'menor_final') return num(a._d.notaFinal, 99) - num(b._d.notaFinal, 99);
+      if (o === 'maior_final') return num(b._d.notaFinal, -99) - num(a._d.notaFinal, -99);
       return String(b._d.dataRef || '').localeCompare(String(a._d.dataRef || ''));
     });
     return out;
@@ -347,6 +392,10 @@
         <select id="ave-f-status">
           ${opt('todos', 'Status: todos', lista.status)}
           ${opt('gestor_pend', 'Avaliação do gestor pendente', lista.status)}
+          ${opt('prazo_atrasada', 'Gestor atrasado — ainda dentro do período', lista.status)}
+          ${opt('prazo_encerrada', 'Gestor sem avaliação — período encerrado', lista.status)}
+          ${opt('prazo_a_vencer', 'Gestor dentro do prazo de resposta', lista.status)}
+          ${opt('auto_fora_prazo', 'Autoavaliação fora do prazo (pendente)', lista.status)}
           ${opt('auto_pend', 'Autoavaliação pendente', lista.status)}
           ${opt('ambas', 'Ambas concluídas', lista.status)}
         </select>
@@ -359,9 +408,13 @@
         </select>
         <select id="ave-f-ordem">
           ${opt('recentes', 'Mais recentes', lista.ordem)}
+          ${opt('prazo_asc', 'Prazo de resposta: crescente (mais antigo primeiro)', lista.ordem)}
+          ${opt('prazo_desc', 'Prazo de resposta: decrescente (mais recente primeiro)', lista.ordem)}
+          ${opt('prazo', 'Prazo de resposta: atrasadas primeiro', lista.ordem)}
           ${opt('nome', 'Nome (A-Z)', lista.ordem)}
           ${opt('menor_nota', 'Menor nota do gestor', lista.ordem)}
-          ${opt('maior_gap', 'Maior diferença (autoavaliação acima)', lista.ordem)}
+          ${opt('menor_final', 'Menor nota final', lista.ordem)}
+          ${opt('maior_final', 'Maior nota final', lista.ordem)}
         </select>
         <button type="button" class="btn btn-outline btn-sm" id="ave-csv" style="width:auto">Exportar CSV</button>
       </div>
@@ -386,15 +439,16 @@
     if (!filtradas.length) { el.innerHTML = empty('Nenhum colaborador encontrado com esses filtros.'); return; }
     el.innerHTML = `
       <div class="table-wrap" style="max-height:none"><table class="dt">
-        <thead><tr><th>Colaborador</th><th>Unidade / gestor</th><th>Admissão</th><th>Avaliado em</th><th title="Média das 7 competências comuns — avaliação do gestor">Nota gestor</th><th title="Média das 7 competências comuns — autoavaliação">Nota auto</th><th title="Autoavaliação − gestor">Dif.</th><th>Batendo o Martelo</th><th>Comentário do gestor</th><th title="Avaliação do gestor · autoavaliação">Status</th><th></th></tr></thead>
+        <thead><tr><th>Colaborador</th><th>Unidade / gestor</th><th>Admissão</th><th title="Prazo de resposta = dia ${ciclo - 5} da admissão (gestor e colaborador); o período de experiência termina no dia ${ciclo}">Prazo p/ responder</th><th>Avaliado em</th><th title="Média das 7 competências comuns — avaliação do gestor">Nota gestor</th><th title="Média das 7 competências comuns — autoavaliação">Nota auto</th><th title="Nota do gestor × 85% + nota do colaborador × 15% (médias das 7 competências comuns). * = sem autoavaliação, vale só o gestor">Nota final</th><th>Batendo o Martelo</th><th>Comentário do gestor</th><th title="Avaliação do gestor · autoavaliação">Status</th><th></th></tr></thead>
         <tbody>${pagina.map((r, i) => `<tr>
           <td><b>${esc(r.nome)}</b> ${pillSituacao(r._d.situacao)}<div style="font-size:10.5px;color:var(--muted)">${esc(r.cargo || 'Cargo não informado')}</div></td>
           <td>${esc(r.unidade || '—')}<div style="font-size:10.5px;color:var(--muted)">${esc(r._d.gestorRotulo)}</div></td>
           <td>${U.fmtDateBR(r.data_admissao) || '—'}</td>
+          <td>${r._d.prazoResp ? U.fmtDateBR(r._d.prazoResp) : '—'}<div style="margin-top:2px" title="Gestor">${prazoPill(r._d.prazoSit, r._d.prazoDias, r._d.fimPeriodo, r._d.dataSaida)}</div><div style="margin-top:2px;font-size:9.5px;color:var(--muted)" title="Colaborador (autoavaliação)">colab.: ${prazoPill(r._d.autoSit, r._d.autoDias, r._d.fimPeriodo, r._d.dataSaida)}</div></td>
           <td>${r.data_avaliacao ? U.fmtDateBR(r.data_avaliacao) + (r._d.dias !== null ? ` <span style="color:var(--muted)">(${r._d.dias}d)</span>` : '') : '—'}</td>
           <td>${notaMedia(r._d.mediaGestor)}</td>
           <td>${notaMedia(r._d.mediaAuto)}</td>
-          <td>${r._d.gap === null ? '<span style="color:var(--muted)">—</span>' : `<span style="color:${r._d.gap >= 0.5 ? '#eb6834' : r._d.gap <= -0.5 ? '#1C7CEC' : 'inherit'};font-weight:700">${sinal(r._d.gap)}</span>`}</td>
+          <td>${notaFinalHtml(r._d)}</td>
           <td>${pillMartelo(r.martelo)}</td>
           <td style="min-width:200px;max-width:260px;white-space:normal;font-size:11px;line-height:1.35" title="${esc(r.martelo_comentario || '')}">${r.martelo_comentario ? esc(r.martelo_comentario.length > 90 ? r.martelo_comentario.slice(0, 90) + '…' : r.martelo_comentario) : '<span style="color:var(--muted)">—</span>'}</td>
           <td style="text-align:center">${statusIcone(r.status_gestor)} · ${statusIcone(r.status_auto)}</td>
@@ -414,14 +468,15 @@
     el.querySelectorAll('[data-ver]').forEach(b => b.addEventListener('click', () => abrirDetalhe(listaAtual[Number(b.dataset.ver)])));
   }
 
+  const SIT_TXT = { entregue_prazo: 'Respondeu no prazo', entregue_atraso: 'Respondeu após o prazo (dentro do período)', entregue_fora: 'Respondeu após o fim do período', a_vencer: 'Pendente — dentro do prazo', atrasada: 'Pendente — prazo vencido (ainda dentro do período)', vencida: 'Pendente — período encerrado', saiu_antes: 'Desligado antes do prazo de resposta' };
   function exportarCSV(linhas) {
-    const cab = ['Colaborador', 'Situação do colaborador', 'Cargo', 'Unidade', 'Departamento', 'Gestor', 'Admissão', 'Data da avaliação do gestor', 'Dias até a avaliação', 'Média gestor', 'Média autoavaliação', 'Diferença', 'Batendo o Martelo (nota)', 'Batendo o Martelo', 'Comentário do gestor', 'Avaliação do gestor', 'Autoavaliação']
+    const cab = ['Colaborador', 'Situação do colaborador', 'Cargo', 'Unidade', 'Departamento', 'Gestor', 'Admissão', 'Prazo de resposta', 'Fim do período de experiência', 'Situação do prazo (gestor)', 'Dias após o prazo (gestor; negativo = antes)', 'Situação do prazo (colaborador)', 'Data da avaliação do gestor', 'Dias até a avaliação', 'Média gestor', 'Média autoavaliação', 'Nota final (85% gestor + 15% colaborador)', 'Batendo o Martelo (nota)', 'Batendo o Martelo', 'Comentário do gestor', 'Avaliação do gestor', 'Autoavaliação']
       .concat(M.CORE.map(c => c + ' (gestor)')).concat(M.CORE.map(c => c + ' (auto)'));
     const num = v => (v === null || v === undefined ? '' : String(v).replace('.', ','));
     const cel = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
     const linhasCsv = linhas.map(r => [
-      r.nome, r._d.situacao ? M.SITUACOES[r._d.situacao] : 'Não encontrado', r.cargo, r.unidade, r.departamento, r._d.gestorRotulo, r.data_admissao, r.data_avaliacao, r._d.dias,
-      num(r._d.mediaGestor === null ? null : +r._d.mediaGestor.toFixed(2)), num(r._d.mediaAuto === null ? null : +r._d.mediaAuto.toFixed(2)), num(r._d.gap === null ? null : +r._d.gap.toFixed(2)),
+      r.nome, r._d.situacao ? M.SITUACOES[r._d.situacao] : 'Não encontrado', r.cargo, r.unidade, r.departamento, r._d.gestorRotulo, r.data_admissao, r._d.prazoResp, r._d.fimPeriodo, SIT_TXT[r._d.prazoSit] || '', r._d.prazoDias, SIT_TXT[r._d.autoSit] || '', r.data_avaliacao, r._d.dias,
+      num(r._d.mediaGestor === null ? null : +r._d.mediaGestor.toFixed(2)), num(r._d.mediaAuto === null ? null : +r._d.mediaAuto.toFixed(2)), num(r._d.notaFinal === null ? null : +r._d.notaFinal.toFixed(2)),
       r.martelo, r.martelo ? M.MARTELO[r.martelo] : '', r.martelo_comentario, r.status_gestor, r.status_auto
     ].concat(M.CORE.map(c => (r.notas_gestor || {})[c])).concat(M.CORE.map(c => (r.notas_auto || {})[c])).map(cel).join(';'));
     const blob = new Blob(['﻿' + [cab.map(cel).join(';')].concat(linhasCsv).join('\r\n')], { type: 'text/csv;charset=utf-8' });
@@ -461,20 +516,22 @@
     const comps = M.CORE.concat(extras);
     const linhas = comps.map((c, i) => {
       const g = ng[c], a = na[c];
-      const dif = g >= 1 && a >= 1 ? a - g : null;
+      const fin = g >= 1 ? (a >= 1 ? g * M.PESO_GESTOR + a * M.PESO_AUTO : g) : null;
       return `<tr>
         <td><b>${esc(c)}</b>${M.CORE.includes(c) ? '' : ' <span style="color:var(--muted);font-size:10px">(cargo)</span>'}</td>
         <td>${g >= 1 ? pillConceito(g) : '<span style="color:var(--muted)">—</span>'}</td>
         <td>${a >= 1 ? pillConceito(a) : '<span style="color:var(--muted)">—</span>'}</td>
-        <td>${dif === null ? '—' : `<b style="color:${dif > 0 ? '#eb6834' : dif < 0 ? '#1C7CEC' : 'inherit'}">${dif > 0 ? '+' : ''}${dif}</b>`}</td>
+        <td>${fin === null ? '—' : `<b>${fmt2(fin)}</b>`}</td>
       </tr><tr class="ave-com" data-comp="${i}"><td colspan="4" style="white-space:normal;padding-top:0;border-bottom:1px solid var(--border)"></td></tr>`;
     }).join('');
     const corpo = `
       <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px;font-size:12px">
         <div><span style="color:var(--muted)">Admissão</span><br><b>${U.fmtDateBR(r.data_admissao) || '—'}</b></div>
+        <div><span style="color:var(--muted)">Prazo para responder (dia ${ciclo - 5})</span><br><b>${r._d.prazoResp ? U.fmtDateBR(r._d.prazoResp) : '—'}</b> <span style="color:var(--muted);font-size:10.5px">período termina em ${r._d.fimPeriodo ? U.fmtDateBR(r._d.fimPeriodo) : '—'}</span><br>Gestor: ${prazoPill(r._d.prazoSit, r._d.prazoDias, r._d.fimPeriodo, r._d.dataSaida)} · Colaborador: ${prazoPill(r._d.autoSit, r._d.autoDias, r._d.fimPeriodo, r._d.dataSaida)}${r._d.dataSaida ? `<br><span style="color:var(--muted);font-size:10.5px">Desligamento em ${U.fmtDateBR(r._d.dataSaida)} — o atraso é contado até essa data</span>` : ''}</div>
         <div><span style="color:var(--muted)">Avaliação do gestor</span><br><b>${r.data_avaliacao ? U.fmtDateBR(r.data_avaliacao) : (r.status_gestor === 'rascunho' ? 'Em rascunho' : 'Pendente')}</b>${r._d.dias !== null ? ` <span style="color:var(--muted)">(${r._d.dias} dias)</span>` : ''}</div>
         <div><span style="color:var(--muted)">Autoavaliação</span><br><b>${r.data_autoavaliacao ? U.fmtDateBR(r.data_autoavaliacao) : (r.status_auto === 'rascunho' ? 'Em rascunho' : 'Pendente')}</b></div>
         <div><span style="color:var(--muted)">Média gestor · auto</span><br>${notaMedia(r._d.mediaGestor)} · ${notaMedia(r._d.mediaAuto)}</div>
+        <div><span style="color:var(--muted)">Nota final (85% gestor + 15% colab.)</span><br>${notaFinalHtml(r._d)}</div>
         <div><span style="color:var(--muted)">Departamento</span><br><b>${esc(r.departamento || '—')}</b></div>
       </div>
       <div class="card" style="margin-bottom:14px;padding:14px 16px;border-left:4px solid ${r.martelo ? M.CORES_MARTELO[r.martelo] : '#C9D0DA'}">
@@ -482,7 +539,7 @@
         <div style="margin-bottom:6px">${pillMartelo(r.martelo)}${r.martelo ? ` <span style="color:var(--muted);font-size:11px">nota ${r.martelo} — ${esc(M.MARTELO[r.martelo])}</span>` : ''}</div>
         <div style="font-size:12.5px;line-height:1.5">${r.martelo_comentario ? esc(r.martelo_comentario) : '<span style="color:var(--muted)">Sem comentário registrado.</span>'}</div>
       </div>
-      <div class="table-wrap" style="max-height:none"><table class="dt" style="white-space:normal"><thead><tr><th>Competência</th><th>Gestor</th><th>Autoavaliação</th><th>Dif.</th></tr></thead><tbody>${linhas}</tbody></table></div>
+      <div class="table-wrap" style="max-height:none"><table class="dt" style="white-space:normal"><thead><tr><th>Competência</th><th>Gestor</th><th>Autoavaliação</th><th title="85% gestor + 15% colaborador">Nota final</th></tr></thead><tbody>${linhas}</tbody></table></div>
       <p class="sub" id="ave-com-status" style="margin-top:10px;font-size:11.5px;color:var(--muted)">Carregando comentários...</p>`;
     const modal = abrirModal(`${esc(r.nome)} ${pillSituacao(r._d.situacao)}`, `${esc(r.cargo || 'Cargo não informado')} · ${esc(r.unidade || '')}${r.departamento ? ' · ' + esc(r.departamento) : ''} · Avaliação de ${ciclo} dias`, corpo);
 
