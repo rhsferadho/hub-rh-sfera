@@ -10,7 +10,7 @@
 (function () {
   const U = HUB_UTILS;
   const M = HUB_EXP_METRICS;
-  const { kpi, empty, card, insightsList, barChart, doughnutChart } = HUB_UI;
+  const { kpi, empty, card, insightsCard, insightsList, barChart, doughnutChart } = HUB_UI;
 
   let ciclo = 45;               // 45 | 90 | 'evolucao'
   let aba = 'indicadores';      // 'indicadores' | 'lista'
@@ -270,7 +270,7 @@
         ${card('Decisões por gestor (rigor da avaliação)', '&#128104;&#8205;&#128188;', tabGestDec)}
         ${card('Palavras mais citadas nos comentários das reprovações', '&#128269;', d.termosReprovados.length ? chartBox('c-ave-termo-r', d.termosReprovados.length) : empty('Poucos comentários de reprovação.'))}
         ${card('Palavras mais citadas nos comentários das aprovações com ressalvas', '&#128269;', d.termosRessalvas.length ? chartBox('c-ave-termo-c', d.termosRessalvas.length) : empty('Poucos comentários.'))}
-        ${card('Insights e plano de ação', '&#129504;', insightsList(d.insights) || empty('Sem dados suficientes para gerar insights.'), { full: true })}
+        ${insightsCard('Insights e plano de ação', '&#129504;', insightsList(d.insights) || empty('Sem dados suficientes para gerar insights.'), { full: true })}
       </div>`;
 
     // ---- gráficos ----

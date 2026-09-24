@@ -36,6 +36,17 @@
     return `<div class="card${opts.full ? ' full' : ''}"><h3><span>${icon || ''}</span>${title}</h3>${bodyHtml}</div>`;
   }
 
+  // Insights / plano de ação / alertas analíticos: só perfis RH e Administrador.
+  // (Só esconde o bloco na tela — o acesso aos dados em si é controlado pela RLS do banco.)
+  function canSeeInsights() {
+    const u = window.HUB_USER;
+    return !!u && (u.perfil === 'admin' || u.perfil === 'rh');
+  }
+
+  function insightsCard(title, icon, bodyHtml, opts) {
+    return canSeeInsights() ? card(title, icon, bodyHtml, opts) : '';
+  }
+
   function insightsList(insights) {
     const icons = { alerta: '&#9888;&#65039;', acao: '&#128161;', info: '&#8505;&#65039;' };
     if (!insights || !insights.length) return '';
@@ -153,5 +164,5 @@
       '</tbody></table></div>';
   }
 
-  window.HUB_UI = { kpi, empty, card, insightsList, noDataGate, barChart, lineChart, doughnutChart, topRows, rankingTable };
+  window.HUB_UI = { kpi, empty, card, insightsCard, canSeeInsights, insightsList, noDataGate, barChart, lineChart, doughnutChart, topRows, rankingTable };
 })();

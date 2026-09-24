@@ -7,7 +7,7 @@
 (function () {
   const U = HUB_UTILS;
   const M = HUB_METRICS;
-  const { kpi, empty, card, insightsList, noDataGate, barChart, lineChart, doughnutChart, topRows, rankingTable } = HUB_UI;
+  const { kpi, empty, card, insightsCard, insightsList, noDataGate, barChart, lineChart, doughnutChart, topRows, rankingTable } = HUB_UI;
 
   function canUpload() { return HUB_PERMISSIONS.hasPerm(HUB_USER, 'admin.upload'); }
 
@@ -105,7 +105,7 @@
         ${card('Motivos de desligamento', '&#128172;', d.motivos.length ? '<div class="chart-h"><canvas id="c-rot-motivos"></canvas></div>' : empty('Sem motivos informados.'))}
         ${card('Top 10 cargos com maior rotatividade', '&#128188;', d.cargosDesligados.length ? '<div class="chart-h"><canvas id="c-rot-cargos"></canvas></div>' : empty('Sem cargos informados.'))}
         ${card('Desligados no período', '&#128203;', d.listaDesligados.length ? `<div class="table-wrap"><table class="dt"><thead><tr><th>Nome</th><th>Cargo</th><th>Unidade</th><th>Departamento</th><th>Tipo</th><th>Data</th></tr></thead><tbody>${d.listaDesligados.map(r => `<tr><td>${U.escapeHtml(r.nome || '')}</td><td>${U.escapeHtml(r.cargo || '')}</td><td>${U.escapeHtml(r.unidade || '')}</td><td>${U.escapeHtml(r.departamento || '')}</td><td>${U.escapeHtml(r.tipo || '')}</td><td>${U.fmtDateBR(r.data)}</td></tr>`).join('')}</tbody></table></div>` : empty('Nenhum desligamento no período.'), { full: true })}
-        ${card('Insights e plano de ação', '&#129504;', insightsList(d.insights) || empty('Sem dados suficientes para gerar insights.'), { full: true })}
+        ${insightsCard('Insights e plano de ação', '&#129504;', insightsList(d.insights) || empty('Sem dados suficientes para gerar insights.'), { full: true })}
       </div>
       <h3 style="font-size:13px;margin:20px 0 12px">Rotatividade no período de experiência (até 90 dias após a admissão)</h3>
       <div class="grid2">
@@ -318,7 +318,7 @@
         ${card('Comentários positivos (anônimos)', '&#128172;', `<div class="scroll-box">${comentariosHtml(d.comentariosPositivos)}</div>`)}
         ${card('Comentários negativos (anônimos)', '&#128172;', `<div class="scroll-box">${comentariosHtml(d.comentariosNegativos)}</div>`)}
         ${card('Pessoas citadas nos depoimentos', '&#128100;', d.pessoasCitadas.length ? `<div class="scroll-box">${topRows(d.pessoasCitadas.map(p => ({ label: p.nome, value: p.count })), 'Menções')}</div>` : empty('Nenhuma pessoa identificada nos textos.'))}
-        ${card('Insights e plano de ação', '&#129504;', insightsList(d.insights), { full: true })}
+        ${insightsCard('Insights e plano de ação', '&#129504;', insightsList(d.insights), { full: true })}
       </div>`;
     d.indicesDesligamento.forEach((idx, i) => wireIndiceDesligamento(idx, i));
     if (d.motivos.length) {

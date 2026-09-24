@@ -7,7 +7,7 @@
 (function () {
   const U = HUB_UTILS;
   const MR = HUB_METRICS_RECRUTAMENTO;
-  const { kpi, empty, card, insightsList, noDataGate, barChart, lineChart, doughnutChart, topRows } = HUB_UI;
+  const { kpi, empty, card, insightsCard, insightsList, noDataGate, barChart, lineChart, doughnutChart, topRows } = HUB_UI;
 
   function canManage() { return HUB_PERMISSIONS.hasPerm(HUB_USER, 'recrutamento.vagas'); }
 
@@ -70,7 +70,7 @@
       </div>
 
       <div class="grid2">
-        ${card('Alertas e ações recomendadas', '&#9888;&#65039;', insightsList(d.alertas), { full: true })}
+        ${insightsCard('Alertas e ações recomendadas', '&#9888;&#65039;', insightsList(d.alertas), { full: true })}
         ${card('Vagas abertas por unidade', '&#127970;', c.porUnidade.length ? '<div class="chart-h"><canvas id="c-rc-unidade"></canvas></div>' : empty('Sem dados.'))}
         ${card('Distribuição por status', '&#128202;', c.porStatus.length ? '<div class="chart-h"><canvas id="c-rc-status"></canvas></div>' : empty('Sem dados.'))}
         ${card('Evolução mensal — abertas x fechadas', '&#128200;', c.evolucaoMensal.length ? '<div class="chart-h tall"><canvas id="c-rc-evolucao"></canvas></div>' : empty('Sem dados.'), { full: true })}

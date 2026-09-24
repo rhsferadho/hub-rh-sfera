@@ -8,6 +8,7 @@
   const PERM = HUB_PERMISSIONS;
 
   let editingProfile = null;
+  const accFilter = { q: '', perfil: '', status: '', unidade: '' };
 
   function orgOptions() {
     const colab = HUB_DATA.colaboradores || [];
@@ -93,14 +94,23 @@
     // Ativos primeiro, depois inativos, depois desligados (ordem por nome preservada em cada grupo).
     const rank = { ativo: 0, inativo: 1, desligado: 2 };
     profiles = profiles.slice().sort((a, b) => rank[statusOf(a)] - rank[statusOf(b)]);
-    el.innerHTML = `<div class="table-wrap"><table class="dt"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Permissões</th><th>Unidades</th><th>Departamentos</th><th></th></tr></thead><tbody>
+    const unidadesFiltro = Array.from(new Set(profiles.flatMap(p => p.unidades || []))).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    el.innerHTML = `<div class="acc-filters">
+      <input type="search" id="accf-q" placeholder="Buscar por nome ou e-mail" autocomplete="off" value="${U.escapeHtml(accFilter.q)}">
+      <select id="accf-perfil"><option value="">Todos os perfis</option>${Object.keys(PERM.PERFIL_LABELS).map(k => `<option value="${k}"${accFilter.perfil === k ? ' selected' : ''}>${PERM.PERFIL_LABELS[k]}</option>`).join('')}</select>
+      <select id="accf-status"><option value="">Todos os status</option>${Object.keys(STATUS_LABEL).map(k => `<option value="${k}"${accFilter.status === k ? ' selected' : ''}>${STATUS_LABEL[k]}</option>`).join('')}</select>
+      <select id="accf-unidade"><option value="">Todas as unidades</option>${unidadesFiltro.map(u => `<option value="${U.escapeHtml(u)}"${accFilter.unidade === u ? ' selected' : ''}>${U.escapeHtml(u)}</option>`).join('')}</select>
+      <button type="button" class="btn btn-outline btn-sm" id="accf-clear">Limpar</button>
+      <span class="acc-count" id="accf-count"></span>
+    </div>
+    <div class="table-wrap"><table class="dt"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Permissões</th><th>Unidades</th><th>Departamentos</th><th></th></tr></thead><tbody>
       ${profiles.map(p => {
         const n = Object.values(p.permissoes || {}).filter(Boolean).length;
         const st = statusOf(p);
         const isSelf = HUB_USER && HUB_USER.id === p.id;
         const tip = st !== 'ativo' && p.status_em ? `${STATUS_LABEL[st]} em ${new Date(p.status_em).toLocaleDateString('pt-BR')}${p.status_por ? ' por ' + p.status_por : ''}` : '';
         const selfAttr = isSelf ? ' disabled title="Você não pode alterar o próprio acesso"' : '';
-        return `<tr class="acc-${st}">
+        return `<tr class="acc-${st}" data-id="${p.id}">
         <td>${U.escapeHtml(p.nome)}</td><td>${U.escapeHtml(p.email)}</td>
         <td><span class="badge b1">${PERM.PERFIL_LABELS[p.perfil] || p.perfil}</span></td>
         <td><span class="badge b-${st}" title="${U.escapeHtml(tip)}">${STATUS_LABEL[st]}</span></td>
@@ -114,7 +124,37 @@
         </td>
       </tr>`;
       }).join('')}
+    <tr id="accf-none" hidden><td colspan="8" style="text-align:center;color:var(--muted);padding:18px">Nenhuma conta encontrada com esses filtros.</td></tr>
     </tbody></table></div>`;
+    const byId = new Map(profiles.map(p => [p.id, p]));
+    const applyFilters = () => {
+      const q = U.normalizeText(accFilter.q).trim();
+      let shown = 0;
+      el.querySelectorAll('tbody tr[data-id]').forEach(tr => {
+        const p = byId.get(tr.dataset.id);
+        const okQ = !q || U.normalizeText(p.nome + ' ' + p.email).includes(q);
+        const okPerfil = !accFilter.perfil || p.perfil === accFilter.perfil;
+        const okStatus = !accFilter.status || statusOf(p) === accFilter.status;
+        // Conta sem unidades cadastradas enxerga todas, então também aparece ao filtrar uma unidade.
+        const okUn = !accFilter.unidade || !(p.unidades || []).length || p.unidades.includes(accFilter.unidade);
+        const ok = okQ && okPerfil && okStatus && okUn;
+        tr.hidden = !ok;
+        if (ok) shown++;
+      });
+      el.querySelector('#accf-none').hidden = shown > 0;
+      el.querySelector('#accf-count').textContent = shown === profiles.length ? `${profiles.length} contas` : `${shown} de ${profiles.length} contas`;
+    };
+    el.querySelector('#accf-q').addEventListener('input', e => { accFilter.q = e.target.value; applyFilters(); });
+    el.querySelector('#accf-perfil').addEventListener('change', e => { accFilter.perfil = e.target.value; applyFilters(); });
+    el.querySelector('#accf-status').addEventListener('change', e => { accFilter.status = e.target.value; applyFilters(); });
+    el.querySelector('#accf-unidade').addEventListener('change', e => { accFilter.unidade = e.target.value; applyFilters(); });
+    el.querySelector('#accf-clear').addEventListener('click', () => {
+      Object.assign(accFilter, { q: '', perfil: '', status: '', unidade: '' });
+      el.querySelector('#accf-q').value = '';
+      ['perfil', 'status', 'unidade'].forEach(k => { el.querySelector('#accf-' + k).value = ''; });
+      applyFilters();
+    });
+    applyFilters();
     el.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => {
       const p = profiles.find(x => x.id === b.dataset.edit);
       editingProfile = p;

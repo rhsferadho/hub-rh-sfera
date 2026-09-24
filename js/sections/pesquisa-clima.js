@@ -91,7 +91,7 @@
         <span class="ic">&#8505;&#65039;</span>
         <span><strong>Como calculamos o eNPS:</strong> cada resposta de 0 a 10 ("o quanto você recomendaria a empresa como um ótimo lugar para trabalhar?") entra num de três grupos — Detratores (0 a 6), Neutros (7 a 8) e Promotores (9 a 10). eNPS = ((nº de Promotores − nº de Detratores) ÷ total de respostas) × 100. Varia de -100 a +100; Neutros contam no total mas não entram na conta.</span>
       </div>
-      ${d.insights.length ? `<div class="card full" style="margin-bottom:16px"><h3><span>&#128161;</span>Leituras rápidas</h3>${insightsList(d.insights)}</div>` : ''}
+      ${d.insights.length && HUB_UI.canSeeInsights() ? `<div class="card full" style="margin-bottom:16px"><h3><span>&#128161;</span>Leituras rápidas</h3>${insightsList(d.insights)}</div>` : ''}
       <div class="pc-duo">
         ${card('Participação por unidade', '&#127970;', partHtml)}
         ${card('eNPS por tema', '&#128172;', '<div class="chart-h"><canvas id="c-pc-nps"></canvas></div>')}
