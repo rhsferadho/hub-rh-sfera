@@ -143,6 +143,8 @@
         autoSit: pa.sit, autoDias: pa.dias,
         marca: marcaDe(r.unidade),
         gestorRotulo: r.gestor_avaliador || primeiroGestor(r.gestor) || r.gestor_direto || 'Não informado',
+        // Filtro de período usa a data de LIBERAÇÃO da avaliação (admissão + ciclo − 15: dia 30 no ciclo de 45, dia 75 no de 90), igual p/ todos: quem não respondeu ou foi desligado também entra na lista.
+        dataFiltro: U.addDays(r.data_admissao, ciclo - 15),
         dataRef: r.data_avaliacao || r.data_autoavaliacao || U.addDays(r.data_admissao, ciclo),
         mediaGestor: mg, mediaAuto: ma,
         notaFinal: mg === null ? null : (ma === null ? mg : mg * PESO_GESTOR + ma * PESO_AUTO),
@@ -163,7 +165,7 @@
   function filtrar(rows, f) {
     return rows.filter(r => {
       if (f.start || f.end) {
-        if (!r._d.dataRef || !U.inRange(r._d.dataRef, f.start, f.end)) return false;
+        if (!r._d.dataFiltro || !U.inRange(r._d.dataFiltro, f.start, f.end)) return false;
       }
       if (!U.matchesAny(r.unidade, f.unidade)) return false;
       if (!U.matchesAny(r.departamento, f.departamento)) return false;
@@ -340,6 +342,23 @@
       emAtraso: rows.filter(r => EM_ATRASO(r._d.autoSit)).length
     };
 
+    // Desligados sem avaliação do gestor registrada (saíram antes de haver um registro avaliativo)
+    const semAval = rows.filter(r => r._d.situacao === 'desligado' && r.status_gestor !== 'concluida');
+    const contar = fn => Array.from(semAval.reduce((mp, r) => mp.set(fn(r), (mp.get(fn(r)) || 0) + 1), new Map()).entries())
+      .map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
+    const diasCasa = semAval.map(r => daysBetween(r.data_admissao, r._d.dataSaida)).filter(v => v !== null && v >= 0);
+    const desligSemAval = {
+      total: semAval.length, base: rows.length,
+      pct: rows.length ? semAval.length / rows.length : null,
+      semNenhuma: semAval.filter(r => r.status_auto !== 'concluida').length,
+      soAuto: semAval.filter(r => r.status_auto === 'concluida').length,
+      diasMedio: media(diasCasa),
+      porUnidade: contar(r => r.unidade || 'Não informado'),
+      porCargo: contar(r => r._d.cargo),
+      lista: semAval.slice().sort((a, b) => String(b._d.dataSaida || '').localeCompare(String(a._d.dataSaida || '')))
+        .map(r => ({ nome: r.nome, cargo: r._d.cargo, unidade: r.unidade || 'Não informado', gestor: r._d.gestorRotulo, admissao: r.data_admissao, saida: r._d.dataSaida, diasCasa: daysBetween(r.data_admissao, r._d.dataSaida), autoFeita: r.status_auto === 'concluida' }))
+    };
+
     // Série mensal (mês da avaliação do gestor)
     const meses = new Map();
     for (const r of decididos) {
@@ -377,7 +396,7 @@
       gapMedio: media(ambos.map(r => r._d.gap)),
       nAmbos: ambos.length,
       alinhamento: alin,
-      porCompetencia, negocio, prazo, serie,
+      porCompetencia, negocio, prazo, serie, desligSemAval,
       porUnidade, porMarca, porDepartamento, porCargo, porGestor,
       termosReprovados: termosFrequentes(rows, [1, 2], 12),
       termosRessalvas: termosFrequentes(rows, [3], 12),
