@@ -53,20 +53,64 @@
     return `<div class="scope-chips">${chips}${more}</div>`;
   }
 
+  // Status de acesso: 'ativo' | 'inativo' (suspenso) | 'desligado' (colaborador
+  // desligado). Perfis sem a coluna (SQL ainda não rodado) contam como ativos.
+  const STATUS_LABEL = { ativo: 'Ativo', inativo: 'Inativo', desligado: 'Desligado' };
+  const statusOf = p => p.status || 'ativo';
+
+  // Confirmação forte (desligar / reativar desligado): o botão só libera depois de
+  // digitar a palavra pedida, para ninguém confirmar por engano.
+  function confirmarDigitando({ titulo, corpo, nota, palavra, botao, perigo }) {
+    return new Promise(resolve => {
+      const ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px';
+      ov.innerHTML = `<div role="dialog" aria-modal="true" style="background:var(--card);border-radius:var(--radius);max-width:460px;width:100%;padding:22px">
+        <h3 style="font-size:16px;margin-bottom:10px;color:${perigo ? 'var(--critical)' : 'var(--text)'}">${titulo}</h3>
+        <p style="font-size:13px;line-height:1.5;margin-bottom:10px">${corpo}</p>
+        <p style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:14px">${nota}</p>
+        <label style="font-size:12px;display:block;margin-bottom:6px">Para confirmar, digite <b>${palavra}</b>:</label>
+        <input type="text" id="dz-input" autocomplete="off" style="width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:16px">
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button type="button" class="btn btn-outline btn-sm" id="dz-cancel">Cancelar</button>
+          <button type="button" class="btn ${perigo ? 'btn-danger' : 'btn-warn'} btn-sm" id="dz-ok" disabled>${botao}</button>
+        </div></div>`;
+      document.body.appendChild(ov);
+      const input = ov.querySelector('#dz-input'), ok = ov.querySelector('#dz-ok');
+      const done = v => { ov.remove(); document.removeEventListener('keydown', onKey); resolve(v); };
+      const onKey = e => { if (e.key === 'Escape') done(false); };
+      document.addEventListener('keydown', onKey);
+      input.addEventListener('input', () => { ok.disabled = input.value.trim().toUpperCase() !== palavra; });
+      input.addEventListener('keydown', e => { if (e.key === 'Enter' && !ok.disabled) done(true); });
+      ov.querySelector('#dz-cancel').addEventListener('click', () => done(false));
+      ok.addEventListener('click', () => done(true));
+      ov.addEventListener('click', e => { if (e.target === ov) done(false); });
+      input.focus();
+    });
+  }
+
   function renderAccessList(el, profiles) {
     if (!profiles.length) { el.innerHTML = '<div class="empty"><p>Nenhuma conta cadastrada além da sua.</p></div>'; return; }
-    el.innerHTML = `<div class="table-wrap"><table class="dt"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Permissões</th><th>Unidades</th><th>Departamentos</th><th></th></tr></thead><tbody>
+    // Ativos primeiro, depois inativos, depois desligados (ordem por nome preservada em cada grupo).
+    const rank = { ativo: 0, inativo: 1, desligado: 2 };
+    profiles = profiles.slice().sort((a, b) => rank[statusOf(a)] - rank[statusOf(b)]);
+    el.innerHTML = `<div class="table-wrap"><table class="dt"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Permissões</th><th>Unidades</th><th>Departamentos</th><th></th></tr></thead><tbody>
       ${profiles.map(p => {
         const n = Object.values(p.permissoes || {}).filter(Boolean).length;
-        return `<tr>
+        const st = statusOf(p);
+        const isSelf = HUB_USER && HUB_USER.id === p.id;
+        const tip = st !== 'ativo' && p.status_em ? `${STATUS_LABEL[st]} em ${new Date(p.status_em).toLocaleDateString('pt-BR')}${p.status_por ? ' por ' + p.status_por : ''}` : '';
+        const selfAttr = isSelf ? ' disabled title="Você não pode alterar o próprio acesso"' : '';
+        return `<tr class="acc-${st}">
         <td>${U.escapeHtml(p.nome)}</td><td>${U.escapeHtml(p.email)}</td>
         <td><span class="badge b1">${PERM.PERFIL_LABELS[p.perfil] || p.perfil}</span></td>
+        <td><span class="badge b-${st}" title="${U.escapeHtml(tip)}">${STATUS_LABEL[st]}</span></td>
         <td>${n} de ${PERM.ALL_KEYS.length}</td>
         <td class="acc-scope">${scopeCell(p.unidades, 'Todas')}</td>
         <td class="acc-scope">${scopeCell(p.departamentos, 'Todos')}</td>
         <td class="acc-actions">
-          <button class="btn btn-outline btn-sm" data-edit="${p.id}">Editar</button>
-          <button class="btn btn-danger btn-sm" data-del="${p.id}">Remover</button>
+          ${st === 'desligado' ? '<button class="btn btn-outline btn-sm" disabled title="Usuário desligado: só é possível visualizar. Reative para editar.">Editar</button>' : `<button class="btn btn-outline btn-sm" data-edit="${p.id}">Editar</button>`}
+          ${st === 'ativo' ? `<button class="btn btn-warn btn-sm" data-status="${p.id}" data-to="inativo"${selfAttr}>Inativar</button>` : `<button class="btn btn-warn btn-sm" data-status="${p.id}" data-to="ativo"${selfAttr}>Reativar</button>`}
+          ${st !== 'desligado' ? `<button class="btn btn-danger btn-sm" data-status="${p.id}" data-to="desligado"${selfAttr}>Desligar</button>` : ''}
         </td>
       </tr>`;
       }).join('')}
@@ -77,10 +121,39 @@
       renderAccessForm(document.getElementById('acc-form-card'));
       document.getElementById('acc-form-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }));
-    el.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
-      if (!confirm('Remover o acesso desta pessoa ao Hub Sfera? O login no Supabase não é excluído, só o acesso ao app.')) return;
-      try { await HUB_DAL.deleteProfile(b.dataset.del); render(document.getElementById('sec-adm-usuarios')); }
-      catch (err) { alert('Erro ao remover: ' + err.message); }
+    el.querySelectorAll('[data-status]').forEach(b => b.addEventListener('click', async () => {
+      const p = profiles.find(x => x.id === b.dataset.status);
+      const to = b.dataset.to;
+      const from = statusOf(p);
+      const nome = U.escapeHtml(p.nome);
+      if (to === 'desligado') {
+        if (!(await confirmarDigitando({
+          titulo: 'Confirmar desligamento', perigo: true, palavra: 'DESLIGAR', botao: 'Desligar usuário',
+          corpo: `Você está desligando <b>${nome}</b>. A pessoa perde <b>imediatamente</b> o acesso ao Hub Sfera e a todos os dados.`,
+          nota: 'O cadastro e as permissões ficam guardados como <b>Desligado</b> (nada é apagado). Enquanto estiver desligado, o cadastro não pode ser editado.'
+        }))) return;
+      } else if (to === 'ativo' && from === 'desligado') {
+        if (!(await confirmarDigitando({
+          titulo: 'Confirmar reativação', perigo: false, palavra: 'REATIVAR', botao: 'Reativar usuário',
+          corpo: `<b>${nome}</b> está <b>desligado(a)</b>. Ao reativar, a pessoa volta a entrar no Hub Sfera <b>imediatamente</b>, com as mesmas permissões que tinha antes.`,
+          nota: 'Confirme que a reativação foi autorizada (ex.: recontratação). Depois de reativado, o cadastro volta a poder ser editado.'
+        }))) return;
+      } else {
+        const msg = to === 'ativo'
+          ? `Reativar o acesso de ${p.nome} ao Hub Sfera? A pessoa volta a entrar com as mesmas permissões de antes.`
+          : `Inativar o acesso de ${p.nome} ao Hub Sfera? A pessoa deixa de conseguir entrar e de ver dados, mas o cadastro fica guardado e pode ser reativado depois.`;
+        if (!confirm(msg)) return;
+      }
+      b.disabled = true;
+      try {
+        await HUB_DAL.setProfileStatus(p.id, to);
+        if (to === 'desligado' && editingProfile && editingProfile.id === p.id) editingProfile = null;
+        render(document.getElementById('sec-adm-usuarios'));
+      }
+      catch (err) {
+        b.disabled = false;
+        alert('Erro ao alterar o status: ' + err.message + (/status/i.test(err.message) ? '\n\nRode supabase-usuarios-inativar.sql no Supabase primeiro.' : ''));
+      }
     }));
   }
 
@@ -179,6 +252,12 @@
     const msg = document.getElementById('acc-msg');
     msg.style.display = 'none';
     const btn = document.getElementById('acc-submit');
+    if (isEdit && editingProfile && (editingProfile.status || 'ativo') === 'desligado') {
+      msg.textContent = 'Usuário desligado não pode ser editado. Reative o acesso primeiro.';
+      msg.className = 'msg err';
+      msg.style.display = 'block';
+      return;
+    }
     const nome = document.getElementById('acc-nome').value.trim();
     const email = document.getElementById('acc-email').value.trim();
     const perfil = getPerfil();

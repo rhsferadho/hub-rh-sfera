@@ -445,6 +445,8 @@
     const { data, error } = await sb.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
     if (error) throw error;
     if (!data) throw new Error('NO_PROFILE');
+    if (data.status === 'inativo') throw new Error('INATIVO');
+    if (data.status === 'desligado') throw new Error('DESLIGADO');
     return { id: data.id, email: data.email, nome: data.nome, perfil: data.perfil, unidades: data.unidades || [], departamentos: data.departamentos || [], permissoes: data.permissoes || {} };
   }
 
@@ -475,6 +477,10 @@
     } catch (err) {
       if (err.message === 'NO_PROFILE') {
         msg.textContent = 'Este login existe no Supabase mas não tem um perfil de acesso cadastrado. Peça para um administrador cadastrá-lo em Administração → Cadastro de Acessos.';
+      } else if (err.message === 'DESLIGADO') {
+        msg.textContent = 'Seu acesso ao Hub Sfera foi encerrado. Em caso de dúvida, fale com o RH.';
+      } else if (err.message === 'INATIVO') {
+        msg.textContent = 'Seu acesso ao Hub Sfera está inativo. Em caso de dúvida, fale com o RH.';
       } else if (/invalid login credentials/i.test(err.message || '')) {
         msg.textContent = 'E-mail ou senha incorretos.';
       } else {

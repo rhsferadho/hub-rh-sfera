@@ -147,5 +147,16 @@
     if (error) throw error;
   }
 
-  window.HUB_DAL = { TABLES, loadAll, replaceTable, logUpload, listUploadLog, listProfiles, upsertProfile, deleteProfile };
+  // Muda o status de acesso (ativo/inativo/desligado) sem apagar o perfil — ver
+  // supabase-usuarios-inativar.sql. Nada é excluído: só o status e quem/quando mudou.
+  async function setProfileStatus(id, status) {
+    const u = window.HUB_USER || {};
+    const patch = status === 'ativo'
+      ? { status, status_em: null, status_por: null }
+      : { status, status_em: new Date().toISOString(), status_por: u.nome || u.email || null };
+    const { error } = await sb.from('profiles').update(patch).eq('id', id);
+    if (error) throw error;
+  }
+
+  window.HUB_DAL = { TABLES, loadAll, replaceTable, logUpload, listUploadLog, listProfiles, upsertProfile, deleteProfile, setProfileStatus };
 })();
