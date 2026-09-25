@@ -115,9 +115,13 @@ grant execute on function public.organograma_meu_galho() to authenticated;
 -- (as duas permissões "completo" são novas e não existiam nos cadastros
 -- antigos). Só preenche quando a chave ainda não existe, para não desfazer
 -- uma escolha feita depois no Cadastro de Acessos. Administrador não precisa:
--- perfil admin sempre vê tudo.
+-- perfil admin sempre vê tudo. Cadastro "desligado" fica de fora: não pode
+-- ser editado (trigger profiles_bloqueia_edicao_desligado) nem entra no Hub;
+-- se for reativado, as permissões são marcadas no Cadastro de Acessos.
 update public.profiles
 set permissoes = permissoes
   || case when permissoes ? 'indicadores.headcount_completo' then '{}'::jsonb else '{"indicadores.headcount_completo": true}'::jsonb end
   || case when permissoes ? 'indicadores.organograma_completo' then '{}'::jsonb else '{"indicadores.organograma_completo": true}'::jsonb end
-where perfil = 'rh';
+where perfil = 'rh'
+  and coalesce(status, 'ativo') <> 'desligado'
+  and not (permissoes ? 'indicadores.headcount_completo' and permissoes ? 'indicadores.organograma_completo');
