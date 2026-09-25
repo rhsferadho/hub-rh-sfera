@@ -9,7 +9,7 @@
 (function () {
   const TABELAS = { 45: 'avaliacao_experiencia_45', 90: 'avaliacao_experiencia_90' };
   const COLUNAS_LEVES = [
-    'id', 'ciclo', 'pessoa_key', 'cpf', 'matricula', 'nome', 'cargo', 'papel', 'unidade', 'departamento',
+    'id', 'ciclo', 'pessoa_key', 'cpf', 'nome', 'cargo', 'papel', 'unidade', 'departamento',
     'gestor', 'gestor_direto', 'gestor_avaliador', 'data_admissao', 'data_avaliacao', 'data_autoavaliacao',
     'status_gestor', 'status_auto', 'martelo', 'martelo_comentario', 'notas_gestor', 'notas_auto'
   ].join(',');

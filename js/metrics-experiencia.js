@@ -64,31 +64,35 @@
   }
 
   // Situação atual do colaborador (Ativo/Desativado/Desligado), cruzada com
-  // o cadastro de Colaboradores (Headcount) por matrícula, com CPF como
-  // reserva — a avaliação de experiência não tem essa coluna própria.
+  // o cadastro de Colaboradores (Headcount) — a avaliação de experiência não
+  // tem essa coluna própria. Chave: CPF; na falta dele, o nome completo, mas
+  // só quando esse nome é único no Headcount (na Feedz o usuário antigo de
+  // quem é recontratado perde o CPF e ganha uma pequena variação no nome).
+  // A "matrícula" da Feedz NÃO é usada: é o celular do colaborador (dado
+  // pessoal) e nem é baixada para o navegador.
   function mapaSituacaoColaboradores() {
     const map = new Map();
+    const porNome = new Map();
     const rows = (window.HUB_DATA && window.HUB_DATA.colaboradores) || [];
     for (const c of rows) {
       const sit = norm(c.situacao);
       if (!sit) continue;
       const info = { sit, saida: c.ultimo_dia_trabalhado ? String(c.ultimo_dia_trabalhado).slice(0, 10) : null };
-      if (c.matricula != null && String(c.matricula).trim()) map.set('m:' + String(c.matricula).trim(), info);
       if (c.cpf != null && String(c.cpf).trim()) map.set('c:' + String(c.cpf).trim(), info);
+      const n = norm(c.nome_completo || c.nome);
+      if (n) porNome.set(n, porNome.has(n) ? null : info);
     }
+    for (const [n, info] of porNome) if (info) map.set('n:' + n, info);
     return map;
   }
 
   function situacaoDe(r, mapa) {
-    if (r.matricula != null && String(r.matricula).trim()) {
-      const s = mapa.get('m:' + String(r.matricula).trim());
-      if (s) return s;
-    }
     if (r.cpf != null && String(r.cpf).trim()) {
       const s = mapa.get('c:' + String(r.cpf).trim());
       if (s) return s;
     }
-    return null;
+    const n = norm(r.nome);
+    return (n && mapa.get('n:' + n)) || null;
   }
 
   // ------------------------------------------------------------------

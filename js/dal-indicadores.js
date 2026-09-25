@@ -38,12 +38,21 @@
   // anteriores a cada request) — numa tabela com dezenas de milhares de
   // linhas (Twygo) isso já demorou o suficiente pra parecer travado. Por id
   // crescente, cada página custa o mesmo, não importa a profundidade.
+  // Colunas buscadas por tabela (padrão: todas). Em "colaboradores" a
+  // "matricula" da Feedz é o CELULAR do colaborador — dado pessoal que
+  // nenhuma tela usa, então nem desce para o navegador.
+  const SELECT_COLUNAS = {
+    colaboradores: 'id,external_id,nome,nome_completo,email,cpf,cargo,cargo_visivel,unidade,departamento,grupos,papel,' +
+      'gestor_direto,gestor_email,etnia,sexo,genero,data_nascimento,data_admissao,data_cadastro,situacao,ultimo_acesso,' +
+      'origem_cadastro,participa_gamificacao,desligamento_tipo,desligamento_motivo,ultimo_dia_trabalhado,idioma,updated_at'
+  };
+
   async function fetchAll(table, onPage) {
     let all = [];
     let lastId = 0;
     for (;;) {
       const { data, error } = await withTimeout(
-        sb.from(table).select('*').gt('id', lastId).order('id', { ascending: true }).limit(PAGE),
+        sb.from(table).select(SELECT_COLUNAS[table] || '*').gt('id', lastId).order('id', { ascending: true }).limit(PAGE),
         QUERY_TIMEOUT_MS,
         `tempo esgotado buscando "${table}" (conexão lenta ou projeto Supabase inativo)`
       );
