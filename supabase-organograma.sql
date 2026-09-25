@@ -110,3 +110,14 @@ $$;
 
 revoke all on function public.organograma_meu_galho() from public, anon;
 grant execute on function public.organograma_meu_galho() to authenticated;
+
+-- Quem já é RH continua vendo a empresa inteira no Headcount e no Organograma
+-- (as duas permissões "completo" são novas e não existiam nos cadastros
+-- antigos). Só preenche quando a chave ainda não existe, para não desfazer
+-- uma escolha feita depois no Cadastro de Acessos. Administrador não precisa:
+-- perfil admin sempre vê tudo.
+update public.profiles
+set permissoes = permissoes
+  || case when permissoes ? 'indicadores.headcount_completo' then '{}'::jsonb else '{"indicadores.headcount_completo": true}'::jsonb end
+  || case when permissoes ? 'indicadores.organograma_completo' then '{}'::jsonb else '{"indicadores.organograma_completo": true}'::jsonb end
+where perfil = 'rh';

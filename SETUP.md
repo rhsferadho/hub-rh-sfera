@@ -206,4 +206,6 @@ Rode [`supabase-organograma.sql`](supabase-organograma.sql) no SQL Editor. Ele c
 - a coluna `profiles.colaborador_external_id`, que liga cada login ao colaborador do Feedz (ID da Feedz). Fica vazia quando o e-mail do login é o mesmo do Feedz, porque aí o vínculo é feito pelo e-mail;
 - a função `organograma_meu_galho()`, que devolve só a linha de liderança acima da pessoa logada (nome, cargo e área, sem cotas, afastamentos ou datas) e toda a equipe abaixo dela.
 
+O script também marca as duas permissões de visão completa para quem já tem o perfil RH, para que o RH continue vendo a empresa inteira. **Rode o script antes de publicar esta versão.**
+
 Quem tem a permissão **Organograma — ver a estrutura completa da empresa** (padrão para Administrador e RH) vê a empresa inteira. Quem tem só **Organograma** (padrão para Gestor) vê o próprio galho. O mesmo vale para o Headcount: sem **Headcount — ver todos os colaboradores**, a pessoa vê só a si mesma e a equipe abaixo dela, na tela Headcount e nos números de headcount do Dashboard. Se o e-mail do login for diferente do Feedz, escolha a pessoa no campo **Colaborador no Feedz** em Administração → Cadastro de Acessos.
