@@ -10,7 +10,10 @@
     {
       group: 'indicadores', groupLabel: 'Indicadores', icon: '&#128202;',
       items: [
-        { key: 'indicadores.headcount', label: 'Headcount' },
+        { key: 'indicadores.headcount', label: 'Headcount (sem a permissão abaixo: só a própria pessoa e a equipe abaixo dela, também nos números de headcount do Dashboard)' },
+        { key: 'indicadores.headcount_completo', label: 'Headcount — ver todos os colaboradores' },
+        { key: 'indicadores.organograma', label: 'Organograma (sem a permissão abaixo: só o próprio galho, da liderança acima até a equipe abaixo)' },
+        { key: 'indicadores.organograma_completo', label: 'Organograma — ver a estrutura completa da empresa' },
         { key: 'indicadores.recrutamento', label: 'Recrutamento' },
         { key: 'indicadores.rotatividade', label: 'Rotatividade' },
         { key: 'indicadores.experiencia', label: 'Avaliação da Experiência' },
@@ -72,8 +75,10 @@
     // (CPF/e-mail de ex-colaborador; nota individual e decisão de aprovar ou
     // reprovar cada colaborador) e devem ser ligados individualmente pelo
     // administrador, não vir junto de tudo mais que já é padrão pra esse perfil.
+    // O Organograma e o Headcount completos também ficam de fora: o gestor vê só o próprio
+    // galho (liderança acima + equipe abaixo), ver supabase-organograma.sql.
     gestor: CATALOG.find(g => g.group === 'indicadores').items.map(i => i.key)
-      .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.controle_desligamento' && k !== 'indicadores.experiencia' && k !== 'indicadores.pesquisa_clima')
+      .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.controle_desligamento' && k !== 'indicadores.experiencia' && k !== 'indicadores.pesquisa_clima' && k !== 'indicadores.organograma_completo' && k !== 'indicadores.headcount_completo')
       .concat(['recrutamento.parecer_gestor'])
   };
 

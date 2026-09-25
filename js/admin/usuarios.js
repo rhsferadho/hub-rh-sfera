@@ -24,6 +24,23 @@
     return { unidades, departamentosPorUnidade };
   }
 
+  // Campo "Colaborador no Feedz": liga o login ao colaborador pelo ID da Feedz
+  // (colaboradores.external_id), usado pelo organograma por galho. Cada opção
+  // tem nome + cargo + unidade para diferenciar homônimos e recontratações.
+  function colaboradorOptions() {
+    const byLabel = new Map(), byExt = new Map();
+    const colab = (HUB_DATA.colaboradores || []).filter(r => r.external_id)
+      .slice().sort((a, b) => ((a.situacao === 'Ativo') ? 0 : 1) - ((b.situacao === 'Ativo') ? 0 : 1)
+        || String(a.nome_completo || a.nome).localeCompare(String(b.nome_completo || b.nome), 'pt-BR'));
+    for (const r of colab) {
+      let label = `${r.nome_completo || r.nome} — ${r.cargo || 'sem cargo'} · ${r.unidade || 'sem unidade'}${r.situacao === 'Ativo' ? '' : ' (desativado)'}`;
+      if (byLabel.has(label)) label += ` · ID ${r.external_id}`;
+      byLabel.set(label, r.external_id);
+      byExt.set(r.external_id, label);
+    }
+    return { byLabel, byExt };
+  }
+
   function render(el) {
     if (!PERM.hasPerm(HUB_USER, 'admin.usuarios')) {
       el.innerHTML = '<div class="empty"><p>Acesso restrito.</p></div>';
@@ -199,8 +216,10 @@
 
   function renderAccessForm(el) {
     const { unidades, departamentosPorUnidade } = orgOptions();
+    const colabOpts = colaboradorOptions();
     const isEdit = !!editingProfile;
     const p = editingProfile || { nome: '', email: '', perfil: 'gestor', unidades: [], departamentos: [], permissoes: PERM.presetPermissoes('gestor') };
+    const colabAtual = p.colaborador_external_id ? (colabOpts.byExt.get(p.colaborador_external_id) || `ID ${p.colaborador_external_id} (não está na planilha atual)`) : '';
     el.innerHTML = `
       <h3>&#128272;&nbsp;${isEdit ? 'Editar acesso' : 'Novo acesso'}</h3>
       <form id="acc-form">
@@ -208,6 +227,11 @@
           <div class="field full"><label>Nome completo</label><input id="acc-nome" required value="${U.escapeHtml(p.nome)}"></div>
           <div class="field"><label>E-mail (login)</label><input id="acc-email" type="email" required value="${U.escapeHtml(p.email)}" ${isEdit ? 'disabled' : ''}></div>
           ${isEdit ? '' : '<div class="field"><label>Senha provisória</label><input id="acc-senha" type="password" minlength="6" required placeholder="mínimo 6 caracteres"></div>'}
+          <div class="field full"><label>Colaborador no Feedz (para o organograma)</label>
+            <input id="acc-colab" list="acc-colab-list" autocomplete="off" placeholder="Vazio = liga pelo e-mail do login. Digite o nome para buscar" value="${U.escapeHtml(colabAtual)}">
+            <datalist id="acc-colab-list">${Array.from(colabOpts.byLabel.keys()).map(l => `<option value="${U.escapeHtml(l)}"></option>`).join('')}</datalist>
+            <p class="sub" style="color:var(--muted);font-size:11.5px;margin-top:4px">Quem não tem "Organograma — ver a estrutura completa" vê só o próprio galho: a liderança acima e a equipe abaixo desta pessoa. Deixe vazio se o e-mail do login for o mesmo do Feedz.</p>
+          </div>
         </div>
 
         <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Perfil (só um rótulo — aplica um preset de permissões abaixo)</label>
@@ -284,10 +308,10 @@
     }));
 
     if (isEdit) document.getElementById('acc-cancel').addEventListener('click', () => { editingProfile = null; renderAccessForm(el); });
-    document.getElementById('acc-form').addEventListener('submit', e => submitAccessForm(e, isEdit, () => perfilAtual));
+    document.getElementById('acc-form').addEventListener('submit', e => submitAccessForm(e, isEdit, () => perfilAtual, colabOpts));
   }
 
-  async function submitAccessForm(e, isEdit, getPerfil) {
+  async function submitAccessForm(e, isEdit, getPerfil, colabOpts) {
     e.preventDefault();
     const msg = document.getElementById('acc-msg');
     msg.style.display = 'none';
@@ -306,11 +330,30 @@
     const permissoes = {};
     document.querySelectorAll('#acc-perm-groups input[data-perm]').forEach(chk => { permissoes[chk.dataset.perm] = chk.checked; });
 
+    // Colaborador no Feedz: texto escolhido na lista → ID da Feedz. Um vínculo
+    // antigo que não está na planilha atual é mantido se o campo não foi mexido.
+    const colabTexto = document.getElementById('acc-colab').value.trim();
+    const anterior = isEdit && editingProfile ? (editingProfile.colaborador_external_id || '') : '';
+    let colaboradorExt = '';
+    if (colabTexto) {
+      colaboradorExt = colabOpts.byLabel.get(colabTexto)
+        || (anterior && colabTexto === `ID ${anterior} (não está na planilha atual)` ? anterior : '');
+      if (!colaboradorExt) {
+        msg.textContent = 'Escolha o colaborador na lista (digite parte do nome e clique na opção), ou deixe o campo vazio para ligar pelo e-mail.';
+        msg.className = 'msg err';
+        msg.style.display = 'block';
+        return;
+      }
+    }
+    // Só manda a coluna quando há algo a gravar ou a limpar — assim o cadastro
+    // continua funcionando antes de supabase-organograma.sql ter sido rodado.
+    const extra = (colaboradorExt || anterior) ? { colaborador_external_id: colaboradorExt || null } : {};
+
     btn.disabled = true;
     btn.textContent = 'Salvando...';
     try {
       if (isEdit) {
-        await HUB_DAL.upsertProfile({ id: editingProfile.id, email, nome, perfil, unidades, departamentos, permissoes });
+        await HUB_DAL.upsertProfile(Object.assign({ id: editingProfile.id, email, nome, perfil, unidades, departamentos, permissoes }, extra));
         editingProfile = null;
       } else {
         const senha = document.getElementById('acc-senha').value;
@@ -318,7 +361,7 @@
         const { data, error } = await iso.auth.signUp({ email, password: senha });
         if (error) throw error;
         if (!data.user) throw new Error('Não foi possível criar o login (verifique se a confirmação de e-mail está desativada no Supabase — veja SETUP.md).');
-        await HUB_DAL.upsertProfile({ id: data.user.id, email, nome, perfil, unidades, departamentos, permissoes });
+        await HUB_DAL.upsertProfile(Object.assign({ id: data.user.id, email, nome, perfil, unidades, departamentos, permissoes }, extra));
       }
       render(document.getElementById('sec-adm-usuarios'));
     } catch (err) {

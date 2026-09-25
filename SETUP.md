@@ -47,7 +47,9 @@ cadastrada, desative a confirmação por e-mail:
    ```sql
    insert into public.profiles (id, email, nome, perfil, permissoes)
    select id, email, 'Administrador', 'admin', '{
-     "indicadores.headcount": true, "indicadores.recrutamento": true,
+     "indicadores.headcount": true, "indicadores.organograma": true,
+     "indicadores.organograma_completo": true, "indicadores.headcount_completo": true,
+     "indicadores.recrutamento": true,
      "indicadores.rotatividade": true, "indicadores.desligamento": true,
      "indicadores.desligamento_gerar_link": true,
      "indicadores.feedbacks": true, "indicadores.oneonone": true,
@@ -196,3 +198,12 @@ produção — projetos pagos não pausam por inatividade.
 ### 2.1. Pesquisa de Clima (opcional)
 
 Rode [`supabase-pesquisa-clima.sql`](supabase-pesquisa-clima.sql) no SQL Editor: cria `pesquisa_clima` e `pesquisa_clima_hc` (sem nome/CPF/e-mail — a pesquisa é anônima), liberadas só para quem tiver a permissão `indicadores.pesquisa_clima` (respeitando unidade/departamento via `can_see`). Não há upload: os dados foram importados uma única vez, e a tela (Indicadores → Pesquisa de Clima) os busca sob demanda, na primeira abertura da sessão. Os arquivos de importação contêm os comentários e ficam fora deste repositório.
+
+### 2.2. Organograma e Headcount por galho
+
+Rode [`supabase-organograma.sql`](supabase-organograma.sql) no SQL Editor. Ele cria:
+
+- a coluna `profiles.colaborador_external_id`, que liga cada login ao colaborador do Feedz (ID da Feedz). Fica vazia quando o e-mail do login é o mesmo do Feedz, porque aí o vínculo é feito pelo e-mail;
+- a função `organograma_meu_galho()`, que devolve só a linha de liderança acima da pessoa logada (nome, cargo e área, sem cotas, afastamentos ou datas) e toda a equipe abaixo dela.
+
+Quem tem a permissão **Organograma — ver a estrutura completa da empresa** (padrão para Administrador e RH) vê a empresa inteira. Quem tem só **Organograma** (padrão para Gestor) vê o próprio galho. O mesmo vale para o Headcount: sem **Headcount — ver todos os colaboradores**, a pessoa vê só a si mesma e a equipe abaixo dela, na tela Headcount e nos números de headcount do Dashboard. Se o e-mail do login for diferente do Feedz, escolha a pessoa no campo **Colaborador no Feedz** em Administração → Cadastro de Acessos.

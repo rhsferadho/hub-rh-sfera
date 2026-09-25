@@ -11,13 +11,38 @@
 
   function canUpload() { return HUB_PERMISSIONS.hasPerm(HUB_USER, 'admin.upload'); }
 
+  // Regra do galho no Headcount (e nos números de headcount do Dashboard):
+  // sem indicadores.headcount_completo, a pessoa vê só a si mesma e a equipe
+  // abaixo dela (direta e indireta), igual ao Organograma — ver js/galho.js.
+  // Devolve os filtros com `galho` preenchido, ou null enquanto o galho carrega
+  // (a tela é redesenhada sozinha quando ele chega).
+  function comGalho(el, f) {
+    if (HUB_PERMISSIONS.hasPerm(HUB_USER, 'indicadores.headcount_completo')) return f;
+    const res = HUB_GALHO.cached();
+    if (!res) {
+      el.innerHTML = '<p class="sub" style="color:var(--muted);padding:24px">Carregando a sua equipe...</p>';
+      HUB_GALHO.get().then(() => HUB_RENDER_CURRENT());
+      return null;
+    }
+    return Object.assign({}, f, { galho: res.ids, galhoRes: res });
+  }
+  function avisoGalho(f) {
+    if (!f.galho) return '';
+    const texto = f.galho.size
+      ? `Você está vendo só você e a sua equipe (quem responde a você, direta ou indiretamente): ${U.fmtInt(f.galho.size)} pessoa(s) na planilha de Colaboradores. A visão da empresa inteira fica liberada para RH e Administração.`
+      : HUB_GALHO.motivo(f.galhoRes);
+    return `<div class="insight info" style="margin-bottom:18px"><span class="ic">&#8505;&#65039;</span><span>${U.escapeHtml(texto)}</span></div>`;
+  }
+
   // ==================================================================
   // DASHBOARD
   // ==================================================================
   function renderDashboard(el, f) {
     if (noDataGate(el, null, canUpload())) return;
+    f = comGalho(el, f);
+    if (!f) return;
     const d = M.dashboardMetrics(f);
-    el.innerHTML = `
+    el.innerHTML = `${avisoGalho(f)}
       <div class="kpi-grid">
         ${kpi('Colaboradores ativos', U.fmtInt(d.colab.ativos), `${U.fmtInt(d.colab.total)} no total (ativos+desativados)`, 'var(--p1)')}
         ${kpi('Turnover no período', U.fmtPct(d.rot.taxaTurnoverGeral), `${U.fmtInt(d.rot.totalDesligados)} desligamento(s)`, 'var(--critical)')}
@@ -53,8 +78,11 @@
 
   function renderHeadcount(el, f) {
     if (noDataGate(el, ['colaboradores'], canUpload())) return;
+    f = comGalho(el, f);
+    if (!f) return;
+    if (f.galho && !f.galho.size) { el.innerHTML = avisoGalho(f); return; }
     const d = M.colaboradoresMetrics(f);
-    el.innerHTML = `
+    el.innerHTML = `${avisoGalho(f)}
       <div class="kpi-grid">
         ${kpi('Headcount', U.fmtInt(d.total), 'Ativos + desativados (sem duplicidade)', 'var(--p1)')}
         ${kpi('Ativos', U.fmtInt(d.ativos), '', '#1baf7a')}

@@ -105,7 +105,10 @@
   }
 
   function colaboradoresMetrics(f) {
-    const all = (HUB_DATA.colaboradores || []);
+    let all = (HUB_DATA.colaboradores || []);
+    // f.galho (Set de HUB_GALHO.chave): quem não tem indicadores.headcount_completo
+    // conta só a si mesmo e a equipe abaixo — ver sections/indicadores.js.
+    if (f.galho) all = all.filter(r => f.galho.has(HUB_GALHO.chave(r)));
     let rows = dedupeHeadcount(all);
     rows = rows.filter(r => U.matchesAny(r.unidade, f.unidade));
     rows = rows.filter(r => U.matchesAny(r.departamento, f.departamento));
