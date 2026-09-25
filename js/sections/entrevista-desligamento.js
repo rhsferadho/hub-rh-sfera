@@ -59,6 +59,7 @@
   let modalUnidadeTrabalho = '';
   let modalLocal = '';
   let modalDepartamentoForms = '';
+  let modalIdDesligamento = null;   // quando o link sai da guia Controle de Desligamento
 
   function abrirModal(titulo, corpoHTML) {
     fecharModal();
@@ -82,12 +83,16 @@
     if (existente) existente.remove();
   }
 
-  function abrirModalGerarLink() {
+  // opts (opcional, vindo do Controle de Desligamento): { externalId, nome,
+  // idDesligamento } — abre o modal com o(a) colaborador(a) já selecionado(a)
+  // e grava o ID do desligamento no link gerado.
+  function abrirModalGerarLink(opts) {
     modalColab = null; modalUnidadeTrabalho = ''; modalLocal = ''; modalDepartamentoForms = '';
-    renderModalGerarLink();
+    modalIdDesligamento = (opts && opts.idDesligamento) || null;
+    renderModalGerarLink(opts);
   }
 
-  function renderModalGerarLink() {
+  function renderModalGerarLink(opts) {
     const colaboradores = (D().colaboradores || []).slice().sort((a, b) => (a.nome_completo || a.nome || '').localeCompare(b.nome_completo || b.nome || ''));
     const corpo = `
       <div class="field full">
@@ -123,6 +128,17 @@
       modalDepartamentoForms = matchDepto || '';
       renderPreviewColab(modal);
     });
+    if (opts && (opts.externalId || opts.nome)) {
+      const alvoNome = U.normalizeText(opts.nome || '');
+      let idx = opts.externalId ? colaboradores.findIndex(c => c.external_id && c.external_id === opts.externalId) : -1;
+      if (idx < 0 && alvoNome) idx = colaboradores.findIndex(c => U.normalizeText(c.nome_completo || c.nome || '') === alvoNome);
+      if (idx >= 0) {
+        busca.value = colaboradores[idx].nome_completo || colaboradores[idx].nome || '';
+        busca.dispatchEvent(new Event('input'));
+        lista.value = String(idx);
+        lista.dispatchEvent(new Event('change'));
+      }
+    }
   }
 
   function selOptsSimples(arr, val) {
@@ -208,6 +224,7 @@
           respostas: {}, status: 'Pendente', linkToken: token,
           geradoPor: (HUB_USER && (HUB_USER.nome || HUB_USER.email)) || 'Desconhecido'
         };
+        if (modalIdDesligamento) built.idDesligamento = modalIdDesligamento;
         await R.insertRow('entrevistas_desligamento', built);
         return built;
       });
@@ -317,7 +334,7 @@
 
   function wireListaLinks(el) {
     const btn = el.querySelector('#ed-abrir-gerar');
-    btn && btn.addEventListener('click', abrirModalGerarLink);
+    btn && btn.addEventListener('click', () => abrirModalGerarLink());
     const todos = registros();
     el.querySelectorAll('[data-copiar]').forEach(b => b.addEventListener('click', () => {
       const row = todos.find(r => String(r.id) === b.dataset.copiar);
@@ -329,5 +346,5 @@
     }));
   }
 
-  window.HUB_ENTREVISTA_DESLIGAMENTO = { canGerarLink, renderListaLinks, wireListaLinks };
+  window.HUB_ENTREVISTA_DESLIGAMENTO = { canGerarLink, renderListaLinks, wireListaLinks, abrirGerarLinkPara: abrirModalGerarLink, linkDoRegistro, copiarLink };
 })();

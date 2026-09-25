@@ -16,6 +16,7 @@
         { key: 'indicadores.experiencia', label: 'Avaliação da Experiência' },
         { key: 'indicadores.desligamento', label: 'Entrevistas de Desligamento' },
         { key: 'indicadores.desligamento_gerar_link', label: 'Entrevistas de Desligamento — Gerar link' },
+        { key: 'indicadores.controle_desligamento', label: 'Entrevistas de Desligamento — Controle de Desligamento (restrito: dados pessoais e contato; liberar individualmente)' },
         { key: 'indicadores.feedbacks', label: 'Feedbacks' },
         { key: 'indicadores.oneonone', label: '1:1' },
         { key: 'indicadores.treinamentos', label: 'Treinamentos' },
@@ -62,14 +63,17 @@
   // qual preset foi usado por último, não uma trava de acesso.
   const PRESETS = {
     admin: ALL_KEYS,
-    rh: ALL_KEYS.filter(k => k !== 'admin.usuarios'),
+    // Controle de Desligamento fica fora de todos os presets: tem contato
+    // (celular) e dados pessoais de ex-colaboradores — só é ligado usuário a
+    // usuário pelo administrador.
+    rh: ALL_KEYS.filter(k => k !== 'admin.usuarios' && k !== 'indicadores.controle_desligamento'),
     // "Gerar link" da Entrevista de Desligamento e a Avaliação da Experiência
     // ficam de fora do preset Gestor de propósito — envolvem dado sensível
     // (CPF/e-mail de ex-colaborador; nota individual e decisão de aprovar ou
     // reprovar cada colaborador) e devem ser ligados individualmente pelo
     // administrador, não vir junto de tudo mais que já é padrão pra esse perfil.
     gestor: CATALOG.find(g => g.group === 'indicadores').items.map(i => i.key)
-      .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.experiencia' && k !== 'indicadores.pesquisa_clima')
+      .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.controle_desligamento' && k !== 'indicadores.experiencia' && k !== 'indicadores.pesquisa_clima')
       .concat(['recrutamento.parecer_gestor'])
   };
 

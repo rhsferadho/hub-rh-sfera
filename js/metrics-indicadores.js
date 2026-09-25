@@ -598,6 +598,24 @@
   //    pendente → "Enviada", a menos que a planilha já registre um desfecho
   //    ("Recusado", "Inelegível", "Realizada");
   //  - se não está (ainda não foi lançada na planilha), entra como solicitação.
+  // Universo de desligamentos: a guia Controle de Desligamento
+  // (controle_desligamento, via resumo) quando já tiver lançamentos; senão, a cópia
+  // antiga da planilha (entrevista_solicitacao). Pedidos cancelados ou com ID
+  // duplicado não são desligamentos e ficam fora da contagem.
+  function solicitacoesBase() {
+    // resumo sem dado pessoal (função controle_desligamento_indicadores)
+    const controle = (window.HUB_RECRUIT_DATA && window.HUB_RECRUIT_DATA.controle_desligamento_ind) || [];
+    if (!controle.length) return HUB_DATA.entrevista_solicitacao || [];
+    return controle
+      .filter(d => d.statusFeedz !== 'Cancelado' && d.statusFeedz !== 'ID Duplicado')
+      .map(d => ({
+        planilha_id: d.idDesligamento, nome: d.colaboradorNome, unidade: d.unidade, departamento: d.departamento,
+        data_solicitacao: d.dataSolicitacao, data_demissao: d.dataDemissao, tipo: d.tipo,
+        tipo_desligamento: d.tipoDesligamento, motivo_desligamento: d.motivo,
+        status_feedz: d.statusFeedz, status_entrevista: d.statusEntrevista
+      }));
+  }
+
   const STATUS_MANTIDOS_SE_PENDENTE = new Set(['recusado', 'inelegivel', 'realizada']);
   function juntarSolicitacoes(planilha, links) {
     const chaveNome = s => norm(s).replace(/[^a-z]/g, '');
@@ -611,8 +629,11 @@
     });
     const novos = [];
     const usadas = new Set();
+    const porId = new Map();
+    for (const c of linhas) if (c.planilha_id) porId.set(String(c.planilha_id), c);
     for (const l of links) {
-      const cands = (porNome.get(chaveNome(l.colaboradorNome)) || []).filter(c => !usadas.has(c));
+      const peloId = l.idDesligamento && porId.get(String(l.idDesligamento));
+      const cands = peloId && !usadas.has(peloId) ? [peloId] : (porNome.get(chaveNome(l.colaboradorNome)) || []).filter(c => !usadas.has(c));
       if (!cands.length) { novos.push(converterSolicitacaoLink(l)); continue; }
       const dl = dia(l.dataDesligamento);
       const alvo = cands.slice().sort((a, b) => {
@@ -716,7 +737,7 @@
     const pesquisaLink = linksGerados.filter(r => r.status === 'Preenchido').map(converterRespostaLink).filter(Boolean);
 
     let pesquisa = (HUB_DATA.entrevista_pesquisa || []).concat(pesquisaLink);
-    let solicitacao = juntarSolicitacoes(HUB_DATA.entrevista_solicitacao || [], linksGerados);
+    let solicitacao = juntarSolicitacoes(solicitacoesBase(), linksGerados);
 
     // O filtro de período aqui é por quando a ENTREVISTA foi respondida
     // (não quando a pessoa se desligou — a pesquisa pode ser respondida bem

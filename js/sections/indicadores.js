@@ -262,6 +262,7 @@
       <div class="tab-bar">
         <button type="button" class="tab-btn ${desligamentoTab === 'indicadores' ? 'active' : ''}" data-desl-tab="indicadores">Indicadores</button>
         <button type="button" class="tab-btn ${desligamentoTab === 'lista' ? 'active' : ''}" data-desl-tab="lista">Lista de Colaboradores</button>
+        ${window.HUB_CONTROLE_DESLIGAMENTO && HUB_CONTROLE_DESLIGAMENTO.pode() ? `<button type="button" class="tab-btn ${desligamentoTab === 'controle' ? 'active' : ''}" data-desl-tab="controle">Controle de Desligamento</button>` : ''}
       </div>
       <div id="desl-tab-body"></div>`;
     el.querySelectorAll('[data-desl-tab]').forEach(b => b.addEventListener('click', () => {
@@ -269,6 +270,14 @@
       renderDesligamento(el, f);
     }));
     const body = el.querySelector('#desl-tab-body');
+    if (desligamentoTab === 'controle' && window.HUB_CONTROLE_DESLIGAMENTO) {
+      if (!HUB_CONTROLE_DESLIGAMENTO.pode()) {
+        body.innerHTML = empty('Acesso restrito.', 'Você não tem permissão para o controle de desligamentos.');
+        return;
+      }
+      HUB_CONTROLE_DESLIGAMENTO.render(body, f);
+      return;
+    }
     if (desligamentoTab === 'lista') {
       if (!HUB_ENTREVISTA_DESLIGAMENTO || !HUB_ENTREVISTA_DESLIGAMENTO.canGerarLink()) {
         body.innerHTML = empty('Acesso restrito.', 'Você não tem permissão para gerar ou acompanhar links de entrevista.');
