@@ -240,7 +240,11 @@
   function kpiFila(k, cont) {
     const [label, cor] = FILAS[k];
     const ativo = estado.fila === k;
-    return `<div data-fila="${k}" style="cursor:pointer;${ativo ? 'outline:2px solid ' + cor + ';border-radius:12px' : ''}" title="Clique para filtrar">${kpi(label, U.fmtInt(cont[k] || 0), ativo ? 'filtrando — clique de novo para limpar' : 'clique para ver a lista', cor)}</div>`;
+    // O cartão ocupa a altura toda da linha: títulos que quebram em duas
+    // linhas não deixam os cartões com alturas diferentes.
+    const cartao = kpi(label, U.fmtInt(cont[k] || 0), ativo ? 'filtrando — clique de novo para limpar' : 'clique para ver a lista', cor)
+      .replace('class="kpi" style="', 'class="kpi" style="flex:1;margin:0;');
+    return `<div data-fila="${k}" style="cursor:pointer;display:flex;flex-direction:column;${ativo ? 'outline:2px solid ' + cor + ';border-radius:12px' : ''}" title="Clique para filtrar">${cartao}</div>`;
   }
 
   function aplicarFiltros(rows) {
