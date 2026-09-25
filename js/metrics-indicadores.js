@@ -582,9 +582,49 @@
     return {
       unidade: row.unidade, departamento: row.departamento,
       data_demissao: row.dataDesligamento || null,
-      status_entrevista: row.status === 'Preenchido' ? 'Realizada' : 'Não Realizada',
+      // link gerado e ainda não respondido = entrevista enviada
+      status_entrevista: row.status === 'Preenchido' ? 'Realizada' : 'Enviada',
       tipo: null
     };
+  }
+
+  // Junta as solicitações da planilha de controle com os links gerados no Hub
+  // SEM contar a mesma pessoa duas vezes. A planilha é o universo de
+  // desligamentos (traz tipo, motivo, status na Feedz); o link é o andamento
+  // da entrevista de parte desses desligamentos. Para cada link:
+  //  - se a pessoa já está na planilha (mesmo nome; entre homônimos, a data de
+  //    desligamento mais próxima), NÃO vira uma solicitação nova — só atualiza
+  //    o status da entrevista daquela linha: respondido → "Realizada";
+  //    pendente → "Enviada", a menos que a planilha já registre um desfecho
+  //    ("Recusado", "Inelegível", "Realizada");
+  //  - se não está (ainda não foi lançada na planilha), entra como solicitação.
+  const STATUS_MANTIDOS_SE_PENDENTE = new Set(['recusado', 'inelegivel', 'realizada']);
+  function juntarSolicitacoes(planilha, links) {
+    const chaveNome = s => norm(s).replace(/[^a-z]/g, '');
+    const dia = s => (s ? new Date(String(s).slice(0, 10) + 'T12:00:00Z').getTime() : null);
+    const porNome = new Map();
+    const linhas = planilha.map(r => {
+      const c = Object.assign({}, r);
+      const k = chaveNome(r.nome);
+      if (k) { if (!porNome.has(k)) porNome.set(k, []); porNome.get(k).push(c); }
+      return c;
+    });
+    const novos = [];
+    const usadas = new Set();
+    for (const l of links) {
+      const cands = (porNome.get(chaveNome(l.colaboradorNome)) || []).filter(c => !usadas.has(c));
+      if (!cands.length) { novos.push(converterSolicitacaoLink(l)); continue; }
+      const dl = dia(l.dataDesligamento);
+      const alvo = cands.slice().sort((a, b) => {
+        const da = dl && dia(a.data_demissao) ? Math.abs(dia(a.data_demissao) - dl) : Infinity;
+        const db = dl && dia(b.data_demissao) ? Math.abs(dia(b.data_demissao) - dl) : Infinity;
+        return (da - db) || String(b.data_demissao || '').localeCompare(String(a.data_demissao || ''));
+      })[0];
+      usadas.add(alvo);
+      if (l.status === 'Preenchido') alvo.status_entrevista = 'Realizada';
+      else if (!STATUS_MANTIDOS_SE_PENDENTE.has(norm(alvo.status_entrevista))) alvo.status_entrevista = 'Enviada';
+    }
+    return linhas.concat(novos);
   }
 
   // ------------------------------------------------------------------
@@ -674,10 +714,9 @@
     // converterRespostaLink/converterSolicitacaoLink acima.
     const linksGerados = (window.HUB_RECRUIT_DATA && window.HUB_RECRUIT_DATA.entrevistas_desligamento) || [];
     const pesquisaLink = linksGerados.filter(r => r.status === 'Preenchido').map(converterRespostaLink).filter(Boolean);
-    const solicitacaoLink = linksGerados.map(converterSolicitacaoLink);
 
     let pesquisa = (HUB_DATA.entrevista_pesquisa || []).concat(pesquisaLink);
-    let solicitacao = (HUB_DATA.entrevista_solicitacao || []).concat(solicitacaoLink);
+    let solicitacao = juntarSolicitacoes(HUB_DATA.entrevista_solicitacao || [], linksGerados);
 
     // O filtro de período aqui é por quando a ENTREVISTA foi respondida
     // (não quando a pessoa se desligou — a pesquisa pode ser respondida bem
