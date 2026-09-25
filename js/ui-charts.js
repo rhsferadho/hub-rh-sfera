@@ -101,11 +101,12 @@
         }
       }
     };
-    // Com eixo em % o max fica travado em 1 (100%) sem folga nenhuma — uma
-    // barra em 100% empurra o rótulo "100%" pra fora da área do gráfico e o
-    // canvas corta o texto (ex.: "100%" aparece cortado como "10"). Reserva
-    // um respiro no lado em que o rótulo estica pra fora da barra.
-    if (opts.pct) cfg.options.layout = { padding: opts.horizontal ? { right: 40 } : { top: 22 } };
+    // O rótulo de valor fica do lado de fora da ponta da barra — na maior
+    // barra (que encosta no fim do eixo) ele sai da área do gráfico e o canvas
+    // corta o texto (ex.: "100%" virava "10"; a barra de maior contagem ficava
+    // sem número). Reserva um respiro no lado em que o rótulo estica, em todo
+    // gráfico de barras, não só nos de %.
+    cfg.options.layout = { padding: opts.horizontal ? { right: 40 } : { top: 22 } };
     if (opts.onClick) {
       cfg.options.onClick = (evt, els) => { if (els.length) opts.onClick(labels[els[0].index]); };
       cfg.options.onHover = (evt, els) => { evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; };
@@ -118,6 +119,8 @@
       type: 'line',
       data: { labels, datasets: series.map((s, i) => ({ label: s.label, data: s.data, borderColor: U.color(i), backgroundColor: U.color(i) + '33', tension: .3, fill: series.length === 1, pointRadius: 3 })) },
       options: {
+        // respiro para o rótulo acima do ponto mais alto (e nas pontas) não ser cortado
+        layout: { padding: { top: 20, left: 8, right: 12 } },
         plugins: {
           legend: { display: series.length > 1 },
           datalabels: {

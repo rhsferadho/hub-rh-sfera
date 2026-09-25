@@ -293,6 +293,7 @@
           ]
         },
         options: {
+          layout: { padding: { top: 18 } },
           scales: { y: { position: 'left', title: { display: true, text: 'Decisões' }, grid: { display: false } }, y1: { position: 'right', min: 0, max: 100, ticks: { callback: v => v + '%' } } },
           plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }, datalabels: { display: ctx => ctx.dataset.type === 'line' && (d.serie.length <= 14 || ctx.dataIndex % 2 === 0), color: '#0f8a4c', align: 'top', font: { size: 9, weight: '700' }, formatter: v => v === null ? '' : Math.round(v) + '%' } }
         }
@@ -309,7 +310,7 @@
     HUB_CHART('c-ave-gap', {
       type: 'bar',
       data: { labels: comps.map(c => c.comp), datasets: [{ data: gapVals, backgroundColor: gapVals.map(v => v > 0.05 ? '#eb6834' : v < -0.05 ? '#1C7CEC' : '#8A8F98'), borderRadius: 4, maxBarThickness: 22 }] },
-      options: { indexAxis: 'y', scales: { x: { grid: { display: true } }, y: { grid: { display: false } } }, plugins: { legend: { display: false }, datalabels: { color: '#16181D', font: { size: 10, weight: '700' }, anchor: 'end', align: 'end', formatter: v => sinal(v) } }, layout: { padding: { right: 30 } } }
+      options: { indexAxis: 'y', scales: { x: { grid: { display: true } }, y: { grid: { display: false } } }, plugins: { legend: { display: false }, datalabels: { color: '#16181D', font: { size: 10, weight: '700' }, anchor: 'end', align: 'end', formatter: v => sinal(v) } }, layout: { padding: { left: 30, right: 30 } } }
     });
 
     const conceitoLbl = [1, 2, 3, 4].map(v => `${v} · ${M.CONCEITOS[v]}`);
@@ -634,7 +635,7 @@
       HUB_CHART('c-ave-ev-delta', {
         type: 'bar',
         data: { labels: comps.map(x => x.comp), datasets: [{ data: dv, backgroundColor: dv.map(v => v > 0.02 ? '#1baf7a' : v < -0.02 ? '#d03b3b' : '#8A8F98'), borderRadius: 4, maxBarThickness: 22 }] },
-        options: { indexAxis: 'y', scales: { x: { grid: { display: true } }, y: { grid: { display: false } } }, plugins: { legend: { display: false }, datalabels: { color: '#16181D', font: { size: 10, weight: '700' }, anchor: 'end', align: 'end', formatter: v => sinal(v) } }, layout: { padding: { right: 30 } } }
+        options: { indexAxis: 'y', scales: { x: { grid: { display: true } }, y: { grid: { display: false } } }, plugins: { legend: { display: false }, datalabels: { color: '#16181D', font: { size: 10, weight: '700' }, anchor: 'end', align: 'end', formatter: v => sinal(v) } }, layout: { padding: { left: 30, right: 30 } } }
       });
     }
   }
