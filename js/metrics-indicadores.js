@@ -587,6 +587,84 @@
     };
   }
 
+  // ------------------------------------------------------------------
+  // Equivalência de nomes de departamento entre as fontes da Entrevista de
+  // Desligamento. O filtro da barra superior oferece os nomes do cadastro de
+  // Colaboradores (Headcount, ex.: "O Boticário VD Caratinga (MG)"), mas a
+  // pesquisa (Forms) grava "Caratinga VD (MG)" e as solicitações "VD Caratinga
+  // (MG)" — comparados por texto exato, o filtro não achava nada. Aqui cada
+  // nome vira uma chave sem "O Boticário", sem ordem das palavras e (numa
+  // segunda tentativa) sem a sigla do estado/cidade; nas solicitações de
+  // Hering/Levi's o nome curto da loja ("Rio Sul") ganha o prefixo da marca.
+  // ------------------------------------------------------------------
+  const DEPTO_SIGLAS = new Set(['mg', 'rj', 'jf', 'sg', '3r', 'sp']);
+  function deptoTokens(s) {
+    return norm(s).replace(/[()\-,.\/']/g, ' ').split(/\s+/).filter(t => t && t !== 'o' && t !== 'boticario');
+  }
+  function deptoChave(s, semSiglas) {
+    return deptoTokens(s).filter(t => !semSiglas || !DEPTO_SIGLAS.has(t)).sort().join(' ');
+  }
+  function marcaDaUnidade(u) {
+    const n = norm(u);
+    if (n.includes('hering')) return 'hering';
+    if (n.includes('levi')) return 'levis';
+    if (n.includes('berenice')) return 'quem disse berenice';
+    return '';
+  }
+  let cacheDeptoIdx = { ref: null, n: -1, idx1: null, idx2: null };
+  function indicesDepartamentosHeadcount() {
+    const cols = (window.HUB_DATA && window.HUB_DATA.colaboradores) || [];
+    if (cacheDeptoIdx.ref === cols && cacheDeptoIdx.n === cols.length) return cacheDeptoIdx;
+    const idx1 = new Map(), idx2 = new Map();
+    const add = (idx, k, nome) => { if (!idx.has(k)) idx.set(k, new Set()); idx.get(k).add(nome); };
+    for (const c of cols) {
+      if (!c.departamento) continue;
+      add(idx1, deptoChave(c.departamento, false), c.departamento);
+      add(idx2, deptoChave(c.departamento, true), c.departamento);
+    }
+    cacheDeptoIdx = { ref: cols, n: cols.length, idx1, idx2 };
+    return cacheDeptoIdx;
+  }
+  // Nomes do Headcount equivalentes a (departamento, unidade); vazio se nenhum.
+  function departamentosHeadcountDe(dep, unidade) {
+    const { idx1, idx2 } = indicesDepartamentosHeadcount();
+    const marca = marcaDaUnidade(unidade);
+    const tentativas = [
+      [idx1, deptoChave(dep, false)], [idx2, deptoChave(dep, true)],
+      [idx2, deptoChave(marca + ' ' + dep, true)], [idx1, deptoChave(marca + ' ' + dep, false)]
+    ];
+    for (const [idx, k] of tentativas) { const s = idx.get(k); if (s && s.size) return s; }
+    return null;
+  }
+  // Devolve um predicado (linha → bool) que aceita as grafias equivalentes do
+  // departamento selecionado em cada fonte. Compara departamento E unidade
+  // juntos (o mesmo nome curto "Rio Sul" existe na Hering e na Levi's), por
+  // isso não dá para só ampliar a lista de nomes selecionados.
+  function filtroDepartamentoEquivalente(selecionados) {
+    if (!selecionados || !selecionados.length) return null;
+    const alvo = new Set();
+    for (const s of selecionados) {
+      alvo.add(norm(s));
+      const eq = departamentosHeadcountDe(s, '');
+      if (eq) for (const n of eq) alvo.add(norm(n));
+    }
+    const cache = new Map();
+    return r => {
+      if (!r.departamento) return false;
+      const ck = r.departamento + '|' + (r.unidade || '');
+      let ok = cache.get(ck);
+      if (ok === undefined) {
+        ok = alvo.has(norm(r.departamento));
+        if (!ok) {
+          const eq = departamentosHeadcountDe(r.departamento, r.unidade);
+          if (eq) for (const n of eq) if (alvo.has(norm(n))) { ok = true; break; }
+        }
+        cache.set(ck, ok);
+      }
+      return ok;
+    };
+  }
+
   function entrevistaMetrics(f) {
     // Duas fontes: entrevista_pesquisa/entrevista_solicitacao (arquivo
     // histórico, importado uma única vez via SQL — não recebe mais upload)
@@ -611,9 +689,14 @@
     // quem respondeu, só por unidade/departamento (pedido explícito: as
     // respostas nunca se ligam a um nome na tela).
     const map = { date: 'data_entrevista', unidade: 'unidade', departamento: 'departamento' };
-    pesquisa = filterRows(pesquisa, map, f);
+    // Departamento: casa também as grafias equivalentes de cada fonte (ver acima)
+    const okDep = filtroDepartamentoEquivalente(f.departamento);
+    const fSemDep = Object.assign({}, f, { departamento: [] });
+    pesquisa = filterRows(pesquisa, map, fSemDep);
+    if (okDep) pesquisa = pesquisa.filter(okDep);
     const mapSol = { date: 'data_demissao', unidade: 'unidade', departamento: 'departamento' };
-    solicitacao = filterRows(solicitacao, mapSol, f);
+    solicitacao = filterRows(solicitacao, mapSol, fSemDep);
+    if (okDep) solicitacao = solicitacao.filter(okDep);
     // As duas fontes não trazem o nome do gestor direto, então o filtro
     // "Gestor" da barra superior não se aplica a este menu.
 
