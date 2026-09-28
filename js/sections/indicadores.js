@@ -283,13 +283,15 @@
   // essa sim mostra nome, porque é acompanhamento operacional de envio, não
   // conteúdo de resposta). Estado de qual subaba está aberta persiste em
   // memória do módulo (mesmo padrão de admin/cadastros.js).
+  // A antiga subaba "Lista de Colaboradores" (links gerados) foi absorvida
+  // pela guia Controle de Desligamento: gerar/copiar link e ver respostas
+  // ficam na ficha de cada desligamento.
   let desligamentoTab = 'indicadores';
 
   function renderDesligamento(el, f) {
     el.innerHTML = `
       <div class="tab-bar">
         <button type="button" class="tab-btn ${desligamentoTab === 'indicadores' ? 'active' : ''}" data-desl-tab="indicadores">Indicadores</button>
-        <button type="button" class="tab-btn ${desligamentoTab === 'lista' ? 'active' : ''}" data-desl-tab="lista">Lista de Colaboradores</button>
         ${window.HUB_CONTROLE_DESLIGAMENTO && HUB_CONTROLE_DESLIGAMENTO.pode() ? `<button type="button" class="tab-btn ${desligamentoTab === 'controle' ? 'active' : ''}" data-desl-tab="controle">Controle de Desligamento</button>` : ''}
       </div>
       <div id="desl-tab-body"></div>`;
@@ -304,15 +306,6 @@
         return;
       }
       HUB_CONTROLE_DESLIGAMENTO.render(body, f);
-      return;
-    }
-    if (desligamentoTab === 'lista') {
-      if (!HUB_ENTREVISTA_DESLIGAMENTO || !HUB_ENTREVISTA_DESLIGAMENTO.canGerarLink()) {
-        body.innerHTML = empty('Acesso restrito.', 'Você não tem permissão para gerar ou acompanhar links de entrevista.');
-        return;
-      }
-      body.innerHTML = HUB_ENTREVISTA_DESLIGAMENTO.renderListaLinks();
-      HUB_ENTREVISTA_DESLIGAMENTO.wireListaLinks(body);
       return;
     }
     renderDesligamentoIndicadores(body, f);

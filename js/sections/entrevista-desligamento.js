@@ -346,5 +346,5 @@
     }));
   }
 
-  window.HUB_ENTREVISTA_DESLIGAMENTO = { canGerarLink, renderListaLinks, wireListaLinks, abrirGerarLinkPara: abrirModalGerarLink, linkDoRegistro, copiarLink };
+  window.HUB_ENTREVISTA_DESLIGAMENTO = { canGerarLink, renderListaLinks, wireListaLinks, abrirGerarLinkPara: abrirModalGerarLink, linkDoRegistro, copiarLink, abrirRespostas: abrirModalRespostas };
 })();

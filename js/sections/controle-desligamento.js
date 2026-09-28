@@ -208,11 +208,15 @@
     const semVinculo = noPeriodo.filter(r => !r.colab).length;
     const opt = (v, l, cur) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`;
     const vazio = !lancamentos().length;
+    const usados = new Set(todos.map(r => r.link).filter(Boolean));
+    const avulsos = ((window.HUB_RECRUIT_DATA && HUB_RECRUIT_DATA.entrevistas_desligamento) || []).filter(l => !usados.has(l));
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
         <div class="sub" style="font-size:12px;color:var(--muted)">${U.fmtInt(noPeriodo.length)} desligamento(s) no período/filtros${semVinculo ? ` · ${U.fmtInt(semVinculo)} sem cadastro correspondente no Headcount` : ''}</div>
         <button type="button" class="btn btn-sm" style="width:auto" id="cd-novo">+ Lançar desligamento</button>
       </div>
+      ${avulsos.length ? `<div class="insight alerta" style="margin-bottom:14px;display:block"><div style="margin-bottom:6px"><strong>${U.fmtInt(avulsos.length)} link(s) de entrevista sem desligamento lançado</strong> — lance o desligamento para que o link passe a ser acompanhado na lista.</div>
+        ${avulsos.map((l, i) => `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;padding:3px 0"><b>${esc(l.colaboradorNome || '—')}</b><span style="color:var(--muted)">${esc(l.cargo || '')} · ${l.status === 'Preenchido' ? 'respondido' : 'aguardando resposta'} · gerado em ${U.fmtDateBR(String(l.criadoEm || '').slice(0, 10)) || '—'}</span>${l.status === 'Preenchido' ? `<button type="button" class="btn btn-outline btn-sm" style="width:auto" data-avulso-resp="${i}">Ver respostas</button>` : ''}<button type="button" class="btn btn-outline btn-sm" style="width:auto" data-avulso-copiar="${i}">Copiar link</button></div>`).join('')}</div>` : ''}
       ${vazio ? `<div class="insight info" style="margin-bottom:14px"><span class="ic">&#8505;&#65039;</span><span>Nenhum desligamento lançado ainda. Importe o histórico da planilha de controle (script SQL) ou lance o primeiro pelo botão acima.</span></div>` : ''}
       <div class="kpi-grid">
         ${kpiFila('em_andamento', cont)}
@@ -234,6 +238,8 @@
     bind('#cd-busca', 'busca', 'input'); bind('#cd-fila', 'fila'); bind('#cd-feedz', 'feedz'); bind('#cd-entrevista', 'entrevista'); bind('#cd-ordem', 'ordem');
     el.querySelectorAll('[data-fila]').forEach(k => k.addEventListener('click', () => { estado.fila = estado.fila === k.dataset.fila ? 'todas' : k.dataset.fila; estado.pagina = 1; desenhar(el, f); }));
     el.querySelector('#cd-novo').addEventListener('click', () => abrirFormulario(null));
+    el.querySelectorAll('[data-avulso-resp]').forEach(b => b.addEventListener('click', () => HUB_ENTREVISTA_DESLIGAMENTO.abrirRespostas(avulsos[Number(b.dataset.avulsoResp)])));
+    el.querySelectorAll('[data-avulso-copiar]').forEach(b => b.addEventListener('click', () => HUB_ENTREVISTA_DESLIGAMENTO.copiarLink(avulsos[Number(b.dataset.avulsoCopiar)])));
     redesenhar();
   }
 
@@ -369,7 +375,7 @@
         <div class="field"><label>&nbsp;</label><label style="display:flex;gap:6px;align-items:center;font-weight:500"><input id="cd-f-natal" type="checkbox" ${d.extraNatal ? 'checked' : ''} style="width:auto"> Extra de Natal</label></div>
       </div>
       <div class="field full" style="margin-top:8px"><label>Observações</label><textarea id="cd-f-obs" rows="3" style="width:100%">${esc(d.observacoes || '')}</textarea></div>
-      ${r && r.link ? `<div style="margin-top:6px;font-size:11.5px;color:var(--muted)">Link de entrevista gerado no Hub — <b>${r.link.status === 'Preenchido' ? 'respondido' : 'aguardando resposta'}</b>. O status exibido na lista acompanha o link automaticamente.</div>` : ''}`;
+      ${r && r.link ? `<div style="margin-top:6px;font-size:11.5px;color:var(--muted)">Link de entrevista gerado por <b>${esc(r.link.geradoPor || '—')}</b>${r.link.criadoEm ? ' em ' + U.fmtDateBR(String(r.link.criadoEm).slice(0, 10)) : ''} — <b>${r.link.status === 'Preenchido' ? 'respondido' + (r.link.dataFinalizacao ? ' em ' + U.fmtDateBR(String(r.link.dataFinalizacao).slice(0, 10)) : '') : 'aguardando resposta'}</b>. O status exibido na lista acompanha o link automaticamente.</div>` : ''}`;
   }
   function lerCampos(m) {
     const v = id => { const e = m.querySelector('#' + id); return e ? e.value.trim() : ''; };
@@ -408,6 +414,7 @@
     corpo += bloco('Acompanhamento', camposAcompanhamento(d, r));
     corpo += `<div class="msg err" id="cd-f-msg" style="display:none"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;flex-wrap:wrap">
+        ${!novo && r.link && r.link.status === 'Preenchido' ? '<button type="button" class="btn btn-outline btn-sm" style="width:auto" id="cd-respostas">Ver respostas</button>' : ''}
         ${!novo && podeLink ? (r.link ? '<button type="button" class="btn btn-outline btn-sm" style="width:auto" id="cd-copiar">Copiar link de entrevista</button>' : '<button type="button" class="btn btn-outline btn-sm" style="width:auto" id="cd-gerar">Gerar link de entrevista</button>') : ''}
         <button type="button" class="btn btn-sm" style="width:auto" id="cd-salvar">${novo ? 'Lançar desligamento' : 'Salvar alterações'}</button>
       </div>
@@ -447,6 +454,8 @@
       m.remove();
       HUB_ENTREVISTA_DESLIGAMENTO.abrirGerarLinkPara({ externalId: r.colab && r.colab.external_id, nome: (r.colab && (r.colab.nome_completo || r.colab.nome)) || r.nome, idDesligamento: r.id });
     });
+    const btnResp = m.querySelector('#cd-respostas');
+    if (btnResp) btnResp.addEventListener('click', () => { m.remove(); HUB_ENTREVISTA_DESLIGAMENTO.abrirRespostas(r.link); });
     const btnCopiar = m.querySelector('#cd-copiar');
     if (btnCopiar) btnCopiar.addEventListener('click', () => HUB_ENTREVISTA_DESLIGAMENTO.copiarLink(r.link));
 
