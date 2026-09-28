@@ -90,7 +90,7 @@
     el.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button type="button" id="btn-upload-history">Ver histórico de uploads</button></div>
       <div class="upload-grid">${UPLOADS.map(u => `
       <div class="upload-card" id="uc-${u.key}">
-        <span class="ic">${u.icon}</span>
+        <span class="ic">${HUB_ICON(u.icon)}</span>
         <h4>${u.label}</h4>
         <p>Arquivo: ${u.file}</p>
         <p id="lu-${u.key}" style="margin-top:4px;font-weight:600;color:var(--muted)">Carregando...</p>

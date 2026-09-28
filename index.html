@@ -73,7 +73,9 @@ p{margin:0}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;color:rgba(255,255,255,.62);cursor:pointer;font-size:13px;border-left:3px solid transparent;user-select:none}
 .nav-item:hover{background:rgba(255,255,255,.05);color:#fff}
 .nav-item.active{background:var(--sidebar-active);color:#fff;border-left-color:var(--p2)}
-.nav-item .ic{font-size:15px;width:20px;text-align:center}
+.sidebar .ic{width:18px;height:18px;flex-shrink:0;display:inline-flex}
+.sidebar .ic svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.sb-foot .btn .ic{width:16px;height:16px}
 .nav-sep{height:1px;background:rgba(255,255,255,.07);margin:8px 20px}
 .sb-foot{padding:14px 20px;border-top:1px solid rgba(255,255,255,.08)}
 .sb-foot .btn{background:rgba(255,255,255,.08);color:#fff;width:100%;font-size:12px}
@@ -141,6 +143,8 @@ p{margin:0}
 .card.full{grid-column:1/-1}
 .grid2>.card{min-width:0} /* evita que uma tabela larga estique a coluna do grid além da tela */
 .card h3{font-size:13.5px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.lic{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;display:block}
+.card h3 .card-ic{width:17px;height:17px;flex-shrink:0;color:var(--muted);display:inline-flex}
 .chart-h{position:relative;height:280px}
 .chart-h.short{height:210px}
 .chart-h.tall{height:380px}
@@ -177,7 +181,7 @@ table.dt tr.acc-desligado .scope-chip{background:#DDE1E6;color:#6B7280}
 .acc-count{font-size:11.5px;color:var(--muted);margin-left:auto}
 
 .empty{text-align:center;padding:54px 20px;color:var(--muted)}
-.empty .ic{font-size:32px;display:block;margin-bottom:10px;opacity:.5}
+.empty .ic{width:32px;height:32px;display:block;margin:0 auto 10px;opacity:.5}
 .empty p{font-size:13.5px}
 .empty .sub{font-size:11.5px;margin-top:4px}
 
@@ -189,7 +193,7 @@ table.dt tr.acc-desligado .scope-chip{background:#DDE1E6;color:#6B7280}
 .badge.b5{background:#F1EEFB;color:#4a3aa7}
 
 .insight{display:flex;gap:10px;padding:11px 13px;border-radius:10px;margin-bottom:9px;font-size:12.5px;line-height:1.5;border:1px solid var(--border)}
-.insight .ic{font-size:15px;flex-shrink:0}
+.insight .ic{width:16px;height:16px;flex-shrink:0;margin-top:2px}
 .insight.alerta{background:#FFF5F0;border-color:#FEDCC5}
 .insight.acao{background:#EAF2FE;border-color:#CFE2FC}
 .insight.info{background:#F7F9FC}
@@ -256,7 +260,7 @@ table.dt tr.acc-desligado .scope-chip{background:#DDE1E6;color:#6B7280}
 .upload-card:hover{border-color:var(--p1);background:#F7FAFF}
 .upload-card.ok{border-style:solid;border-color:#9AE6B4;background:#F0FFF4}
 .upload-card.busy{opacity:.7}
-.upload-card .ic{font-size:24px;margin-bottom:6px;display:block}
+.upload-card .ic{width:24px;height:24px;margin:0 auto 8px;display:block;color:var(--p1)}
 .upload-card h4{font-size:12.5px;margin-bottom:4px}
 .upload-card p{font-size:10.5px;color:var(--muted)}
 .upload-card input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
@@ -275,6 +279,7 @@ table.dt tr.acc-desligado .scope-chip{background:#DDE1E6;color:#6B7280}
 .perm-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:10px 0 16px}
 .perm-group{border:1.5px solid var(--border);border-radius:10px;padding:12px}
 .perm-group h4{font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.perm-group h4 .perm-ic{width:14px;height:14px;flex-shrink:0;display:inline-flex}
 .perm-preset-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .perm-preset-bar button{padding:6px 13px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:11.5px;font-family:inherit;cursor:pointer;color:var(--text2)}
 .perm-preset-bar button:hover{border-color:var(--p1);color:var(--p1)}
@@ -418,40 +423,40 @@ details.blk > .blk-body{padding:16px}
     </div>
     <div class="sb-nav" id="sb-nav">
       <div class="sb-mod-title" data-group="indicadores">Indicadores</div>
-      <div class="nav-item" data-section="dashboard"><span class="ic">&#128202;</span>Dashboard</div>
-      <div class="nav-item" data-section="ind-headcount"><span class="ic">&#128101;</span>Headcount</div>
-      <div class="nav-item" data-section="ind-organograma"><span class="ic">&#127795;</span>Organograma</div>
-      <div class="nav-item" data-section="ind-recrutamento"><span class="ic">&#128188;</span>Recrutamento</div>
-      <div class="nav-item" data-section="ind-rotatividade"><span class="ic">&#128260;</span>Rotatividade</div>
-      <div class="nav-item" data-section="ind-experiencia"><span class="ic">&#127919;</span>Avaliação da Experiência</div>
-      <div class="nav-item" data-section="ind-desligamento"><span class="ic">&#128682;</span>Entrevista Desligamento</div>
-      <div class="nav-item" data-section="ind-feedbacks"><span class="ic">&#128172;</span>Feedbacks</div>
-      <div class="nav-item" data-section="ind-oneonone"><span class="ic">&#129309;</span>1:1</div>
-      <div class="nav-item" data-section="ind-treinamentos"><span class="ic">&#128218;</span>Treinamentos</div>
-      <div class="nav-item" data-section="ind-celebracoes"><span class="ic">&#127881;</span>Celebrações</div>
-      <div class="nav-item" data-section="ind-pesquisa-clima"><span class="ic">&#127777;&#65039;</span>Pesquisa de Clima</div>
+      <div class="nav-item" data-section="dashboard"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span>Dashboard</div>
+      <div class="nav-item" data-section="ind-headcount"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Headcount</div>
+      <div class="nav-item" data-section="ind-organograma"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="6" height="6" x="9" y="2" rx="1"/><rect width="6" height="6" x="2" y="16" rx="1"/><rect width="6" height="6" x="16" y="16" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></svg></span>Organograma</div>
+      <div class="nav-item" data-section="ind-recrutamento"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="7" r="4"/><path d="M10.3 15H7a4 4 0 0 0-4 4v2"/><circle cx="17" cy="17" r="3"/><path d="m21 21-1.9-1.9"/></svg></span>Recrutamento</div>
+      <div class="nav-item" data-section="ind-rotatividade"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span>Rotatividade</div>
+      <div class="nav-item" data-section="ind-experiencia"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>Avaliação da Experiência</div>
+      <div class="nav-item" data-section="ind-desligamento"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/></svg></span>Entrevista Desligamento</div>
+      <div class="nav-item" data-section="ind-feedbacks"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>Feedbacks</div>
+      <div class="nav-item" data-section="ind-oneonone"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg></span>1:1</div>
+      <div class="nav-item" data-section="ind-treinamentos"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>Treinamentos</div>
+      <div class="nav-item" data-section="ind-celebracoes"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.8 11.3 2 22l10.7-3.79"/><path d="M4 3h.01"/><path d="M22 8h.01"/><path d="M15 2h.01"/><path d="M22 20h.01"/><path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10"/><path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11-.11.7-.72 1.22-1.43 1.22H17"/><path d="m11 2 .33.82c.34.86-.2 1.82-1.11 1.98C9.52 4.9 9 5.52 9 6.23V7"/><path d="M11 13c1.93 1.93 2.83 4.17 2 5-.83.83-3.07-.07-5-2-1.93-1.93-2.83-4.17-2-5 .83-.83 3.07.07 5 2Z"/></svg></span>Celebrações</div>
+      <div class="nav-item" data-section="ind-pesquisa-clima"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg></span>Pesquisa de Clima</div>
 
       <div class="sb-mod-title" data-group="recrutamento">Recrutamento</div>
-      <div class="nav-item" data-section="rec-dashboard"><span class="ic">&#128202;</span>Dashboard</div>
-      <div class="nav-item" data-section="rec-vagas"><span class="ic">&#128188;</span>Controle de Vagas</div>
-      <div class="nav-item" data-section="rec-candidatos"><span class="ic">&#128100;</span>Candidatos</div>
-      <div class="nav-item" data-section="rec-agenda"><span class="ic">&#128197;</span>Agenda de Entrevistas</div>
-      <div class="nav-item" data-section="rec-banco-talentos"><span class="ic">&#127942;</span>Banco de Talentos</div>
-      <div class="nav-item" data-section="rec-aprovacoes"><span class="ic">&#9989;</span>Aprovações</div>
-      <div class="nav-item" data-section="rec-historico"><span class="ic">&#128203;</span>Histórico</div>
-      <div class="nav-item" data-section="rec-transferencia"><span class="ic">&#128257;</span>Transferência de Vaga</div>
-      <div class="nav-item" data-section="rec-parecer-gestor"><span class="ic">&#128221;</span>Parecer do Gestor</div>
+      <div class="nav-item" data-section="rec-dashboard"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span>Dashboard</div>
+      <div class="nav-item" data-section="rec-vagas"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg></span>Controle de Vagas</div>
+      <div class="nav-item" data-section="rec-candidatos"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg></span>Candidatos</div>
+      <div class="nav-item" data-section="rec-agenda"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg></span>Agenda de Entrevistas</div>
+      <div class="nav-item" data-section="rec-banco-talentos"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg></span>Banco de Talentos</div>
+      <div class="nav-item" data-section="rec-aprovacoes"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span>Aprovações</div>
+      <div class="nav-item" data-section="rec-historico"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></span>Histórico</div>
+      <div class="nav-item" data-section="rec-transferencia"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg></span>Transferência de Vaga</div>
+      <div class="nav-item" data-section="rec-parecer-gestor"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span>Parecer do Gestor</div>
 
       <div class="sb-mod-title" data-group="treinamento_dev">Treinamento e Desenvolvimento</div>
-      <div class="nav-item" data-section="tre-onboarding"><span class="ic">&#127891;</span>Onboarding</div>
-      <div class="nav-item" data-section="tre-visita-loja"><span class="ic">&#127978;</span>Visita em Loja</div>
+      <div class="nav-item" data-section="tre-onboarding"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 10v6"/><path d="M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg></span>Onboarding</div>
+      <div class="nav-item" data-section="tre-visita-loja"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2 2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/></svg></span>Visita em Loja</div>
 
       <div class="sb-mod-title" data-group="administracao">Administração</div>
-      <div class="nav-item" data-section="adm-upload"><span class="ic">&#11014;&#65039;</span>Upload de Planilhas</div>
-      <div class="nav-item" data-section="adm-cadastros"><span class="ic">&#128203;</span>Cadastros do Recrutamento</div>
-      <div class="nav-item" data-section="adm-usuarios"><span class="ic">&#9881;&#65039;</span>Cadastro de Acessos</div>
+      <div class="nav-item" data-section="adm-upload"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg></span>Upload de Planilhas</div>
+      <div class="nav-item" data-section="adm-cadastros"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg></span>Cadastros do Recrutamento</div>
+      <div class="nav-item" data-section="adm-usuarios"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>Cadastro de Acessos</div>
     </div>
-    <div class="sb-foot"><button class="btn" id="btn-logout">&#9211; Sair</button></div>
+    <div class="sb-foot"><button class="btn" id="btn-logout"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></span>Sair</button></div>
   </div>
 
   <div class="sb-backdrop" id="sb-backdrop"></div>
@@ -534,52 +539,52 @@ details.blk > .blk-body{padding:16px}
   </div>
 </div>
 
-<script src="js/config.js?v=202609252100"></script>
-<script src="js/supabaseClient.js?v=202609252100"></script>
-<script src="js/utils.js?v=202609252100"></script>
-<script src="js/permissions.js?v=202609252100"></script>
-<script src="js/galho.js?v=202609252100"></script>
-<script src="js/ui-charts.js?v=202609252100"></script>
-<script src="js/parsers.js?v=202609252100"></script>
-<script src="js/dal-indicadores.js?v=202609252100"></script>
-<script src="js/dal-recrutamento.js?v=202609252100"></script>
-<script src="js/dal-experiencia.js?v=202609252100"></script>
-<script src="js/dal-pesquisa-clima.js?v=202609252100"></script>
-<script src="js/pareceres/comum.js?v=202609252100"></script>
-<script src="js/pareceres/vd-comum.js?v=202609252100"></script>
-<script src="js/pareceres/modelo-hering.js?v=202609252100"></script>
-<script src="js/pareceres/modelo-levis.js?v=202609252100"></script>
-<script src="js/pareceres/modelo-boticario-loja.js?v=202609252100"></script>
-<script src="js/pareceres/modelo-boticario-vd-er.js?v=202609252100"></script>
-<script src="js/pareceres/modelo-boticario-vd-campo.js?v=202609252100"></script>
-<script src="js/pareceres/modelo-boticario-vd-logistica.js?v=202609252100"></script>
-<script src="js/pareceres/render-comum.js?v=202609252100"></script>
-<script src="js/entrevista-desligamento/modelo.js?v=202609252100"></script>
-<script src="js/entrevista-desligamento/render-comum.js?v=202609252100"></script>
-<script src="js/metrics-indicadores.js?v=202609252100"></script>
-<script src="js/metrics-recrutamento.js?v=202609252100"></script>
-<script src="js/metrics-experiencia.js?v=202609252100"></script>
-<script src="js/metrics-pesquisa-clima.js?v=202609252100"></script>
-<script src="js/sections/entrevista-desligamento.js?v=202609252100"></script>
-<script src="js/sections/controle-desligamento.js?v=202609252100"></script>
-<script src="js/sections/indicadores.js?v=202609252100"></script>
-<script src="js/sections/experiencia.js?v=202609252100"></script>
-<script src="js/sections/pesquisa-clima.js?v=202609252100"></script>
-<script src="js/sections/organograma.js?v=202609252100"></script>
-<script src="js/sections/recrutamento-dashboard.js?v=202609252100"></script>
-<script src="js/sections/vagas.js?v=202609252100"></script>
-<script src="js/sections/candidatos.js?v=202609252100"></script>
-<script src="js/sections/agenda.js?v=202609252100"></script>
-<script src="js/sections/banco-talentos.js?v=202609252100"></script>
-<script src="js/sections/aprovacoes.js?v=202609252100"></script>
-<script src="js/sections/historico.js?v=202609252100"></script>
-<script src="js/sections/transferencia.js?v=202609252100"></script>
-<script src="js/sections/parecer-gestor.js?v=202609252100"></script>
-<script src="js/sections/onboarding.js?v=202609252100"></script>
-<script src="js/sections/visita-loja.js?v=202609252100"></script>
-<script src="js/admin/upload.js?v=202609252100"></script>
-<script src="js/admin/cadastros.js?v=202609252100"></script>
-<script src="js/admin/usuarios.js?v=202609252100"></script>
-<script src="js/app.js?v=202609252100"></script>
+<script src="js/config.js?v=202609281300"></script>
+<script src="js/supabaseClient.js?v=202609281300"></script>
+<script src="js/utils.js?v=202609281300"></script>
+<script src="js/permissions.js?v=202609281300"></script>
+<script src="js/galho.js?v=202609281300"></script>
+<script src="js/ui-charts.js?v=202609281300"></script>
+<script src="js/parsers.js?v=202609281300"></script>
+<script src="js/dal-indicadores.js?v=202609281300"></script>
+<script src="js/dal-recrutamento.js?v=202609281300"></script>
+<script src="js/dal-experiencia.js?v=202609281300"></script>
+<script src="js/dal-pesquisa-clima.js?v=202609281300"></script>
+<script src="js/pareceres/comum.js?v=202609281300"></script>
+<script src="js/pareceres/vd-comum.js?v=202609281300"></script>
+<script src="js/pareceres/modelo-hering.js?v=202609281300"></script>
+<script src="js/pareceres/modelo-levis.js?v=202609281300"></script>
+<script src="js/pareceres/modelo-boticario-loja.js?v=202609281300"></script>
+<script src="js/pareceres/modelo-boticario-vd-er.js?v=202609281300"></script>
+<script src="js/pareceres/modelo-boticario-vd-campo.js?v=202609281300"></script>
+<script src="js/pareceres/modelo-boticario-vd-logistica.js?v=202609281300"></script>
+<script src="js/pareceres/render-comum.js?v=202609281300"></script>
+<script src="js/entrevista-desligamento/modelo.js?v=202609281300"></script>
+<script src="js/entrevista-desligamento/render-comum.js?v=202609281300"></script>
+<script src="js/metrics-indicadores.js?v=202609281300"></script>
+<script src="js/metrics-recrutamento.js?v=202609281300"></script>
+<script src="js/metrics-experiencia.js?v=202609281300"></script>
+<script src="js/metrics-pesquisa-clima.js?v=202609281300"></script>
+<script src="js/sections/entrevista-desligamento.js?v=202609281300"></script>
+<script src="js/sections/controle-desligamento.js?v=202609281300"></script>
+<script src="js/sections/indicadores.js?v=202609281300"></script>
+<script src="js/sections/experiencia.js?v=202609281300"></script>
+<script src="js/sections/pesquisa-clima.js?v=202609281300"></script>
+<script src="js/sections/organograma.js?v=202609281300"></script>
+<script src="js/sections/recrutamento-dashboard.js?v=202609281300"></script>
+<script src="js/sections/vagas.js?v=202609281300"></script>
+<script src="js/sections/candidatos.js?v=202609281300"></script>
+<script src="js/sections/agenda.js?v=202609281300"></script>
+<script src="js/sections/banco-talentos.js?v=202609281300"></script>
+<script src="js/sections/aprovacoes.js?v=202609281300"></script>
+<script src="js/sections/historico.js?v=202609281300"></script>
+<script src="js/sections/transferencia.js?v=202609281300"></script>
+<script src="js/sections/parecer-gestor.js?v=202609281300"></script>
+<script src="js/sections/onboarding.js?v=202609281300"></script>
+<script src="js/sections/visita-loja.js?v=202609281300"></script>
+<script src="js/admin/upload.js?v=202609281300"></script>
+<script src="js/admin/cadastros.js?v=202609281300"></script>
+<script src="js/admin/usuarios.js?v=202609281300"></script>
+<script src="js/app.js?v=202609281300"></script>
 </body>
 </html>

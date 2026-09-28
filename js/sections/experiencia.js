@@ -212,7 +212,7 @@
 
     // Termômetro (Batendo o Martelo)
     const segs = [4, 3, 2, 1].map(v => ({ v, n: m.dist[v - 1] }));
-    const termometro = card('Termômetro de aprovação — "Batendo o Martelo" &#128296;', '&#127777;&#65039;', m.n ? `
+    const termometro = card('Termômetro de aprovação — "Batendo o Martelo"', '&#127777;&#65039;', m.n ? `
       <p class="sub" style="margin-bottom:12px;font-size:12px;color:var(--text2)">Decisão final do gestor sobre a continuidade do colaborador após ${ciclo} dias. Base: <strong>${U.fmtInt(m.n)}</strong> avaliações do gestor concluídas${d.gestor.pendentes + d.gestor.rascunho ? ` (outras <strong>${U.fmtInt(d.gestor.pendentes + d.gestor.rascunho)}</strong> ainda sem decisão)` : ''}.</p>
       <div class="ave-termo">${segs.map(s => s.n ? `<div class="ave-termo-seg" style="width:${s.n / m.n * 100}%;background:${M.CORES_MARTELO[s.v]}" title="${esc(M.MARTELO[s.v])}: ${s.n}"><span class="n">${pct(s.n / m.n)}</span><span class="l">${s.n >= m.n * 0.12 ? esc(MARTELO_MINI[s.v]) : ''}</span></div>` : '').join('')}</div>
       <div class="ave-legenda">${segs.map(s => `<div class="ave-leg" style="--c:${M.CORES_MARTELO[s.v]}"><i></i><div><b>${esc(M.MARTELO[s.v])}</b><span>Nota ${s.v} · ${U.fmtInt(s.n)} colaborador(es) · ${pct(s.n / m.n)}</span></div></div>`).join('')}</div>` : empty('Nenhuma decisão do gestor no período.'), { full: true });
@@ -247,7 +247,7 @@
 
     body.innerHTML = `
       <div class="insight info" style="margin-bottom:16px">
-        <span class="ic">&#8505;&#65039;</span>
+        <span class="ic">${HUB_ICON('info')}</span>
         <span><strong>Como ler:</strong> cada competência é avaliada de 1 a 4 — <strong>1</strong> Necessita melhora, <strong>2</strong> Em desenvolvimento, <strong>3</strong> Atinge o esperado, <strong>4</strong> É referência — pelo gestor e pelo próprio colaborador (autoavaliação). Só o gestor responde ao <strong>"Batendo o Martelo"</strong>, que decide a continuidade: <strong>1</strong> Reprovado por questões culturais, <strong>2</strong> Reprovado por questões de performance, <strong>3</strong> Aprovado COM ressalvas, <strong>4</strong> Aprovado SEM ressalvas. A média de cada pessoa considera as 7 competências comuns a todos os cargos; o período filtrado usa a data da avaliação do gestor (ou o prazo do ciclo, se ainda pendente).</span>
       </div>
       ${kpis}
@@ -610,7 +610,7 @@
     const comps = c.porCompetencia.filter(x => x.n);
     const pioraram = c.pioraram.slice(0, 15);
     body.innerHTML = `
-      <div class="insight info" style="margin-bottom:16px"><span class="ic">&#8505;&#65039;</span><span>Compara <strong>o mesmo colaborador</strong> nos dois ciclos (${U.fmtInt(c.nPares)} pessoas aparecem nas duas planilhas; ${U.fmtInt(c.nDecisao)} têm o "Batendo o Martelo" concluído nos dois). Mostra se quem foi aprovado, com ressalvas ou reprovado aos 45 dias evoluiu ou piorou aos 90.</span></div>
+      <div class="insight info" style="margin-bottom:16px"><span class="ic">${HUB_ICON('info')}</span><span>Compara <strong>o mesmo colaborador</strong> nos dois ciclos (${U.fmtInt(c.nPares)} pessoas aparecem nas duas planilhas; ${U.fmtInt(c.nDecisao)} têm o "Batendo o Martelo" concluído nos dois). Mostra se quem foi aprovado, com ressalvas ou reprovado aos 45 dias evoluiu ou piorou aos 90.</span></div>
       <div class="kpi-grid">
         ${kpi('Colaboradores nos dois ciclos', U.fmtInt(c.nPares), `${U.fmtInt(c.nDecisao)} com decisão nos dois`, 'var(--p1)')}
         ${kpi('Nota média do gestor', c.media90 === null ? '—' : `${fmt1(c.media45)} → ${fmt1(c.media90)}`, c.deltaMedio === null ? '' : `variação média ${sinal(c.deltaMedio)}`, '#4a3aa7')}

@@ -124,7 +124,7 @@
         ${kpi('Taxa de desligamento média', U.fmtPct(d.taxaDesligamentoMedia), 'média dos meses do período', '#e87ba4')}
       </div>
       <div class="insight info" style="margin-bottom:18px">
-        <span class="ic">&#8505;&#65039;</span>
+        <span class="ic">${HUB_ICON('info')}</span>
         <span><strong>Como calculamos:</strong> Turnover = ((Admissões + Desligamentos) ÷ 2) ÷ Headcount médio do período — mede a movimentação total do quadro, entradas e saídas juntas. Taxa de Desligamento = Desligamentos ÷ Headcount médio do período — mede só quem saiu, sem contar quem entrou. Os dois "médio(s)" usam a média do headcount de início de cada mês do período filtrado.</span>
       </div>
       <div class="grid2">
@@ -342,7 +342,7 @@
       </div>
       ${renderNpsScale(d.npsDetalhe)}
       <div class="insight info" style="margin-bottom:18px">
-        <span class="ic">&#8505;&#65039;</span>
+        <span class="ic">${HUB_ICON('info')}</span>
         <span><strong>Como calculamos o eNPS:</strong> cada resposta de 0 a 10 (probabilidade de indicar a empresa) entra num de três grupos — Detratores (nota 0 a 6), Neutros (7 a 8) e Promotores (9 a 10). eNPS = ((nº de Promotores − nº de Detratores) ÷ total de respostas) × 100. O resultado varia de -100 (todo mundo detrator) a +100 (todo mundo promotor); Neutros contam no total mas não entram na conta de cima nem de baixo.</span>
       </div>
       <div class="grid2-fixed">

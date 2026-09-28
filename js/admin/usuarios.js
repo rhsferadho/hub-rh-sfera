@@ -47,7 +47,7 @@
       return;
     }
     el.innerHTML = `<div class="grid2">
-      <div class="card full"><h3>&#128100;&nbsp;Contas cadastradas</h3><div id="acc-list">Carregando...</div></div>
+      <div class="card full"><h3><span class="card-ic">${HUB_ICON('users')}</span>Contas cadastradas</h3><div id="acc-list">Carregando...</div></div>
       <div class="card full" id="acc-form-card"></div>
     </div>`;
     try {
@@ -221,7 +221,7 @@
     const p = editingProfile || { nome: '', email: '', perfil: 'gestor', unidades: [], departamentos: [], permissoes: PERM.presetPermissoes('gestor') };
     const colabAtual = p.colaborador_external_id ? (colabOpts.byExt.get(p.colaborador_external_id) || `ID ${p.colaborador_external_id} (não está na planilha atual)`) : '';
     el.innerHTML = `
-      <h3>&#128272;&nbsp;${isEdit ? 'Editar acesso' : 'Novo acesso'}</h3>
+      <h3><span class="card-ic">${HUB_ICON('lock')}</span>${isEdit ? 'Editar acesso' : 'Novo acesso'}</h3>
       <form id="acc-form">
         <div class="form-grid">
           <div class="field full"><label>Nome completo</label><input id="acc-nome" required value="${U.escapeHtml(p.nome)}"></div>
@@ -243,7 +243,7 @@
         <div class="perm-groups" id="acc-perm-groups">
           ${PERM.CATALOG.map(g => `
             <div class="perm-group">
-              <h4><span>${g.icon}</span>${g.groupLabel}</h4>
+              <h4><span class="perm-ic">${HUB_ICON(g.icon)}</span>${g.groupLabel}</h4>
               ${g.items.map(it => `<label class="chk" style="width:100%;margin-bottom:4px"><input type="checkbox" data-perm="${it.key}" ${p.permissoes && p.permissoes[it.key] ? 'checked' : ''}>${it.label}</label>`).join('')}
             </div>`).join('')}
         </div>

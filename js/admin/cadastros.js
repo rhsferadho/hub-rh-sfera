@@ -66,7 +66,7 @@
     body.innerHTML = `
       <div class="grid2">
         <div class="card full">
-          <h3><span>${cfg.icon}</span>${cfg.label} — ${rows.length} item(ns)</h3>
+          <h3><span class="card-ic">${HUB_ICON(cfg.icon)}</span>${cfg.label} — ${rows.length} item(ns)</h3>
           ${rows.length ? `<div class="table-wrap"><table class="dt"><thead><tr>
             <th>Nome</th>${cfg.dependsOnUnidade ? '<th>Unidade</th>' : ''}<th>Status</th><th></th>
           </tr></thead><tbody>
