@@ -26,7 +26,12 @@
   function D() { return window.HUB_DATA || {}; }
   function RD() { return window.HUB_RECRUIT_DATA || {}; }
   function registros() { return RD()['entrevistas_desligamento'] || []; }
-  function canGerarLink() { return HUB_PERMISSIONS.hasPerm(HUB_USER, 'indicadores.desligamento_gerar_link'); }
+  // Gerar link faz parte do Controle de Desligamento; a permissão antiga
+  // "Gerar link" (fora do Cadastro de Acessos) continua aceita na transição.
+  function canGerarLink() {
+    return HUB_PERMISSIONS.hasPerm(HUB_USER, 'indicadores.controle_desligamento') ||
+      HUB_PERMISSIONS.hasPerm(HUB_USER, 'indicadores.desligamento_gerar_link');
+  }
 
   // ---------------------------------------------------------------
   // Auto-match: nome de unidade/departamento do colaborador -> ramo do

@@ -1024,11 +1024,11 @@ create policy entrevistas_desligamento_select on public.entrevistas_desligamento
   using (public.can_see(unidade, departamento) and public.has_permission('indicadores.desligamento'));
 drop policy if exists entrevistas_desligamento_insert on public.entrevistas_desligamento;
 create policy entrevistas_desligamento_insert on public.entrevistas_desligamento for insert
-  with check (public.has_permission('indicadores.desligamento_gerar_link'));
+  with check (public.has_permission('indicadores.controle_desligamento') or public.has_permission('indicadores.desligamento_gerar_link'));
 drop policy if exists entrevistas_desligamento_update on public.entrevistas_desligamento;
 create policy entrevistas_desligamento_update on public.entrevistas_desligamento for update
-  using (public.has_permission('indicadores.desligamento_gerar_link'))
-  with check (public.has_permission('indicadores.desligamento_gerar_link'));
+  using (public.has_permission('indicadores.controle_desligamento') or public.has_permission('indicadores.desligamento_gerar_link'))
+  with check (public.has_permission('indicadores.controle_desligamento') or public.has_permission('indicadores.desligamento_gerar_link'));
 
 -- historico: leitura via recrutamento.historico; escrita (log automático de
 -- auditoria) liberada a qualquer usuário com alguma permissão de Recrutamento.

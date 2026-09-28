@@ -18,7 +18,6 @@
         { key: 'indicadores.rotatividade', label: 'Rotatividade' },
         { key: 'indicadores.experiencia', label: 'Avaliação da Experiência' },
         { key: 'indicadores.desligamento', label: 'Entrevistas de Desligamento' },
-        { key: 'indicadores.desligamento_gerar_link', label: 'Entrevistas de Desligamento — Gerar link' },
         { key: 'indicadores.controle_desligamento', label: 'Entrevistas de Desligamento — Controle de Desligamento (restrito: dados pessoais e contato; liberar individualmente)' },
         { key: 'indicadores.feedbacks', label: 'Feedbacks' },
         { key: 'indicadores.oneonone', label: '1:1' },
