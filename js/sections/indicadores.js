@@ -473,8 +473,8 @@
       ${drill}
       <div class="grid2">
         ${card('Progresso por curso', '&#128218;', d.progressoPorCurso.length ? `<div class="chart-scroll"><div class="chart-inner" id="c-tr-cursos-wrap"><canvas id="c-tr-cursos"></canvas></div></div>` : empty('Sem dados.'), { full: true })}
-        ${card('Evolução de inscrições', '&#128200;', d.serie.length ? '<div class="chart-h"><canvas id="c-tr-serie"></canvas></div>' : empty('Sem dados.'))}
-        ${card('Top 10 departamentos — conclusão e progresso', '&#127942;', rankingTable(d.topDepartamentos, 'Departamento'))}
+        ${card('Evolução de inscrições', '&#128200;', d.serie.length ? '<div class="chart-h"><canvas id="c-tr-serie"></canvas></div>' : empty('Sem dados.'), { full: true })}
+        ${card('Top 10 departamentos — conclusão e progresso', '&#127942;', rankingTable(d.topDepartamentos, 'Departamento'), { full: true })}
         ${card('Top 10 colaboradores — conclusão e progresso', '&#127942;', rankingTable(d.topColaboradores, 'Colaborador'), { full: true })}
       </div>`;
     if (d.progressoPorCurso.length) {
