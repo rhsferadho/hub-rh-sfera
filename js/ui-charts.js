@@ -241,7 +241,9 @@
     // colunas extras entram entre o nome e as métricas de conclusão.
     const temContexto = list.some(r => r.cargo || r.departamento);
     const colunasExtra = temContexto ? '<th>Cargo</th><th>Departamento</th>' : '';
-    return `<div class="table-wrap"><table class="dt"><thead><tr><th>${firstColLabel}</th>${colunasExtra}<th>Taxa de conclusão</th><th>Progresso médio</th><th>Inscrições</th></tr></thead><tbody>` +
+    // Tabela "fit": textos quebram linha e o card cresce com as linhas —
+    // sem rolagem lateral nem vertical.
+    return `<div class="table-wrap${temContexto ? ' fit' : ''}"><table class="dt${temContexto ? ' fit' : ''}"><thead><tr><th>${firstColLabel}</th>${colunasExtra}<th>Taxa de conclusão</th><th>Progresso médio</th><th>Inscrições</th></tr></thead><tbody>` +
       list.map(r => `<tr><td>${U.escapeHtml(r.label)}</td>${temContexto ? `<td>${U.escapeHtml(r.cargo || '')}</td><td>${U.escapeHtml(r.departamento || '')}</td>` : ''}<td>${U.fmtPct(r.taxaConclusao)}</td><td>${U.fmtPct(r.progressoMedio)}</td><td>${U.fmtInt(r.total)}</td></tr>`).join('') +
       '</tbody></table></div>';
   }
