@@ -33,6 +33,18 @@
   const TIPOS = ['Voluntária - Sem Aviso', 'Voluntária - Com Aviso', 'Involuntária - Sem Aviso', 'Involuntária - Com Aviso', 'Acordo', 'Justa Causa'];
   const CORES_FEEDZ = { 'Pendente': '#eda100', 'Aguardando último dia': '#1C7CEC', 'Finalizado': '#1baf7a', 'Cancelado': '#8A8F98', 'ID Duplicado': '#8A8F98' };
   const CORES_ENTREVISTA = { 'Não Realizada': '#8A8F98', 'Enviada': '#eda100', 'Realizada': '#1baf7a', 'Recusado': '#d03b3b', 'Inelegível': '#5b6472' };
+  // Lista fixa de motivos (aprovada pelo RH em 28/09/2026 a partir das ~90
+  // variações da planilha de controle — ver supabase-controle-motivos.sql,
+  // que converteu o histórico). "Outro" exige o detalhe.
+  const MOTIVOS = [
+    ['Pedido do colaborador', ['Outra oportunidade — remuneração e/ou benefícios', 'Outra oportunidade — modalidade de trabalho', 'Outra oportunidade — cargo e/ou crescimento',
+      'Questões pessoais', 'Qualidade de vida', 'Transição de carreira', 'Mudança de cidade', 'Estudos', 'Problemas de saúde']],
+    ['Relação e adaptação', ['Adaptação à cultura organizacional', 'Relacionamento com a equipe', 'Incompatibilidade com o cargo', 'Relacionamento com a gestão']],
+    ['Iniciativa da empresa', ['Baixo desempenho / performance', 'Comportamento inadequado', 'Término de contrato (experiência, temporário, aprendiz, extra)',
+      'Abandono de emprego', 'Redução ou adequação de quadro', 'Ato de improbidade (ex.: atestado falso)', 'Assiduidade (faltas e atrasos)', 'Encerramento de loja / operação']],
+    ['Outros', ['Prefere não informar', 'Outro']]
+  ];
+  const MOTIVOS_TODOS = MOTIVOS.flatMap(g => g[1]);
   const PAGE_SIZE = 25;
 
   const estado = { busca: '', feedz: 'todos', entrevista: 'todos', fila: 'todas', ordem: 'recentes', pagina: 1 };
@@ -360,9 +372,16 @@
         ${inp('cd-f-depto', 'Departamento / loja', d.departamento)}
         ${inp('cd-f-cargo', 'Cargo', d.cargo)}
       </div>
-      <div class="field full" style="margin-top:8px"><label>Motivo do desligamento</label><input id="cd-f-motivo" type="text" list="cd-l-motivo" value="${esc(d.motivo || '')}" placeholder="Escolha uma sugestão ou digite"></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px 16px;margin-top:8px">
+        <div class="field"><label>Motivo do desligamento</label><select id="cd-f-motivo" style="width:100%">
+          <option value="">— selecione —</option>
+          ${d.motivo && !MOTIVOS_TODOS.includes(d.motivo) ? `<option value="${esc(d.motivo)}" selected>${esc(d.motivo)} (antigo — escolha um da lista)</option>` : ''}
+          ${MOTIVOS.map(([g, itens]) => `<optgroup label="${esc(g)}">${itens.map(i => `<option ${i === d.motivo ? 'selected' : ''}>${esc(i)}</option>`).join('')}</optgroup>`).join('')}
+        </select></div>
+        <div class="field"><label>Detalhe do motivo <span id="cd-f-det-obrig" style="color:#d03b3b;${d.motivo === 'Outro' ? '' : 'display:none'}">(obrigatório)</span></label><input id="cd-f-motivo-det" type="text" value="${esc(d.motivoDetalhe || '')}" placeholder="Opcional — descreva com mais detalhe"></div>
+      </div>
       ${sugestoes('cd-l-solic', todos.map(x => x.solicitante))}${sugestoes('cd-l-tipodesl', todos.map(x => x.tipoDesligamento))}
-      ${sugestoes('cd-l-unid', todos.map(x => x.unidade))}${sugestoes('cd-l-motivo', todos.map(x => x.motivo))}`;
+      ${sugestoes('cd-l-unid', todos.map(x => x.unidade))}`;
   }
   function camposAcompanhamento(d, r) {
     return `
@@ -382,7 +401,7 @@
     return {
       idDesligamento: v('cd-f-id'), dataSolicitacao: v('cd-f-data'), solicitante: v('cd-f-solic'), dataDemissao: v('cd-f-dem'),
       tipo: v('cd-f-tipo'), tipoDesligamento: v('cd-f-tipodesl'), unidade: v('cd-f-unid'), departamento: v('cd-f-depto'),
-      cargo: v('cd-f-cargo'), motivo: v('cd-f-motivo'), statusFeedz: v('cd-f-feedz'), statusEntrevista: v('cd-f-entrevista'),
+      cargo: v('cd-f-cargo'), motivo: v('cd-f-motivo'), motivoDetalhe: v('cd-f-motivo-det'), statusFeedz: v('cd-f-feedz'), statusEntrevista: v('cd-f-entrevista'),
       dataRealizacao: v('cd-f-realiz'), contato: v('cd-f-contato'), observacoes: v('cd-f-obs'), extraNatal: !!(m.querySelector('#cd-f-natal') || {}).checked
     };
   }
@@ -449,6 +468,9 @@
       } catch (err) { btnBuscar.textContent = 'Não consegui buscar'; btnBuscar.title = err.message; }
     });
 
+    const selMotivo = m.querySelector('#cd-f-motivo');
+    selMotivo.addEventListener('change', () => { m.querySelector('#cd-f-det-obrig').style.display = selMotivo.value === 'Outro' ? '' : 'none'; });
+
     const btnGerar = m.querySelector('#cd-gerar');
     if (btnGerar) btnGerar.addEventListener('click', () => {
       m.remove();
@@ -464,6 +486,7 @@
       const v = lerCampos(m);
       if (!v.idDesligamento) return msg('Informe o ID do desligamento.');
       if (novo && !escolhido) return msg('Escolha o colaborador no Headcount.');
+      if (v.motivo === 'Outro' && !v.motivoDetalhe) return msg('Com o motivo "Outro", descreva o motivo no campo "Detalhe do motivo".');
       const repetido = lancamentos().some(x => String(x.idDesligamento) === v.idDesligamento && (novo || x.id !== d.id));
       if (repetido && !confirm(`O ID ${v.idDesligamento} já está lançado. Lançar mesmo assim? (use o status "ID Duplicado" se for pedido repetido do gestor)`)) return;
       const btn = m.querySelector('#cd-salvar');
