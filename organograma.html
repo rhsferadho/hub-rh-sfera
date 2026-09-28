@@ -281,7 +281,10 @@ function hubOrg(){
 }
 const ORG = hubOrg();
 const GALHO = !!ORG && ORG.modo === "galho";
-const ROWS = ((ORG && ORG.rows) || []).filter(r => (r.nome || r.nome_completo));
+// Só Ativo e Desativado entram no organograma; Desligado (ex-colaborador) nunca —
+// mesma regra do Headcount (dedupeHeadcount em js/metrics-indicadores.js).
+const situacaoOk = r => { const s = String(r.situacao || "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase(); return s === "ativo" || s === "desativado"; };
+const ROWS = ((ORG && ORG.rows) || []).filter(r => (r.nome || r.nome_completo) && situacaoOk(r));
 const ORG_OK = ROWS.length > 0;
 if(!ORG_OK){
   document.getElementById("wrap").hidden = true;
@@ -383,16 +386,24 @@ let showOff = true;
 const vis = k => showOff || !N[k].s;
 const ORPH = [];
 // Sem o CEO na base visível (acesso restrito a algumas unidades/departamentos), a raiz vira um cartão sintético.
+const semGestor = ids => { const i = N.length; N.push({i,n:"Gestor não identificado",c:"Gestor direto em branco, desligado ou fora da base do Feedz",d:"Revisar o cadastro no Feedz",u:"Pendência",b:"C",k:ids,s:0,v:1}); return i; };
+// No modo galho, quem é da equipe mas ficou sem gestor (ex.: o gestor registrado
+// é Desligado) vai para "Gestor não identificado" logo abaixo da pessoa logada,
+// em vez de subir para o topo e quebrar a linha de liderança.
+let loose = DATA.loose.slice();
+const ME0 = N.findIndex(nd=>nd.me);
+if(GALHO && ME0 >= 0){
+  const orfaos = loose.filter(i=>!N[i].a && !N[i].me);
+  if(orfaos.length){ loose = loose.filter(i=>!orfaos.includes(i)); N[ME0].k.push(semGestor(orfaos)); }
+}
 let ROOT = DATA.ceo;
-if(ROOT < 0 && DATA.loose.length === 1 && !DATA.ghostKids.length){
-  ROOT = DATA.loose[0];
+if(ROOT < 0 && loose.length === 1 && !DATA.ghostKids.length){
+  ROOT = loose[0];
 } else if(ROOT < 0){
   ROOT = N.length;
-  N.push({i:ROOT,n:"Sfera Multifranquias",c:"Estrutura visível no seu acesso",d:"Pessoas cujo gestor está fora do seu acesso",u:"ficam no primeiro nível",b:"C",k:DATA.loose.slice(),s:0,x:1});
-} else if(DATA.loose.length){
-  const NOGEST = N.length;
-  N.push({i:NOGEST,n:"Gestor não identificado",c:"Gestor direto em branco ou fora da base do Feedz",d:"Revisar o cadastro no Feedz",u:"Pendência",b:"C",k:DATA.loose.slice(),s:0,v:1});
-  N[ROOT].k.push(NOGEST);
+  N.push({i:ROOT,n:"Sfera Multifranquias",c:"Estrutura visível no seu acesso",d:"Pessoas cujo gestor está fora do seu acesso",u:"ficam no primeiro nível",b:"C",k:loose,s:0,x:1});
+} else if(loose.length){
+  N[ROOT].k.push(semGestor(loose));
 }
 // Operador de Franquias: usuário fantasma que responde pelo Marketing, posicionado abaixo de Leonardo Sobral
 const LEO = N.findIndex(nd=>nd.n===LEO_NAME);
