@@ -554,7 +554,7 @@
         <div class="msg err" id="ev-msg"></div>` : ''}
       </div>
       <div class="card full" style="margin-top:16px">
-        <h3>&#128203;&nbsp;Histórico desta vaga</h3>
+        <h3><span class="card-ic">${HUB_ICON('clipboard')}</span>Histórico desta vaga</h3>
         <div id="ev-historico">${editHistorico === null ? '<p class="sub" style="color:var(--muted)">Carregando...</p>' : renderHistoricoList(editHistorico)}</div>
       </div>`;
     wireEditEvents(el, vaga, readOnly);
