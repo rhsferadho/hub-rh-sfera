@@ -47,6 +47,7 @@
   let recruitReloadOriginal = null;
   let experienciaCarregarOriginal = null;
   let climaCarregarOriginal = null;
+  let engajamentoCarregarOriginal = null;
   let logId = null;               // id do registro em viewas_log desta sessão de visualização
 
   // Tabelas de Indicadores restringíveis por unidade/departamento, no mesmo
@@ -59,7 +60,7 @@
     entrevista_pesquisa: ['unidade', 'departamento'], entrevista_solicitacao: ['unidade', 'departamento'],
     experiencia_candidato: ['unidade', 'departamento'], twygo_participantes: ['unidade', 'departamento'],
     twygo_usuarios: ['unidade', 'departamento'], pesquisa_clima: ['unidade', 'departamento'],
-    pesquisa_clima_hc: ['unidade', 'departamento']
+    pesquisa_clima_hc: ['unidade', 'departamento'], engajamento_participacao: ['unidade', 'departamento']
   };
   // Tabelas do Recrutamento (HUB_RECRUIT_DATA) — entrevistas não tem coluna
   // "departamento" (can_see(unidade, null) na policy real); visitas_loja usa
@@ -179,11 +180,24 @@
         return r;
       };
     }
+    // Pesquisa de Engajamento: mesma ideia (só a participação por unidade/departamento
+    // é restringível; os totais por pulso ficam como vêm do banco).
+    if (window.HUB_ENGAJAMENTO && !engajamentoCarregarOriginal) {
+      engajamentoCarregarOriginal = HUB_ENGAJAMENTO.carregar;
+      HUB_ENGAJAMENTO.carregar = async function (...args) {
+        const r = await engajamentoCarregarOriginal.apply(HUB_ENGAJAMENTO, args);
+        if (active && window.HUB_DATA && Array.isArray(HUB_DATA.engajamento_participacao)) {
+          HUB_DATA.engajamento_participacao = scopeArray(HUB_DATA.engajamento_participacao, 'unidade', 'departamento');
+        }
+        return r;
+      };
+    }
   }
   function unwrapReloaders() {
     if (recruitReloadOriginal) { HUB_RECRUIT.reload = recruitReloadOriginal; recruitReloadOriginal = null; }
     if (experienciaCarregarOriginal) { HUB_EXPERIENCIA.carregar = experienciaCarregarOriginal; experienciaCarregarOriginal = null; }
     if (climaCarregarOriginal) { HUB_PESQUISA_CLIMA.carregar = climaCarregarOriginal; climaCarregarOriginal = null; }
+    if (engajamentoCarregarOriginal) { HUB_ENGAJAMENTO.carregar = engajamentoCarregarOriginal; engajamentoCarregarOriginal = null; }
   }
 
   // Organograma / Headcount sem "...completo": pede ao banco a equipe de

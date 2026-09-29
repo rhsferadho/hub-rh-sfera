@@ -14,8 +14,47 @@
     { key: 'twygo_usu', table: 'twygo_usuarios', label: '27.1. Twygo usuários', file: 'Twygo usuários.xlsx', icon: '&#128100;', parse: wb => P.parseTwygoUsuarios(wb) },
     { key: 'twygo_cont', table: 'twygo_conteudos', label: '27.1. Twygo conteúdos', file: 'Twygo conteúdos.xlsx', icon: '&#127891;', parse: wb => P.parseTwygoConteudos(wb) },
     { key: 'ave45', table: 'avaliacao_experiencia_45', label: '28. Avaliação da Experiência — 45 dias', file: 'AVE 45 DIAS.xlsx', icon: '&#128221;', parse: wb => P.parseAveExperiencia(wb, 45) },
-    { key: 'ave90', table: 'avaliacao_experiencia_90', label: '28.1. Avaliação da Experiência — 90 dias', file: 'AVE 90 DIAS.xlsx', icon: '&#128221;', parse: wb => P.parseAveExperiencia(wb, 90) }
+    { key: 'ave90', table: 'avaliacao_experiencia_90', label: '28.1. Avaliação da Experiência — 90 dias', file: 'AVE 90 DIAS.xlsx', icon: '&#128221;', parse: wb => P.parseAveExperiencia(wb, 90) },
+    // Pesquisa de Engajamento (só participação). Não substituem a tabela inteira:
+    // gravam por pulso, numa transação no banco (ver supabase-engajamento.sql).
+    { key: 'eng_hist', table: 'engajamento_historico', label: '33. Pesquisa de Engajamento — histórico', file: '33. Pesquisa de Engajamento 2026.xlsx (uma vez)', icon: '&#128200;', custom: importarEngajamentoHistorico },
+    { key: 'eng_pulso', table: 'engajamento_pulso', label: '33.1. Pesquisa de Engajamento — pulso atual', file: 'export "Participação" do Feedz (reenvie a cada atualização)', icon: '&#128200;', custom: importarEngajamentoPulso }
   ];
+
+  const dm = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7);
+  // O upload dispara "Atualizar dados", que redesenha esta tela e apagaria o
+  // resumo/avisos da importação — guarda o último por planilha e reaplica no render.
+  const resumos = {};
+  function mostrarResumo(key, html) {
+    const el = document.getElementById('st-' + key);
+    if (!el) return;
+    el.className = 'status ok-t';
+    el.innerHTML = html;
+    const card = document.getElementById('uc-' + key);
+    if (card) card.classList.add('ok');
+  }
+
+  async function importarEngajamentoPulso(wb, setStatus) {
+    const r = HUB_PARSERS_ENGAJAMENTO.parseFeedzPulso(wb);
+    if (!r.pulso.convidados) throw new Error('O arquivo não trouxe nenhum convidado.');
+    setStatus(`Gravando pulso (${r.linhas.length} departamentos)...`);
+    const res = await HUB_ENGAJAMENTO.salvarPulso(r.pulso, r.linhas);
+    const nome = res && res.numero ? `${res.numero}º pulso` : 'Pulso';
+    const p = r.pulso;
+    return {
+      linhas: r.linhas.length, avisos: r.avisos,
+      resumo: `${nome} · ${dm(p.inicio)} a ${dm(p.fim)}${p.parcial ? ' (parcial)' : ''}: ${U.fmtInt(p.respondentes)} de ${U.fmtInt(p.convidados)} responderam (${U.fmtPct(p.respondentes / p.convidados, 1)}) em ${r.resumo.departamentos} departamentos.`
+    };
+  }
+
+  async function importarEngajamentoHistorico(wb, setStatus) {
+    const r = HUB_PARSERS_ENGAJAMENTO.parseHistorico(wb);
+    setStatus(`Gravando histórico (${r.pulsos.length} pulsos, ${r.linhas.length} linhas)...`);
+    const res = await HUB_ENGAJAMENTO.salvarHistorico(r.pulsos, r.linhas);
+    const avisos = r.avisos.slice();
+    if (res && res.pulsos < r.pulsos.length) avisos.push(`${r.pulsos.length - res.pulsos} pulso(s) da planilha já têm o dado exato do Feedz e foram mantidos como estão.`);
+    return { linhas: r.linhas.length, avisos, resumo: `${res ? res.pulsos : r.pulsos.length} pulsos do histórico importados (${U.fmtInt(r.linhas.length)} linhas por unidade/departamento).` };
+  }
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const fmtDT = iso => {
@@ -98,9 +137,10 @@
         <div class="progress" id="pg-${u.key}" style="display:none"><div></div></div>
         <div class="status" id="st-${u.key}"></div>
       </div>`).join('')}</div>
-      <p class="sub" style="color:var(--muted);font-size:11.5px">Cada upload substitui completamente os dados daquela planilha — pode reenviar quantas vezes precisar, sempre com o mesmo modelo de colunas. Os indicadores de Recrutamento não aparecem aqui: eles são lidos automaticamente das telas do módulo Recrutamento.</p>`;
+      <p class="sub" style="color:var(--muted);font-size:11.5px">Cada upload substitui completamente os dados daquela planilha — pode reenviar quantas vezes precisar, sempre com o mesmo modelo de colunas. Exceção: na Pesquisa de Engajamento, o histórico (33) substitui só os pulsos do histórico, e o export do Feedz (33.1) substitui apenas o pulso do período dele — reenviar durante o pulso atualiza aquele pulso; um novo período vira um novo pulso. Os indicadores de Recrutamento não aparecem aqui: eles são lidos automaticamente das telas do módulo Recrutamento.</p>`;
     el.querySelectorAll('input[type=file]').forEach(inp => inp.addEventListener('change', e => handleUpload(e.target.dataset.key, e.target.files[0])));
     el.querySelector('#btn-upload-history').addEventListener('click', openHistory);
+    Object.keys(resumos).forEach(k => mostrarResumo(k, resumos[k]));
     loadLastUpdates();
   }
 
@@ -119,10 +159,20 @@
     bar.style.width = '5%';
     try {
       const wb = await P.readWorkbook(file);
-      const rows = cfg.parse(wb);
-      statusEl.textContent = `Gravando (${rows.length} linhas)...`;
-      await HUB_DAL.replaceTable(cfg.table, rows, (done, total) => { bar.style.width = (5 + (done / Math.max(total, 1)) * 90) + '%'; });
-      statusEl.textContent = `${rows.length} linhas importadas.`;
+      let totalLinhas;
+      if (cfg.custom) {
+        bar.style.width = '40%';
+        const r = await cfg.custom(wb, msg => { statusEl.textContent = msg; });
+        totalLinhas = r.linhas;
+        resumos[key] = esc(r.resumo) + (r.avisos || []).map(a => `<br><span style="color:var(--warning)">&#9888; ${esc(a)}</span>`).join('');
+        statusEl.innerHTML = resumos[key];
+      } else {
+        const rows = cfg.parse(wb);
+        totalLinhas = rows.length;
+        statusEl.textContent = `Gravando (${rows.length} linhas)...`;
+        await HUB_DAL.replaceTable(cfg.table, rows, (done, total) => { bar.style.width = (5 + (done / Math.max(total, 1)) * 90) + '%'; });
+        statusEl.textContent = `${rows.length} linhas importadas.`;
+      }
       bar.style.width = '100%';
       statusEl.classList.add('ok-t');
       card.classList.add('ok');
@@ -131,7 +181,7 @@
       // as linhas novas (que só ganham "id" no banco).
       const cicloAve = window.HUB_EXPERIENCIA && HUB_EXPERIENCIA.cicloDaTabela(cfg.table);
       if (cicloAve) HUB_EXPERIENCIA.invalidar(cicloAve);
-      await HUB_DAL.logUpload({ tabela: cfg.table, arquivo: file.name, linhas: rows.length, status: 'ok' });
+      await HUB_DAL.logUpload({ tabela: cfg.table, arquivo: file.name, linhas: totalLinhas, status: 'ok' });
       await HUB_RELOAD_DATA(false);
       loadLastUpdates();
     } catch (err) {

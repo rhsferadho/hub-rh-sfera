@@ -23,7 +23,8 @@
         { key: 'indicadores.oneonone', label: '1:1' },
         { key: 'indicadores.treinamentos', label: 'Treinamentos' },
         { key: 'indicadores.celebracoes', label: 'Celebrações' },
-        { key: 'indicadores.pesquisa_clima', label: 'Pesquisa de Clima — resultados e comentários (Dados Sigilosos)' }
+        { key: 'indicadores.pesquisa_clima', label: 'Pesquisa de Clima — resultados e comentários (Dados Sigilosos)' },
+        { key: 'indicadores.engajamento', label: 'Pesquisa de Engajamento — índice de participação por unidade e departamento' }
       ]
     },
     {
@@ -70,7 +71,7 @@
     // usuário pelo administrador. Entrevistas de Desligamento e Pesquisa de
     // Clima também saem do preset RH (ajuste de 30/09/2026 — antes entravam).
     rh: ALL_KEYS.filter(k => k !== 'admin.usuarios' && k !== 'indicadores.controle_desligamento'
-      && k !== 'indicadores.desligamento' && k !== 'indicadores.pesquisa_clima'),
+      && k !== 'indicadores.desligamento' && k !== 'indicadores.pesquisa_clima' && k !== 'indicadores.engajamento'),
     // "Gerar link" da Entrevista de Desligamento e o Controle de Desligamento
     // ficam de fora do preset Gestor de propósito — envolvem dado sensível
     // (CPF/e-mail/celular de ex-colaborador) e devem ser ligados
@@ -83,8 +84,10 @@
     // 30/09/2026 — antes ficavam de fora por serem dado sensível; decisão do
     // RH foi padronizar como incluído, ligando individualmente só quem NÃO
     // deve ver, em vez do contrário).
+    // Pesquisa de Engajamento (índice de participação) fica só com o Administrador:
+    // fora dos presets RH e Gestor, só é ligada manualmente no Cadastro de Acessos.
     gestor: CATALOG.find(g => g.group === 'indicadores').items.map(i => i.key)
-      .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.controle_desligamento' && k !== 'indicadores.oneonone' && k !== 'indicadores.organograma_completo' && k !== 'indicadores.headcount_completo')
+      .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.controle_desligamento' && k !== 'indicadores.oneonone' && k !== 'indicadores.organograma_completo' && k !== 'indicadores.headcount_completo' && k !== 'indicadores.engajamento')
       .concat(['recrutamento.parecer_gestor'])
   };
 
