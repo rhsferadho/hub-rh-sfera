@@ -314,7 +314,7 @@
   function renderDesligamentoIndicadores(el, f) {
     // "entrevistas_desligamento" mora em HUB_RECRUIT_DATA (não HUB_DATA) —
     // um source combinado só pra este noDataGate, sem tocar HUB_DATA.
-    const linksGerados = (window.HUB_RECRUIT_DATA && window.HUB_RECRUIT_DATA.entrevistas_desligamento) || [];
+    const linksGerados = window.HUB_METRICS_LINKS ? HUB_METRICS_LINKS() : ((window.HUB_RECRUIT_DATA && window.HUB_RECRUIT_DATA.entrevistas_desligamento) || []);
     const gateSource = Object.assign({}, HUB_DATA, { entrevistas_desligamento: linksGerados });
     if (noDataGate(el, ['entrevista_pesquisa', 'entrevista_solicitacao', 'entrevistas_desligamento'], canUpload(),
       'Importe o histórico em Administração ou gere links de entrevista na aba "Lista de Colaboradores".', gateSource)) return;

@@ -621,6 +621,14 @@
   }
 
   const STATUS_MANTIDOS_SE_PENDENTE = new Set(['recusado', 'inelegivel', 'realizada']);
+  // Links de entrevista para os Indicadores: o resumo sem dado pessoal
+  // (entrevistas_desligamento_indicadores) quando disponível; senão a tabela
+  // completa (só existe para quem tem a permissão do Controle).
+  function linksParaIndicadores() {
+    const RD = window.HUB_RECRUIT_DATA || {};
+    return Array.isArray(RD.entrevistas_desligamento_ind) ? RD.entrevistas_desligamento_ind : (RD.entrevistas_desligamento || []);
+  }
+
   function juntarSolicitacoes(planilha, links) {
     const chaveNome = s => norm(s).replace(/[^a-z]/g, '');
     const dia = s => (s ? new Date(String(s).slice(0, 10) + 'T12:00:00Z').getTime() : null);
@@ -636,6 +644,11 @@
     const porId = new Map();
     for (const c of linhas) if (c.planilha_id) porId.set(String(c.planilha_id), c);
     for (const l of links) {
+      // Resumo do banco: o link já vem dizendo se pertence a um desligamento
+      // do Controle — e o status desse desligamento já é sincronizado pelo
+      // gatilho do banco. Só os links sem desligamento lançado contam à parte.
+      if (l.temDesligamento === true) continue;
+      if (l.temDesligamento === false) { novos.push(converterSolicitacaoLink(l)); continue; }
       const peloId = l.idDesligamento && porId.get(String(l.idDesligamento));
       const cands = peloId && !usadas.has(peloId) ? [peloId] : (porNome.get(chaveNome(l.colaboradorNome)) || []).filter(c => !usadas.has(c));
       if (!cands.length) { novos.push(converterSolicitacaoLink(l)); continue; }
@@ -737,7 +750,7 @@
     // respostas de quem preenche a entrevista pela tela Indicadores →
     // Entrevista Desligamento → Lista de Colaboradores). Ver
     // converterRespostaLink/converterSolicitacaoLink acima.
-    const linksGerados = (window.HUB_RECRUIT_DATA && window.HUB_RECRUIT_DATA.entrevistas_desligamento) || [];
+    const linksGerados = linksParaIndicadores();
     const pesquisaLink = linksGerados.filter(r => r.status === 'Preenchido').map(converterRespostaLink).filter(Boolean);
 
     let pesquisa = (HUB_DATA.entrevista_pesquisa || []).concat(pesquisaLink);
@@ -1014,6 +1027,7 @@
     return { colab, rot, entr, cel, fb, oo, tr };
   }
 
+  window.HUB_METRICS_LINKS = linksParaIndicadores;
   window.HUB_METRICS = {
     filterRows, countBy, sumBy, avgBy, seriePorMes, countAnswers, temGrupo,
     colaboradoresMetrics, rotatividadeMetrics, entrevistaMetrics,

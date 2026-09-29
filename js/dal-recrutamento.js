@@ -95,24 +95,27 @@
         errors.push(`${t}: ${err.message}`);
       }
     }
-    // Resumo do Controle de Desligamento para os Indicadores (sem dado
-    // pessoal; ver supabase-controle-desligamento.sql). Paginado: o PostgREST
-    // corta respostas em 1000 linhas sem avisar, inclusive em funções.
-    try {
-      let all = [], from = 0;
-      for (;;) {
-        const { data, error } = await withTimeout(sb.rpc('controle_desligamento_indicadores').range(from, from + PAGE - 1), QUERY_TIMEOUT_MS, 'tempo esgotado buscando o resumo do Controle de Desligamento');
-        if (error) throw error;
-        all = all.concat(data || []);
-        if (!data || data.length < PAGE) break;
-        from += PAGE;
+    // Resumos da Entrevista de Desligamento para os Indicadores — sem dado
+    // pessoal (supabase-links-privacidade.sql): desligamentos do Controle e
+    // links de entrevista. Paginado: o PostgREST corta respostas em 1000
+    // linhas sem avisar, inclusive em funções. null = resumo indisponível
+    // (função não criada / erro) → os Indicadores usam a fonte antiga;
+    // [] = a pessoa não tem linhas no seu recorte.
+    for (const [fn, destino] of [['controle_desligamento_indicadores', 'controle_desligamento_ind'], ['entrevistas_desligamento_indicadores', 'entrevistas_desligamento_ind']]) {
+      try {
+        let all = [], from = 0;
+        for (;;) {
+          const { data, error } = await withTimeout(sb.rpc(fn).range(from, from + PAGE - 1), QUERY_TIMEOUT_MS, 'tempo esgotado buscando o resumo ' + fn);
+          if (error) throw error;
+          all = all.concat(data || []);
+          if (!data || data.length < PAGE) break;
+          from += PAGE;
+        }
+        window.HUB_RECRUIT_DATA[destino] = all.map(toCamelRow);
+      } catch (err) {
+        window.HUB_RECRUIT_DATA[destino] = null;
+        if (!/does not exist|schema cache|could not find/i.test(err.message || '')) errors.push(fn + ': ' + err.message);
       }
-      window.HUB_RECRUIT_DATA.controle_desligamento_ind = all.map(toCamelRow);
-    } catch (err) {
-      // null = resumo indisponível (função não criada / erro): os Indicadores
-      // usam a cópia antiga da planilha. [] = a pessoa não tem linhas.
-      window.HUB_RECRUIT_DATA.controle_desligamento_ind = null;
-      if (!/does not exist|schema cache|could not find/i.test(err.message || '')) errors.push('controle_desligamento_indicadores: ' + err.message);
     }
     if (errors.length) throw new Error('Não consegui atualizar os dados do Recrutamento — ' + errors.join('; '));
     return window.HUB_RECRUIT_DATA;
