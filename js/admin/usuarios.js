@@ -47,9 +47,16 @@
       return;
     }
     el.innerHTML = `<div class="grid2">
-      <div class="card full"><h3><span class="card-ic">${HUB_ICON('users')}</span>Contas cadastradas</h3><div id="acc-list">Carregando...</div></div>
+      <div class="card full">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <h3><span class="card-ic">${HUB_ICON('users')}</span>Contas cadastradas</h3>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-viewas-history">Histórico de "Visualizar como"</button>
+        </div>
+        <div id="acc-list">Carregando...</div>
+      </div>
       <div class="card full" id="acc-form-card"></div>
     </div>`;
+    document.getElementById('btn-viewas-history').addEventListener('click', openViewAsHistory);
     try {
       renderAccessForm(document.getElementById('acc-form-card'));
     } catch (err) {
@@ -58,6 +65,37 @@
     HUB_DAL.listProfiles()
       .then(profiles => renderAccessList(document.getElementById('acc-list'), profiles))
       .catch(err => { document.getElementById('acc-list').innerHTML = `<div class="empty"><p>Erro ao carregar contas: ${U.escapeHtml(err.message)}</p></div>`; });
+  }
+
+  // Auditoria do "Visualizar como" (viewas_log — ver supabase-viewas-log.sql).
+  function openViewAsHistory() {
+    const esc = U.escapeHtml;
+    const fmtDT = iso => iso ? new Date(iso).toLocaleDateString('pt-BR') + ' às ' + new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px';
+    overlay.innerHTML = `<div style="background:var(--card);border-radius:var(--radius);max-width:820px;width:100%;max-height:85vh;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
+        <h3 style="font-size:15px">Histórico de "Visualizar como"</h3>
+        <button type="button" id="vh-close" aria-label="Fechar">&times;</button>
+      </div>
+      <div id="vh-body" style="overflow:auto;padding:14px 18px;font-size:12px">Carregando...</div>
+    </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    overlay.querySelector('#vh-close').addEventListener('click', close);
+    const body = overlay.querySelector('#vh-body');
+    HUB_DAL.listViewAsLog(300).then(log => {
+      if (!log.length) { body.textContent = 'Nenhuma visualização registrada ainda.'; return; }
+      body.innerHTML = `<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--muted)"><th>Início</th><th>Duração</th><th>Quem visualizou</th><th>Visualizou como</th><th>Perfil</th></tr></thead><tbody>${log.map(l => {
+        const emAndamento = !l.encerrado_em;
+        const dur = emAndamento ? '<span style="color:var(--warning)">em andamento</span>'
+          : U.fmtInt(Math.round((new Date(l.encerrado_em) - new Date(l.iniciado_em)) / 60000)) + ' min';
+        return `<tr style="border-top:1px solid var(--border)"><td>${fmtDT(l.iniciado_em)}</td><td>${dur}</td><td>${esc(l.usuario_nome || '—')}</td><td>${esc(l.alvo_nome || l.alvo_email || '—')}</td><td>${esc(PERM.PERFIL_LABELS[l.alvo_perfil] || l.alvo_perfil || '—')}</td></tr>`;
+      }).join('')}</tbody></table>`;
+    }).catch(err => {
+      body.textContent = 'Não foi possível carregar o histórico: ' + err.message + (/viewas_log|relation|schema cache/i.test(err.message) ? ' — rode supabase-viewas-log.sql no Supabase.' : '');
+    });
   }
 
   // Lista longa vira os 2 primeiros itens + "+N" (tooltip com a lista completa);
@@ -136,6 +174,7 @@
         <td class="acc-scope">${scopeCell(p.departamentos, 'Todos')}</td>
         <td class="acc-actions">
           ${st === 'desligado' ? '<button class="btn btn-outline btn-sm" disabled title="Usuário desligado: só é possível visualizar. Reative para editar.">Editar</button>' : `<button class="btn btn-outline btn-sm" data-edit="${p.id}">Editar</button>`}
+          ${st === 'ativo' && !isSelf ? `<button class="btn btn-outline btn-sm btn-icon" data-viewas="${p.id}" aria-label="Visualizar como esta conta" title="Visualizar como — ver o Hub como esta conta veria (menu, telas e, melhor esforço, dados recortados por unidade/departamento). Somente leitura.">&#128065;</button>` : ''}
           ${st === 'ativo' ? `<button class="btn btn-warn btn-sm" data-status="${p.id}" data-to="inativo"${selfAttr}>Inativar</button>` : `<button class="btn btn-warn btn-sm" data-status="${p.id}" data-to="ativo"${selfAttr}>Reativar</button>`}
           ${st !== 'desligado' ? `<button class="btn btn-danger btn-sm" data-status="${p.id}" data-to="desligado"${selfAttr}>Desligar</button>` : ''}
         </td>
@@ -177,6 +216,10 @@
       editingProfile = p;
       renderAccessForm(document.getElementById('acc-form-card'));
       document.getElementById('acc-form-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }));
+    el.querySelectorAll('[data-viewas]').forEach(b => b.addEventListener('click', () => {
+      const p = profiles.find(x => x.id === b.dataset.viewas);
+      window.HUB_VIEW_AS && window.HUB_VIEW_AS.enter(p);
     }));
     el.querySelectorAll('[data-status]').forEach(b => b.addEventListener('click', async () => {
       const p = profiles.find(x => x.id === b.dataset.status);

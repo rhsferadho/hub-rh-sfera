@@ -18,7 +18,20 @@
 alter table public.profiles add column if not exists colaborador_external_id text;
 comment on column public.profiles.colaborador_external_id is 'ID da Feedz (colaboradores.external_id) da pessoa deste login. Vazio = vínculo pelo e-mail. Usado pelo organograma por galho.';
 
-create or replace function public.organograma_meu_galho()
+-- p_target_profile_id: usado só pelo modo "Visualizar como" (Administração →
+-- Cadastro de Acessos) — deixa alguém pedir o galho de OUTRA conta, em vez do
+-- próprio, para conferir de verdade o que aquele perfil veria no
+-- Organograma/Headcount. Vazio (padrão) = comportamento de sempre, o próprio
+-- galho de quem está logado. Passar o id de outra pessoa exige admin.usuarios
+-- (quem administra contas) E, além disso, indicadores.organograma OU
+-- indicadores.headcount na PRÓPRIA conta (quem já tem alguma dessas telas
+-- liberadas) — admin.usuarios sozinho não basta, pra não dar a quem só
+-- administra logins acesso a dado sensível de equipe (cota/afastamento) que
+-- a conta dele nunca teve permissão de ver. Sem as duas, cai no próprio
+-- galho mesmo assim, não dá erro (evita expor "essa função existe" a quem
+-- não devia usá-la).
+drop function if exists public.organograma_meu_galho();
+create or replace function public.organograma_meu_galho(p_target_profile_id uuid default null)
 returns table (
   external_id text, nome text, nome_completo text, cargo text,
   departamento text, unidade text, gestor_direto text, situacao text,
@@ -30,17 +43,24 @@ declare
   v_ext text;
   v_email text;
   v_me bigint;
+  v_profile_id uuid := auth.uid();
 begin
+  if p_target_profile_id is not null and p_target_profile_id <> auth.uid()
+     and public.has_permission('admin.usuarios')
+     and (public.has_permission('indicadores.organograma') or public.has_permission('indicadores.headcount')) then
+    v_profile_id := p_target_profile_id;
+  end if;
+
   -- Qualquer usuário do Hub (com profile) pode pedir o PRÓPRIO galho: além do
   -- Organograma, ele define o recorte do Headcount e dos números de headcount
   -- do Dashboard (que todo usuário vê) para quem não tem a visão completa.
-  if not exists (select 1 from public.profiles p where p.id = auth.uid()) then
+  if not exists (select 1 from public.profiles p where p.id = v_profile_id) then
     raise exception 'Usuário sem cadastro no Hub.';
   end if;
 
   select nullif(trim(p.colaborador_external_id), ''), lower(trim(p.email))
     into v_ext, v_email
-  from public.profiles p where p.id = auth.uid();
+  from public.profiles p where p.id = v_profile_id;
 
   if v_ext is not null then
     select c.id into v_me from public.colaboradores c
@@ -108,8 +128,8 @@ begin
 end;
 $$;
 
-revoke all on function public.organograma_meu_galho() from public, anon;
-grant execute on function public.organograma_meu_galho() to authenticated;
+revoke all on function public.organograma_meu_galho(uuid) from public, anon;
+grant execute on function public.organograma_meu_galho(uuid) to authenticated;
 
 -- Quem já é RH continua vendo a empresa inteira no Headcount e no Organograma
 -- (as duas permissões "completo" são novas e não existiam nos cadastros

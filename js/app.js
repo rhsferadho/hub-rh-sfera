@@ -132,6 +132,9 @@
   // Exposto pra navegação entre módulos a partir de uma seção (ex.: botão
   // "Abrir no Treinamento e Desenvolvimento" em Recrutamento → Candidatos).
   window.HUB_GOTO_SECTION = goToSection;
+  // Exposto para js/view-as.js re-montar o menu quando troca HUB_USER pelo
+  // perfil simulado (e de volta, ao sair do modo de visualização).
+  window.HUB_APPLY_NAV_PERMS = () => applyPermissionsToNav();
 
   function populateDatalist(inputId, values) {
     const dl = document.getElementById('dl-' + inputId.replace(/^f-/, ''));

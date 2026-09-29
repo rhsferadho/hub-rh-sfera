@@ -167,5 +167,36 @@
     if (error) throw error;
   }
 
-  window.HUB_DAL = { TABLES, loadAll, replaceTable, logUpload, listUploadLog, listProfiles, upsertProfile, deleteProfile, setProfileStatus };
+  // Log de auditoria do "Visualizar como" (tabela viewas_log — ver
+  // supabase-viewas-log.sql). Falhas aqui nunca devem impedir o uso do modo
+  // de visualização em si — quem chama trata o erro como aviso, não bloqueio.
+  async function logViewAsStart(alvo, ator) {
+    // "ator" (quem está usando "Visualizar como") é passado explícito, não lido
+    // de window.HUB_USER — na hora dessa chamada ele já pode ter sido trocado
+    // pelo perfil simulado.
+    const u = ator || window.HUB_USER || {};
+    const { data, error } = await sb.from('viewas_log').insert({
+      usuario_id: u.id || null, usuario_nome: u.nome || u.email || null,
+      alvo_profile_id: alvo.id || null, alvo_nome: alvo.nome, alvo_email: alvo.email, alvo_perfil: alvo.perfil
+    }).select('id').single();
+    if (error) throw error;
+    return data.id;
+  }
+
+  async function logViewAsEnd(id) {
+    if (!id) return;
+    const { error } = await sb.from('viewas_log').update({ encerrado_em: new Date().toISOString() }).eq('id', id);
+    if (error) throw error;
+  }
+
+  async function listViewAsLog(limit) {
+    const { data, error } = await sb.from('viewas_log').select('*').order('iniciado_em', { ascending: false }).limit(limit || 300);
+    if (error) throw error;
+    return data || [];
+  }
+
+  window.HUB_DAL = {
+    TABLES, loadAll, replaceTable, logUpload, listUploadLog, listProfiles, upsertProfile, deleteProfile, setProfileStatus,
+    logViewAsStart, logViewAsEnd, listViewAsLog
+  };
 })();
