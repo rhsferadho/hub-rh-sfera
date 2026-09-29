@@ -10,8 +10,12 @@
   let editingProfile = null;
   const accFilter = { q: '', perfil: '', status: '', unidade: '' };
 
+  // Só colaboradores Ativo/Desativado — Desligado fica de fora, senão unidade/
+  // departamento de quem já saiu da empresa (às vezes com nome de área que nem
+  // existe mais na configuração atual) continua aparecendo pra sempre nas
+  // caixinhas de "Unidades/Departamentos liberados", mesmo sem ninguém lá.
   function orgOptions() {
-    const colab = HUB_DATA.colaboradores || [];
+    const colab = (HUB_DATA.colaboradores || []).filter(r => U.normalizeText(r.situacao) !== 'desligado');
     const unidades = U.uniqueSorted(colab.map(r => r.unidade));
     const porUnidade = new Map();
     for (const r of colab) {
@@ -277,17 +281,24 @@
           </div>
         </div>
 
-        <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Perfil (só um rótulo — aplica um preset de permissões abaixo)</label>
+        <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Perfil (só um rótulo — aplica um preset de permissões abaixo) <span class="perm-info" title="${U.escapeHtml('Administrador — acesso a tudo, inclusive Cadastro de Acessos e todas as unidades/departamentos. RH — mesmo acesso que o Administrador, exceto Cadastro de Acessos, Entrevistas de Desligamento, Controle de Desligamento e Pesquisa de Clima. Gestor — só as telas de Indicadores marcadas abaixo (mais Parecer do Gestor), e só vê os dados das unidades/departamentos liberados no final deste formulário; 1:1, a visão completa de Organograma/Headcount, Controle de Desligamento e Entrevistas de Desligamento ficam sempre fora do preset. Em todos os casos, o botão só marca as caixas de partida: depois de aplicar, ajuste qualquer uma à vontade — quem controla o acesso de verdade são as caixas marcadas, não o rótulo do perfil.')}">&#9432;</span></label>
         <div class="perm-preset-bar" id="acc-presets">
-          ${['admin', 'gestor', 'rh'].map(k => `<button type="button" data-perfil="${k}" class="${p.perfil === k ? 'btn-primary' : ''}" style="${p.perfil === k ? 'background:var(--p1);color:#fff;border-color:var(--p1)' : ''}">${PERM.PERFIL_LABELS[k]}</button>`).join('')}
+          ${['admin', 'gestor', 'rh'].map(k => `<button type="button" data-perfil="${k}" class="${p.perfil === k ? 'btn-primary' : ''}" style="${p.perfil === k ? 'background:var(--p1);color:#fff;border-color:var(--p1)' : ''}" title="Aplica ${PERM.PRESETS[k].length} de ${PERM.ALL_KEYS.length} permissões como ponto de partida">${PERM.PERFIL_LABELS[k]} <span style="opacity:.75;font-weight:400">· ${PERM.PRESETS[k].length}/${PERM.ALL_KEYS.length}</span></button>`).join('')}
         </div>
 
         <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Permissões — módulos e funcionalidades liberados</label>
+        <p class="sub" style="color:var(--muted);margin:2px 0 8px">Cada linha é uma tela ou recurso. As recuadas (↳) são um "modo ampliado" de quem está logo acima — passe o mouse no <span class="perm-info">&#9432;</span> para entender cada uma.</p>
         <div class="perm-groups" id="acc-perm-groups">
           ${PERM.CATALOG.map(g => `
             <div class="perm-group">
               <h4><span class="perm-ic">${HUB_ICON(g.icon)}</span>${g.groupLabel}</h4>
-              ${g.items.map(it => `<label class="chk" style="width:100%;margin-bottom:4px"><input type="checkbox" data-perm="${it.key}" ${p.permissoes && p.permissoes[it.key] ? 'checked' : ''}>${it.label}</label>`).join('')}
+              ${g.items.map(it => {
+                const m = it.label.match(/^(.*?)\s*\((.*)\)$/);
+                const curto = m ? m[1] : it.label;
+                const nota = m ? m[2] : '';
+                const sub = /_completo$/.test(it.key);
+                return `<label class="chk${sub ? ' chk-sub' : ''}" style="width:100%;margin-bottom:4px"><input type="checkbox" data-perm="${it.key}" ${p.permissoes && p.permissoes[it.key] ? 'checked' : ''}><span>${curto}</span>${nota ? ` <span class="perm-info" title="${U.escapeHtml(nota)}">&#9432;</span>` : ''}</label>`;
+              }).join('')}
             </div>`).join('')}
         </div>
 

@@ -67,17 +67,24 @@
     admin: ALL_KEYS,
     // Controle de Desligamento fica fora de todos os presets: tem contato
     // (celular) e dados pessoais de ex-colaboradores — só é ligado usuário a
-    // usuário pelo administrador.
-    rh: ALL_KEYS.filter(k => k !== 'admin.usuarios' && k !== 'indicadores.controle_desligamento'),
-    // "Gerar link" da Entrevista de Desligamento e a Avaliação da Experiência
+    // usuário pelo administrador. Entrevistas de Desligamento e Pesquisa de
+    // Clima também saem do preset RH (ajuste de 30/09/2026 — antes entravam).
+    rh: ALL_KEYS.filter(k => k !== 'admin.usuarios' && k !== 'indicadores.controle_desligamento'
+      && k !== 'indicadores.desligamento' && k !== 'indicadores.pesquisa_clima'),
+    // "Gerar link" da Entrevista de Desligamento e o Controle de Desligamento
     // ficam de fora do preset Gestor de propósito — envolvem dado sensível
-    // (CPF/e-mail de ex-colaborador; nota individual e decisão de aprovar ou
-    // reprovar cada colaborador) e devem ser ligados individualmente pelo
-    // administrador, não vir junto de tudo mais que já é padrão pra esse perfil.
-    // O Organograma e o Headcount completos também ficam de fora: o gestor vê só o próprio
-    // galho (liderança acima + equipe abaixo), ver supabase-organograma.sql.
+    // (CPF/e-mail/celular de ex-colaborador) e devem ser ligados
+    // individualmente pelo administrador, não vir junto de tudo mais que já é
+    // padrão pra esse perfil. O Organograma e o Headcount completos também
+    // ficam de fora: o gestor vê só o próprio galho (liderança acima + equipe
+    // abaixo), ver supabase-organograma.sql. 1:1 também fica de fora do
+    // preset (ajuste de 30/09/2026 — antes entrava).
+    // Avaliação da Experiência e Pesquisa de Clima ENTRAM no preset (ajuste de
+    // 30/09/2026 — antes ficavam de fora por serem dado sensível; decisão do
+    // RH foi padronizar como incluído, ligando individualmente só quem NÃO
+    // deve ver, em vez do contrário).
     gestor: CATALOG.find(g => g.group === 'indicadores').items.map(i => i.key)
-      .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.controle_desligamento' && k !== 'indicadores.experiencia' && k !== 'indicadores.pesquisa_clima' && k !== 'indicadores.organograma_completo' && k !== 'indicadores.headcount_completo')
+      .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.controle_desligamento' && k !== 'indicadores.oneonone' && k !== 'indicadores.organograma_completo' && k !== 'indicadores.headcount_completo')
       .concat(['recrutamento.parecer_gestor'])
   };
 
