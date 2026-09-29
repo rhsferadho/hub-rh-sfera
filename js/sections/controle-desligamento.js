@@ -387,7 +387,7 @@
     return `
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 16px">
         <div class="field"><label>Status na Feedz</label>${sel('cd-f-feedz', STATUS_FEEDZ, d.statusFeedz || 'Pendente')}</div>
-        <div class="field"><label>Status da entrevista</label>${sel('cd-f-entrevista', STATUS_ENTREVISTA, d.statusEntrevista || 'Não Realizada')}</div>
+        <div class="field"><label>Status da entrevista</label>${sel('cd-f-entrevista', STATUS_ENTREVISTA, (r ? statusEntrevista(r) : d.statusEntrevista) || 'Não Realizada')}</div>
         ${inp('cd-f-realiz', 'Data da realização', d.dataRealizacao || (r && r.data_realizacao) || '', 'date')}
         <div class="field"><label>Contato (celular)</label><div style="display:flex;gap:6px"><input id="cd-f-contato" type="text" value="${esc(d.contato || '')}" placeholder="(DDD) número" style="flex:1"><a id="cd-f-wa" class="btn btn-outline btn-sm" style="width:auto;${linkWhatsapp(d.contato) ? '' : 'display:none'}" target="_blank" rel="noopener" href="${esc(linkWhatsapp(d.contato) || '#')}" title="Abrir conversa no WhatsApp">WhatsApp</a></div>
           ${!d.contato && (d.colaboradorExternalId || (r && r.colab && r.colab.external_id)) ? '<button type="button" class="btn btn-outline btn-sm" style="width:auto;margin-top:4px" id="cd-f-buscar-contato">Buscar na Feedz</button>' : ''}</div>
