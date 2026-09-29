@@ -8,7 +8,7 @@
 <title>Organograma Sfera</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap">
 <style>
 :root{
   --ground:#F2F4F3; --surface:#FFFFFF; --surface-2:#F7F9F8; --ink:#16201E; --muted:#5B6865; --faint:#8A9693;
@@ -16,9 +16,10 @@
   --warn-bg:#FFF4E0; --warn-line:#E7B45C; --warn-ink:#7A4A00;
   --off-ink:#A23B32; --off-bg:#FBE9E6; --off-line:#D98B83; --b-C:#44507A; --b-B:#1B7A52; --b-V:#A86A0E; --b-H:#1E5EA6; --b-L:#B3302A; --b-Q:#B63E7A;
   --root-bg:#16201E; --root-ink:#F2F4F3;
-  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-  --body:"Instrument Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* mesma fonte do resto do Hub (index.html) */
+  --display:"Ubuntu", system-ui, sans-serif;
+  --body:"Ubuntu", system-ui, sans-serif;
+  --mono:"Ubuntu", system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -49,7 +50,7 @@ h2{font-size:20px;font-weight:700}
 .head p{margin:6px 0 0;color:var(--muted);max-width:62ch}
 .stats{display:flex;flex-wrap:wrap;gap:6px 28px}
 .stat{display:flex;flex-direction:column}
-.stat b{font-family:var(--mono);font-size:24px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat b{font-family:var(--mono);font-size:25px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
 .stat span{font-size:12px;color:var(--muted)}
 
 /* business mix bar + filters */
