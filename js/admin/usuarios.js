@@ -261,6 +261,39 @@
     }));
   }
 
+  // "..._completo" (Headcount/Organograma) e o Controle de Desligamento são
+  // extensão da permissão logo acima na lista — não itens independentes.
+  function isSubPerm(key) {
+    return /_completo$/.test(key) || key === 'indicadores.controle_desligamento';
+  }
+
+  // Nota entre parênteses no rótulo (ex.: "(Dados Sigilosos)") sempre vira
+  // ícone (i) com o texto completo no tooltip — o rótulo em si fica curto,
+  // pra não poluir a lista.
+  function permChk(it, p) {
+    const m = it.label.match(/^(.*?)\s*\((.*)\)$/);
+    const curto = m ? m[1] : it.label;
+    const nota = m ? m[2] : '';
+    const checked = p.permissoes && p.permissoes[it.key] ? 'checked' : '';
+    const notaHtml = nota ? ` <span class="perm-info" title="${U.escapeHtml(nota)}">&#9432;</span>` : '';
+    return `<label class="chk" style="width:100%"><input type="checkbox" data-perm="${it.key}" ${checked}><span>${curto}</span>${notaHtml}</label>`;
+  }
+
+  // Agrupa cada permissão "pai" com as sub-opções logo abaixo dela (na ordem
+  // do catálogo) numa moldura só, pra ficar visualmente óbvio que uma é
+  // extensão da outra — em vez de cada checkbox flutuando solto na lista.
+  function permGroupHtml(items, p) {
+    const blocks = [];
+    for (const it of items) {
+      if (isSubPerm(it.key) && blocks.length) blocks[blocks.length - 1].subs.push(it);
+      else blocks.push({ item: it, subs: [] });
+    }
+    return blocks.map(b => {
+      if (!b.subs.length) return permChk(b.item, p);
+      return `<div class="perm-cluster">${permChk(b.item, p)}${b.subs.map(s => `<div class="chk-sub">${permChk(s, p)}</div>`).join('')}</div>`;
+    });
+  }
+
   function renderAccessForm(el) {
     const { unidades, departamentosPorUnidade } = orgOptions();
     const colabOpts = colaboradorOptions();
@@ -292,13 +325,7 @@
           ${PERM.CATALOG.map(g => `
             <div class="perm-group">
               <h4><span class="perm-ic">${HUB_ICON(g.icon)}</span>${g.groupLabel}</h4>
-              ${g.items.map(it => {
-                const m = it.label.match(/^(.*?)\s*\((.*)\)$/);
-                const curto = m ? m[1] : it.label;
-                const nota = m ? m[2] : '';
-                const sub = /_completo$/.test(it.key);
-                return `<label class="chk${sub ? ' chk-sub' : ''}" style="width:100%;margin-bottom:4px"><input type="checkbox" data-perm="${it.key}" ${p.permissoes && p.permissoes[it.key] ? 'checked' : ''}><span>${curto}</span>${nota ? ` <span class="perm-info" title="${U.escapeHtml(nota)}">&#9432;</span>` : ''}</label>`;
-              }).join('')}
+              ${permGroupHtml(g.items, p).join('')}
             </div>`).join('')}
         </div>
 

@@ -18,12 +18,12 @@
         { key: 'indicadores.rotatividade', label: 'Rotatividade' },
         { key: 'indicadores.experiencia', label: 'Avaliação da Experiência' },
         { key: 'indicadores.desligamento', label: 'Entrevistas de Desligamento' },
-        { key: 'indicadores.controle_desligamento', label: 'Entrevistas de Desligamento — Controle de Desligamento (restrito: dados pessoais e contato; liberar individualmente)' },
+        { key: 'indicadores.controle_desligamento', label: 'Controle de Desligamento (Dados Sigilosos)' },
         { key: 'indicadores.feedbacks', label: 'Feedbacks' },
         { key: 'indicadores.oneonone', label: '1:1' },
         { key: 'indicadores.treinamentos', label: 'Treinamentos' },
         { key: 'indicadores.celebracoes', label: 'Celebrações' },
-        { key: 'indicadores.pesquisa_clima', label: 'Pesquisa de Clima — resultados e comentários (dado sensível: liberar só RH/diretoria)' }
+        { key: 'indicadores.pesquisa_clima', label: 'Pesquisa de Clima — resultados e comentários (Dados Sigilosos)' }
       ]
     },
     {
