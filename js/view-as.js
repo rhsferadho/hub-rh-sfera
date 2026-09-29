@@ -120,6 +120,17 @@
       if (!Array.isArray(window.HUB_RECRUIT_DATA[tabela])) continue;
       window.HUB_RECRUIT_DATA[tabela] = scopeArray(window.HUB_RECRUIT_DATA[tabela], u, d);
     }
+    // Entrevista de Desligamento: além da unidade/departamento, a RLS exige
+    // permissão — links e o resumo dos Indicadores pedem
+    // "indicadores.desligamento"; a tabela completa do Controle pede
+    // "indicadores.controle_desligamento". Sem a permissão, o banco devolve
+    // vazio para a pessoa de verdade.
+    const RD = window.HUB_RECRUIT_DATA;
+    const tem = k => simUser.perfil === 'admin' || !!(simUser.permissoes && simUser.permissoes[k] === true);
+    if (!tem('indicadores.desligamento')) { RD.entrevistas_desligamento = []; RD.controle_desligamento_ind = []; }
+    if (!tem('indicadores.controle_desligamento')) RD.controle_desligamento = [];
+    if (Array.isArray(RD.controle_desligamento_ind)) RD.controle_desligamento_ind = scopeArray(RD.controle_desligamento_ind, 'unidade', 'departamento');
+    if (Array.isArray(RD.controle_desligamento)) RD.controle_desligamento = scopeArray(RD.controle_desligamento, 'unidade', 'departamento');
   }
 
   function scopeExperienciaCache() {
@@ -139,10 +150,12 @@
   function wrapReloaders() {
     if (window.HUB_RECRUIT && !recruitReloadOriginal) {
       recruitReloadOriginal = HUB_RECRUIT.reload;
+      // finally: se a recarga falhar no meio (ex.: uma tabela), o recorte
+      // ainda é aplicado ao que já foi carregado — sem isso a tela mostrava
+      // dados de todas as unidades.
       HUB_RECRUIT.reload = async function (...args) {
-        const r = await recruitReloadOriginal.apply(HUB_RECRUIT, args);
-        if (active) applyScopeToRecruitData();
-        return r;
+        try { return await recruitReloadOriginal.apply(HUB_RECRUIT, args); }
+        finally { if (active) applyScopeToRecruitData(); }
       };
     }
     if (window.HUB_EXPERIENCIA && !experienciaCarregarOriginal) {
@@ -274,8 +287,12 @@
         }
       });
     };
-    sb.rpc = () => makeBlockedChain();
+    // Funções do banco que só LEEM dados continuam liberadas (o resultado
+    // passa pelo mesmo recorte das tabelas); todas as outras ficam bloqueadas.
+    const realRpc = sbOriginal.rpc.bind(sb);
+    sb.rpc = (fn, ...args) => (RPC_SO_LEITURA.has(fn) ? realRpc(fn, ...args) : makeBlockedChain());
   }
+  const RPC_SO_LEITURA = new Set(['controle_desligamento_indicadores']);
   function unblockWrites() {
     if (!sbOriginal) return;
     sb.from = sbOriginal.from;

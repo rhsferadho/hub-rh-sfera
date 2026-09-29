@@ -601,14 +601,15 @@
   //    pendente → "Enviada", a menos que a planilha já registre um desfecho
   //    ("Recusado", "Inelegível", "Realizada");
   //  - se não está (ainda não foi lançada na planilha), entra como solicitação.
-  // Universo de desligamentos: a guia Controle de Desligamento
-  // (controle_desligamento, via resumo) quando já tiver lançamentos; senão, a cópia
-  // antiga da planilha (entrevista_solicitacao). Pedidos cancelados ou com ID
-  // duplicado não são desligamentos e ficam fora da contagem.
+  // Universo de desligamentos: o resumo do Controle de Desligamento
+  // (função controle_desligamento_indicadores, sem dado pessoal). Só quando o
+  // resumo não está disponível (null — função ausente ou erro de carga) usa a
+  // cópia antiga da planilha (entrevista_solicitacao); lista vazia significa
+  // que a pessoa não tem desligamentos no seu recorte, e fica vazia mesmo.
+  // Pedidos cancelados ou com ID duplicado não são desligamentos.
   function solicitacoesBase() {
-    // resumo sem dado pessoal (função controle_desligamento_indicadores)
-    const controle = (window.HUB_RECRUIT_DATA && window.HUB_RECRUIT_DATA.controle_desligamento_ind) || [];
-    if (!controle.length) return HUB_DATA.entrevista_solicitacao || [];
+    const controle = window.HUB_RECRUIT_DATA ? window.HUB_RECRUIT_DATA.controle_desligamento_ind : null;
+    if (!Array.isArray(controle)) return HUB_DATA.entrevista_solicitacao || [];
     return controle
       .filter(d => d.statusFeedz !== 'Cancelado' && d.statusFeedz !== 'ID Duplicado')
       .map(d => ({

@@ -109,7 +109,9 @@
       }
       window.HUB_RECRUIT_DATA.controle_desligamento_ind = all.map(toCamelRow);
     } catch (err) {
-      window.HUB_RECRUIT_DATA.controle_desligamento_ind = [];
+      // null = resumo indisponível (função não criada / erro): os Indicadores
+      // usam a cópia antiga da planilha. [] = a pessoa não tem linhas.
+      window.HUB_RECRUIT_DATA.controle_desligamento_ind = null;
       if (!/does not exist|schema cache|could not find/i.test(err.message || '')) errors.push('controle_desligamento_indicadores: ' + err.message);
     }
     if (errors.length) throw new Error('Não consegui atualizar os dados do Recrutamento — ' + errors.join('; '));
