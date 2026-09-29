@@ -44,15 +44,23 @@
   const SELECT_COLUNAS = {
     colaboradores: 'id,external_id,nome,nome_completo,email,cpf,cargo,cargo_visivel,unidade,departamento,grupos,papel,' +
       'gestor_direto,gestor_email,etnia,sexo,genero,data_nascimento,data_admissao,data_cadastro,situacao,ultimo_acesso,' +
-      'origem_cadastro,participa_gamificacao,desligamento_tipo,desligamento_motivo,ultimo_dia_trabalhado,idioma,updated_at'
+      'origem_cadastro,participa_gamificacao,desligamento_tipo,desligamento_motivo,ultimo_dia_trabalhado,idioma,updated_at',
+    // Solicitações antigas da planilha: só o que os Indicadores usam (sem
+    // nome, solicitante nem observações).
+    entrevista_solicitacao: 'id,planilha_id,unidade,departamento,data_solicitacao,data_admissao,data_demissao,tempo_trabalho,' +
+      'tipo,tipo_desligamento,motivo_desligamento,status_feedz,status_entrevista'
   };
+  // Respostas antigas do Forms vêm da versão anônima (sem nome, e-mail,
+  // telefone e CPF, nem dentro de "respostas") — supabase-entrevista-
+  // privacidade.sql. Os Indicadores da Entrevista de Desligamento são anônimos.
+  const ORIGEM = { entrevista_pesquisa: 'entrevista_pesquisa_anon' };
 
   async function fetchAll(table, onPage) {
     let all = [];
     let lastId = 0;
     for (;;) {
       const { data, error } = await withTimeout(
-        sb.from(table).select(SELECT_COLUNAS[table] || '*').gt('id', lastId).order('id', { ascending: true }).limit(PAGE),
+        sb.from(ORIGEM[table] || table).select(SELECT_COLUNAS[table] || '*').gt('id', lastId).order('id', { ascending: true }).limit(PAGE),
         QUERY_TIMEOUT_MS,
         `tempo esgotado buscando "${table}" (conexão lenta ou projeto Supabase inativo)`
       );

@@ -878,6 +878,15 @@ begin
     );
   end loop;
 end $$;
+-- Entrevista de Desligamento: além do recorte, exige a permissão do painel
+-- (e o Hub lê a versão anônima entrevista_pesquisa_anon) — ver
+-- supabase-entrevista-privacidade.sql.
+drop policy if exists entrevista_pesquisa_select on public.entrevista_pesquisa;
+create policy entrevista_pesquisa_select on public.entrevista_pesquisa for select
+  using (public.can_see(unidade, departamento) and public.has_permission('indicadores.desligamento'));
+drop policy if exists entrevista_solicitacao_select on public.entrevista_solicitacao;
+create policy entrevista_solicitacao_select on public.entrevista_solicitacao for select
+  using (public.can_see(unidade, departamento) and public.has_permission('indicadores.desligamento'));
 
 -- twygo_conteudos: catálogo de cursos, não tem unidade/departamento (não é
 -- ligado a uma pessoa) — visível para qualquer usuário logado; escrita via admin.upload.

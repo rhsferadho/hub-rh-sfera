@@ -231,8 +231,10 @@
       { rows: HUB_DATA.feedbacks || [], u: 'unidade', d: 'departamento', n: null },
       { rows: HUB_DATA.celebracoes || [], u: 'unidade', d: 'departamento', n: 'colaborador_enviou' },
       { rows: HUB_DATA.one_on_one || [], u: null, d: 'departamento', n: 'liderado' },
-      { rows: HUB_DATA.entrevista_pesquisa || [], u: 'unidade', d: 'departamento', n: 'nome' },
-      { rows: HUB_DATA.entrevista_solicitacao || [], u: 'unidade', d: 'departamento', n: 'nome' },
+      // Entrevista de Desligamento é anônima: não alimenta a lista de nomes
+      // do filtro "Colaborador" (e o Hub nem recebe mais esses nomes).
+      { rows: HUB_DATA.entrevista_pesquisa || [], u: 'unidade', d: 'departamento', n: null },
+      { rows: HUB_DATA.entrevista_solicitacao || [], u: 'unidade', d: 'departamento', n: null },
       { rows: HUB_DATA.twygo_participantes || [], u: 'unidade', d: 'departamento', n: 'nome_completo' },
       { rows: HUB_DATA.twygo_usuarios || [], u: 'unidade', d: 'departamento', n: 'nome_completo' }
     ];
