@@ -77,7 +77,7 @@
     const partes = [];
     if (p.ultima_resposta) partes.push('Última resposta registrada: ' + fmtUltimaResposta(p.ultima_resposta));
     if (p.atualizado_em) partes.push('Importado no Hub em ' + fmtAtualizado(p.atualizado_em));
-    const tag = p.parcial ? '<span class="badge b4">Parcial</span>' : (p.fonte === 'historico' ? '<span class="badge b1">Histórico</span>' : '<span class="badge b2">Encerrado</span>');
+    const tag = p.parcial ? '<span class="badge b4">Parcial</span>' : '<span class="badge b2">Encerrado</span>';
     return `<div class="eg-top">
       <label>Pulso<select id="eg-pulso">${lista.map(opt).join('')}</select></label>
       <div style="padding-bottom:9px">${tag}</div>
@@ -88,18 +88,20 @@
   // ---- Tabela de unidades ------------------------------------------------------
   function tabelaUnidades(d) {
     if (!d.unidades.length) return tabelaVazia();
-    const t = d.sel;
+    const t = d.totalLinhas;
+    const oficial = d.sel.oficial && d.sel.conv !== t.conv
+      ? `<p class="pc-note">Total oficial do pulso: ${num(d.sel.conv)} convidados. A soma por unidade (${num(t.conv)}) usa o headcount ativo do Hub, que pode diferir de poucos convidados.</p>` : '';
     const tr = u => `<tr><td>${esc(u.label)}</td><td class="num">${num(u.conv)}</td><td class="num">${num(u.resp)}</td><td class="num">${num(u.pend)}</td><td>${barra(u.pct, u.status, u.est)}</td></tr>`;
     return `<div class="table-wrap"><table class="dt eg-tbl"><thead><tr><th>Unidade</th><th class="num">Convidados</th><th class="num">Responderam</th><th class="num">Pendentes</th><th>Adesão</th></tr></thead><tbody>${d.unidades.map(tr).join('')}
       <tr style="font-weight:700;background:#F7F9FC"><td>Total — ${d.unidades.length} unidades</td><td class="num">${num(t.conv)}</td><td class="num">${num(t.resp)}</td><td class="num">${num(t.pend)}</td><td>${barra(t.pct, t.status, t.est)}</td></tr></tbody></table></div>
-      <p class="pc-note">Ordenado da menor para a maior adesão. A linha vertical marca a meta de ${U.fmtPct(M.META, 0)}.</p>`;
+      <p class="pc-note">Ordenado da menor para a maior adesão. A linha vertical marca a meta de ${U.fmtPct(M.META, 0)}.</p>${oficial}`;
   }
 
   // ---- Aba: Visão geral --------------------------------------------------------
   function prazoKpi(d) {
     const p = d.sel.p;
     if (!p.parcial) return kpi('Período', esc(d.sel.periodo), esc(d.sel.cadencia) + ' · encerrado', 'var(--p2)');
-    if (d.diasRestantes === null) return kpi('Período', 'Encerrado', `terminou em ${esc(d.sel.periodo.split(' a ')[1])} — falta o export final`, 'var(--serious)');
+    if (d.diasRestantes === null) return kpi('Período', 'Encerrado', `terminou em ${esc(d.sel.periodo.split(' a ')[1])} — envie a planilha 33 atualizada`, 'var(--serious)');
     const v = d.diasRestantes === 0 ? 'Hoje' : d.diasRestantes + (d.diasRestantes === 1 ? ' dia' : ' dias');
     return kpi('Encerra em', v, esc(d.sel.periodo) + ' · ' + esc(d.sel.cadencia), 'var(--p2)');
   }
@@ -110,7 +112,7 @@
     const ant = d.anterior;
     const antSub = ant ? (s.pct !== null && ant.pct !== null ? `${esc(ant.rotuloLongo)} · ${pp(s.pct - ant.pct)}${s.p.parcial ? ' (atual parcial)' : ''}` : esc(ant.rotuloLongo)) : 'sem pulso anterior';
     const aviso = d.estimado
-      ? `<div class="insight info" style="margin-bottom:18px"><span class="ic">${HUB_ICON('info')}</span><span>Este pulso é do histórico: a planilha antiga não guarda a base de convidados por unidade. Os percentuais por unidade/departamento (marcados com "~") usam como base os convidados do pulso mais recente do Feedz.</span></div>` : '';
+      ? `<div class="insight info" style="margin-bottom:18px"><span class="ic">${HUB_ICON('info')}</span><span>Este pulso é anterior ao registro da base de convidados: os percentuais por unidade/departamento (marcados com "~") usam como base o headcount ativo de hoje. O total da empresa segue o número oficial da aba Adesão.</span></div>` : '';
     return `
       <div class="kpi-grid">
         ${kpi('Adesão', pct(s.pct, s.est && !s.oficial), esc(gap), COR[s.status])}

@@ -15,10 +15,10 @@
     { key: 'twygo_cont', table: 'twygo_conteudos', label: '27.1. Twygo conteúdos', file: 'Twygo conteúdos.xlsx', icon: '&#127891;', parse: wb => P.parseTwygoConteudos(wb) },
     { key: 'ave45', table: 'avaliacao_experiencia_45', label: '28. Avaliação da Experiência — 45 dias', file: 'AVE 45 DIAS.xlsx', icon: '&#128221;', parse: wb => P.parseAveExperiencia(wb, 45) },
     { key: 'ave90', table: 'avaliacao_experiencia_90', label: '28.1. Avaliação da Experiência — 90 dias', file: 'AVE 90 DIAS.xlsx', icon: '&#128221;', parse: wb => P.parseAveExperiencia(wb, 90) },
-    // Pesquisa de Engajamento (só participação). Não substituem a tabela inteira:
-    // gravam por pulso, numa transação no banco (ver supabase-engajamento.sql).
-    { key: 'eng_hist', table: 'engajamento_historico', label: '33. Pesquisa de Engajamento — histórico', file: '33. Pesquisa de Engajamento 2026.xlsx (uma vez)', icon: '&#128200;', custom: importarEngajamentoHistorico },
-    { key: 'eng_pulso', table: 'engajamento_pulso', label: '33.1. Pesquisa de Engajamento — pulso atual', file: 'export "Participação" do Feedz (reenvie a cada atualização)', icon: '&#128200;', custom: importarEngajamentoPulso }
+    // Pesquisa de Engajamento (só participação): uma planilha, gravada por inteiro numa
+    // transação no banco (ver supabase-engajamento.sql). A base de convidados vem do
+    // headcount ativo (tabela colaboradores).
+    { key: 'eng', table: 'engajamento_pulso', label: '33. Pesquisa de Engajamento', file: '33. Pesquisa de Engajamento 2026.xlsx (reenvie a cada atualização)', icon: '&#128200;', custom: importarEngajamento }
   ];
 
   const dm = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7);
@@ -34,26 +34,22 @@
     if (card) card.classList.add('ok');
   }
 
-  async function importarEngajamentoPulso(wb, setStatus) {
-    const r = HUB_PARSERS_ENGAJAMENTO.parseFeedzPulso(wb);
-    if (!r.pulso.convidados) throw new Error('O arquivo não trouxe nenhum convidado.');
-    setStatus(`Gravando pulso (${r.linhas.length} departamentos)...`);
-    const res = await HUB_ENGAJAMENTO.salvarPulso(r.pulso, r.linhas);
-    const nome = res && res.numero ? `${res.numero}º pulso` : 'Pulso';
-    const p = r.pulso;
-    return {
-      linhas: r.linhas.length, avisos: r.avisos,
-      resumo: `${nome} · ${dm(p.inicio)} a ${dm(p.fim)}${p.parcial ? ' (parcial)' : ''}: ${U.fmtInt(p.respondentes)} de ${U.fmtInt(p.convidados)} responderam (${U.fmtPct(p.respondentes / p.convidados, 1)}) em ${r.resumo.departamentos} departamentos.`
-    };
+  function hojeLocal() {
+    const t = new Date();
+    return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
   }
 
-  async function importarEngajamentoHistorico(wb, setStatus) {
-    const r = HUB_PARSERS_ENGAJAMENTO.parseHistorico(wb);
-    setStatus(`Gravando histórico (${r.pulsos.length} pulsos, ${r.linhas.length} linhas)...`);
-    const res = await HUB_ENGAJAMENTO.salvarHistorico(r.pulsos, r.linhas);
-    const avisos = r.avisos.slice();
-    if (res && res.pulsos < r.pulsos.length) avisos.push(`${r.pulsos.length - res.pulsos} pulso(s) da planilha já têm o dado exato do Feedz e foram mantidos como estão.`);
-    return { linhas: r.linhas.length, avisos, resumo: `${res ? res.pulsos : r.pulsos.length} pulsos do histórico importados (${U.fmtInt(r.linhas.length)} linhas por unidade/departamento).` };
+  async function importarEngajamento(wb, setStatus) {
+    const hoje = hojeLocal();
+    const r = HUB_PARSERS_ENGAJAMENTO.parseBase(wb, { colaboradores: HUB_DATA.colaboradores || [], hoje });
+    setStatus(`Gravando ${r.pulsos.length} pulsos (${U.fmtInt(r.linhas.length)} linhas)...`);
+    await HUB_ENGAJAMENTO.salvarBase(r.pulsos, r.linhas, hoje);
+    const p = r.resumo.atual;
+    const nome = p.numero ? `${p.numero}º pulso` : 'Pulso atual';
+    return {
+      linhas: r.linhas.length, avisos: r.avisos,
+      resumo: `${r.pulsos.length} pulsos importados. ${nome} · ${dm(p.inicio)} a ${dm(p.fim)}${p.parcial ? ' (parcial)' : ''}: ${U.fmtInt(p.respondentes)} de ${U.fmtInt(p.convidados)} responderam (${U.fmtPct(p.respondentes / p.convidados, 1)}). Base por departamento: ${U.fmtInt(r.resumo.hcTotal)} colaboradores ativos em ${r.resumo.hcDeptos} departamentos.`
+    };
   }
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

@@ -64,9 +64,10 @@
     return data;
   }
 
-  // Tudo-ou-nada: pulso + linhas gravados numa transação no banco.
-  function salvarPulso(pulso, linhas) { return rpc('engajamento_salvar_pulso', { p_pulso: pulso, p_linhas: linhas }); }
-  function salvarHistorico(pulsos, linhas) { return rpc('engajamento_salvar_historico', { p_pulsos: pulsos, p_linhas: linhas }); }
+  // Tudo-ou-nada: todos os pulsos + linhas gravados numa transação no banco.
+  // "hoje" (data local, AAAA-MM-DD) decide quais pulsos já encerraram — a base de
+  // convidados deles fica congelada nos próximos uploads.
+  function salvarBase(pulsos, linhas, hoje) { return rpc('engajamento_salvar_base', { p_pulsos: pulsos, p_linhas: linhas, p_hoje: hoje }); }
 
-  window.HUB_ENGAJAMENTO = { carregar, invalidar, jaCarregado: () => carregado, salvarPulso, salvarHistorico };
+  window.HUB_ENGAJAMENTO = { carregar, invalidar, jaCarregado: () => carregado, salvarBase };
 })();

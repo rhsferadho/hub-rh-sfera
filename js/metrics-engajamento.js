@@ -3,15 +3,15 @@
 // e HUB_DATA.engajamento_participacao (ver dal-engajamento.js); nada aqui toca
 // em resposta, nota ou comentário.
 //
-// De onde vem cada número:
-//   • Pulsos vindos do Feedz (fonte "feedz"): convidados e respondentes exatos,
-//     por departamento.
-//   • Pulsos do histórico (fonte "historico", planilha 33): a planilha antiga só
-//     tem a base de convidados da EMPRESA inteira. Sem filtro, mostra o número
-//     oficial; ao filtrar por unidade/departamento/gestor (ou para quem só vê
-//     parte da empresa), a participação é ESTIMADA dividindo os respondentes do
-//     recorte pelos convidados dele no pulso mais recente do Feedz — sinalizada
-//     com "~" na tela.
+// De onde vem cada número (planilha 33 → tabelas engajamento_*):
+//   • Total oficial de cada pulso (convidados/respondentes): aba Adesão da planilha.
+//     Sem filtro, é o número mostrado nos cartões.
+//   • Respondentes por unidade/departamento: contados nas Respostas e ajustados ao total
+//     oficial do pulso.
+//   • Base de convidados por unidade/departamento: "foto" do headcount ativo gravada no
+//     pulso mais recente a cada upload (congela quando o pulso encerra). Nos pulsos
+//     anteriores à foto usa-se o headcount ativo ATUAL (planilha de Colaboradores) —
+//     percentual ESTIMADO, sinalizado com "~" na tela.
 (function () {
   const U = HUB_UTILS;
   // Meta de participação acordada com o RH (60%). Para mudar, altere aqui.
@@ -99,33 +99,46 @@
       cadencia.set(p.inicio, gap <= DIAS_SEMANAL ? 'Semanal' : 'Mensal');
     });
 
-    // Referência para estimar o histórico: pulso mais recente do Feedz (base exata).
-    const refPulso = todos.filter(p => p.fonte === 'feedz').pop();
+    // Referência para estimar os pulsos sem "foto": headcount ativo atual (Colaboradores).
     const ref = new Map();
-    if (refPulso) {
-      for (const r of (partPorPulso.get(refPulso.inicio) || [])) ref.set(chave(r.unidade, r.departamento), { conv: r.convidados, gestor: r.gestor });
+    for (const c of (window.HUB_DATA.colaboradores || [])) {
+      if (norm(c.situacao) !== 'ativo' || !c.unidade || !c.departamento) continue;
+      const k = chave(c.unidade, c.departamento);
+      if (!ref.has(k)) ref.set(k, { unidade: c.unidade, departamento: c.departamento, conv: 0, gestores: new Map() });
+      const h = ref.get(k);
+      h.conv++;
+      if (c.gestor_direto) h.gestores.set(c.gestor_direto, (h.gestores.get(c.gestor_direto) || 0) + 1);
+    }
+    for (const h of ref.values()) {
+      h.gestor = Array.from(h.gestores.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR')).map(e => e[0])[0] || null;
     }
 
     function linhasDe(p) {
+      const rows = partPorPulso.get(p.inicio) || [];
+      const temFoto = rows.some(r => r.convidados !== null && r.convidados !== undefined);
       const out = [];
-      for (const r of (partPorPulso.get(p.inicio) || [])) {
-        const rf = ref.get(chave(r.unidade, r.departamento));
-        const gestor = r.gestor || (rf && rf.gestor) || null;
-        if (!U.matchesAny(r.unidade, f.unidade)) continue;
-        if (!U.matchesAny(r.departamento, f.departamento)) continue;
-        if (f.gestor && !U.normIncludes(gestor, f.gestor)) continue;
-        const proprio = r.convidados !== null && r.convidados !== undefined;
+      const vistos = new Set();
+      const add = (unidade, departamento, gestorRow, convRow, resp) => {
+        const rf = ref.get(chave(unidade, departamento));
+        const gestor = gestorRow || (rf && rf.gestor) || null;
+        if (!U.matchesAny(unidade, f.unidade)) return;
+        if (!U.matchesAny(departamento, f.departamento)) return;
+        if (f.gestor && !U.normIncludes(gestor, f.gestor)) return;
+        const proprio = convRow !== null && convRow !== undefined;
         out.push({
-          unidade: r.unidade || 'Sem unidade', departamento: r.departamento || 'Sem departamento', gestor,
-          conv: proprio ? r.convidados : (rf ? rf.conv : null),
-          resp: r.respondentes || 0, est: !proprio
+          unidade: unidade || 'Sem unidade', departamento: departamento || 'Sem departamento', gestor,
+          conv: proprio ? convRow : (rf ? rf.conv : null), resp: resp || 0, est: !proprio
         });
-      }
+      };
+      for (const r of rows) { add(r.unidade, r.departamento, r.gestor, r.convidados, r.respondentes); vistos.add(chave(r.unidade, r.departamento)); }
+      // Pulsos sem "foto" só têm as linhas com resposta: acrescenta os departamentos do
+      // headcount ativo que não responderam (0%), para aparecerem na lista.
+      if (!temFoto) for (const [k, h] of ref) if (!vistos.has(k)) add(h.unidade, h.departamento, h.gestor, null, 0);
       return out;
     }
 
     function visao(p) {
-      if (p.fonte === 'historico' && semFiltro(f) && escopoTotal()) {
+      if (semFiltro(f) && escopoTotal()) {
         return { resp: p.respondentes, conv: p.convidados, pend: Math.max(0, p.convidados - p.respondentes),
           pct: p.convidados ? p.respondentes / p.convidados : null, est: false, oficial: true, n: 0 };
       }
@@ -244,7 +257,7 @@
       pulsos: serie, sel, anterior, media, diasRestantes, primeiraMensal: primeiraMensal || null,
       mistura: temSemanal && !!primeiraMensal, naMeta, fechados: fechados.length,
       faltamMeta: faltamMeta(sel.conv, sel.resp),
-      unidades, departamentos, gestores, prioridades, matriz, insights,
+      unidades, departamentos, gestores, prioridades, matriz, insights, totalLinhas: agregar(linhas),
       estimado: sel.est, temHistoricoEstimado: serie.some(s => s.est)
     };
   }
