@@ -47,7 +47,11 @@
   const MOTIVOS_TODOS = MOTIVOS.flatMap(g => g[1]);
   const PAGE_SIZE = 25;
 
-  const estado = { busca: '', feedz: 'todos', entrevista: 'todos', fila: 'todas', ordem: 'recentes', pagina: 1 };
+  const estado = { busca: '', feedz: 'todos', entrevista: 'todos', fila: 'todas', ordem: 'recentes', pagina: 1,
+    canal: 'todos', pendente: 'todos', tipo: 'todos', casa: 'todos', maisFiltros: false };
+  // Canal da entrevista realizada (ver canalEntrevista)
+  const CANAIS = [['link', 'Link do Hub'], ['forms', 'Forms'], ['presencial', 'Realizada sem registro digital'], ['nenhum', 'Sem entrevista']];
+  const FAIXAS_CASA = [['ate45', 'Até 45 dias de casa'], ['ate90', 'Até 90 dias (experiência)'], ['mais90', 'Mais de 90 dias']];
   let raizAtual = null, filtrosAtuais = null;
 
   const n = s => U.normalizeText(String(s || '')).replace(/\s+/g, ' ').trim();
@@ -225,6 +229,7 @@
     return rows.filter(r => {
       if ((f.start || f.end) && !(r.data_solicitacao && U.inRange(r.data_solicitacao, f.start, f.end))) return false;
       if (!U.matchesAny(r.unidade, f.unidade)) return false;
+      if (!U.matchesAny(r.departamento, f.departamento)) return false;
       if (f.colaborador && !U.normIncludes(r.nome, f.colaborador)) return false;
       return true;
     });
@@ -257,20 +262,40 @@
       <div class="toolbar">
         <input type="text" id="cd-busca" placeholder="Buscar por ID, nome, cargo, unidade ou solicitante..." value="${esc(estado.busca)}">
         <select id="cd-fila">${opt('todas', 'Fila: todas', estado.fila)}${Object.entries(FILAS).map(([k, v]) => opt(k, v[0], estado.fila)).join('')}</select>
-        <select id="cd-feedz">${opt('todos', 'Status na Feedz: todos', estado.feedz)}${STATUS_FEEDZ.map(s => opt(s, s, estado.feedz)).join('')}</select>
         <select id="cd-entrevista">${opt('todos', 'Entrevista: todas', estado.entrevista)}${STATUS_ENTREVISTA.map(s => opt(s, s, estado.entrevista)).join('')}</select>
-        <select id="cd-ordem">${opt('recentes', 'Solicitação mais recente', estado.ordem)}${opt('demissao', 'Demissão mais recente', estado.ordem)}${opt('id', 'ID (maior primeiro)', estado.ordem)}${opt('criterios', 'Mais critérios primeiro', estado.ordem)}</select>
+        <select id="cd-canal">${opt('todos', 'Canal: todos', estado.canal)}${CANAIS.map(([k, l]) => opt(k, l, estado.canal)).join('')}</select>
+        <select id="cd-pendente" title="Links de entrevista gerados e ainda sem resposta">${opt('todos', 'Link pendente: todos', estado.pendente)}${[7, 15, 30].map(d => opt(String(d), `Link pendente há ${d}+ dias`, estado.pendente)).join('')}</select>
+        <select id="cd-ordem">${opt('recentes', 'Solicitação mais recente', estado.ordem)}${opt('demissao', 'Demissão mais recente', estado.ordem)}${opt('link', 'Link gerado mais recente', estado.ordem)}${opt('pendente_antigo', 'Link pendente mais antigo primeiro', estado.ordem)}${opt('resposta', 'Resposta mais recente', estado.ordem)}${opt('id', 'ID (maior primeiro)', estado.ordem)}${opt('criterios', 'Mais critérios primeiro', estado.ordem)}</select>
+        <button type="button" class="btn btn-outline btn-sm" style="width:auto" id="cd-mais">${estado.maisFiltros ? 'Menos filtros' : 'Mais filtros'}${qtdMaisFiltros() ? ` (${qtdMaisFiltros()})` : ''}</button>
+      </div>
+      <div class="toolbar" id="cd-mais-filtros" style="${estado.maisFiltros ? '' : 'display:none'}">
+        <select id="cd-feedz">${opt('todos', 'Status na Feedz: todos', estado.feedz)}${STATUS_FEEDZ.map(s => opt(s, s, estado.feedz)).join('')}</select>
+        <select id="cd-tipo">${opt('todos', 'Tipo: todos', estado.tipo)}${TIPOS.map(s => opt(s, s, estado.tipo)).join('')}</select>
+        <select id="cd-casa">${opt('todos', 'Tempo de casa: todos', estado.casa)}${FAIXAS_CASA.map(([k, l]) => opt(k, l, estado.casa)).join('')}</select>
+        <button type="button" class="btn btn-outline btn-sm" style="width:auto" id="cd-limpar">Limpar filtros da lista</button>
       </div>
       <div id="cd-tabela"></div>`;
     const redesenhar = () => desenharTabela(el.querySelector('#cd-tabela'), noPeriodo);
-    const bind = (id, campo, evt) => el.querySelector(id).addEventListener(evt || 'change', e => { estado[campo] = e.target.value; estado.pagina = 1; redesenhar(); });
+    const bind = (id, campo, evt) => el.querySelector(id).addEventListener(evt || 'change', e => {
+      estado[campo] = e.target.value; estado.pagina = 1; redesenhar();
+      const b = el.querySelector('#cd-mais'); if (b) b.textContent = (estado.maisFiltros ? 'Menos filtros' : 'Mais filtros') + (qtdMaisFiltros() ? ` (${qtdMaisFiltros()})` : '');
+    });
     bind('#cd-busca', 'busca', 'input'); bind('#cd-fila', 'fila'); bind('#cd-feedz', 'feedz'); bind('#cd-entrevista', 'entrevista'); bind('#cd-ordem', 'ordem');
+    bind('#cd-canal', 'canal'); bind('#cd-pendente', 'pendente'); bind('#cd-tipo', 'tipo'); bind('#cd-casa', 'casa');
+    el.querySelector('#cd-mais').addEventListener('click', () => { estado.maisFiltros = !estado.maisFiltros; desenhar(el, f); });
+    el.querySelector('#cd-limpar').addEventListener('click', () => {
+      Object.assign(estado, { busca: '', feedz: 'todos', entrevista: 'todos', fila: 'todas', canal: 'todos', pendente: 'todos', tipo: 'todos', casa: 'todos', pagina: 1 });
+      desenhar(el, f);
+    });
     el.querySelectorAll('[data-fila]').forEach(k => k.addEventListener('click', () => { estado.fila = estado.fila === k.dataset.fila ? 'todas' : k.dataset.fila; estado.pagina = 1; desenhar(el, f); }));
     el.querySelector('#cd-novo').addEventListener('click', () => abrirFormulario(null));
     el.querySelectorAll('[data-avulso-resp]').forEach(b => b.addEventListener('click', () => HUB_ENTREVISTA_DESLIGAMENTO.abrirRespostas(avulsos[Number(b.dataset.avulsoResp)])));
     el.querySelectorAll('[data-avulso-copiar]').forEach(b => b.addEventListener('click', () => HUB_ENTREVISTA_DESLIGAMENTO.copiarLink(avulsos[Number(b.dataset.avulsoCopiar)])));
     redesenhar();
   }
+
+  // Quantos filtros da linha "Mais filtros" estão em uso
+  function qtdMaisFiltros() { return ['feedz', 'tipo', 'casa'].filter(k => estado[k] !== 'todos').length; }
 
   function kpiFila(k, cont) {
     const [label, cor] = FILAS[k];
@@ -282,6 +307,32 @@
     return `<div data-fila="${k}" style="cursor:pointer;display:flex;flex-direction:column;${ativo ? 'outline:2px solid ' + cor + ';border-radius:12px' : ''}" title="Clique para filtrar">${cartao}</div>`;
   }
 
+  // Quando o link de entrevista foi gerado e quando a entrevista foi respondida
+  // (link do Hub, Forms ou a data de realização lançada na ficha).
+  // (…Completo: com hora, para ordenar os do mesmo dia.)
+  function dataLinkCompleta(r) { return r.link && r.link.criadoEm ? String(r.link.criadoEm) : null; }
+  function dataRespostaCompleta(r) {
+    if (r.link && r.link.status === 'Preenchido' && r.link.dataFinalizacao) return String(r.link.dataFinalizacao);
+    if (r.forms && r.forms.length) return r.forms[0].dataConclusao || null;
+    return statusEntrevista(r) === 'Realizada' ? (r.db.dataRealizacao || null) : null;
+  }
+  const dataLink = r => (dataLinkCompleta(r) || '').slice(0, 10) || null;
+  const dataResposta = r => (dataRespostaCompleta(r) || '').slice(0, 10) || null;
+  const linkPendente = r => !!(r.link && r.link.status !== 'Preenchido');
+  // Dias desde que o link (ainda sem resposta) foi gerado
+  const diasLinkPendente = r => (linkPendente(r) && dataLink(r) ? diasEntre(dataLink(r), hojeISO()) : null);
+  // Por onde a entrevista foi feita: link do Hub, Forms, realizada sem
+  // resposta guardada (ex.: presencial) ou nenhuma.
+  function canalEntrevista(r) {
+    if (r.link && r.link.status === 'Preenchido') return 'link';
+    if (r.forms && r.forms.length) return 'forms';
+    return statusEntrevista(r) === 'Realizada' ? 'presencial' : 'nenhum';
+  }
+  function faixaCasa(r) {
+    if (r.tempo_casa === null || r.tempo_casa === undefined) return null;
+    return r.tempo_casa <= 45 ? 'ate45' : r.tempo_casa <= 90 ? 'ate90' : 'mais90';
+  }
+
   function aplicarFiltros(rows) {
     const q = n(estado.busca);
     let out = rows.filter(r => {
@@ -289,11 +340,30 @@
       if (estado.fila !== 'todas' && fila(r) !== estado.fila) return false;
       if (estado.feedz !== 'todos' && r.db.statusFeedz !== estado.feedz) return false;
       if (estado.entrevista !== 'todos' && statusEntrevista(r) !== estado.entrevista) return false;
+      if (estado.canal !== 'todos' && canalEntrevista(r) !== estado.canal) return false;
+      if (estado.pendente !== 'todos') {
+        const d = diasLinkPendente(r);
+        if (d === null || d < Number(estado.pendente)) return false;
+      }
+      if (estado.tipo !== 'todos' && r.db.tipo !== estado.tipo) return false;
+      if (estado.casa !== 'todos') {
+        const fx = faixaCasa(r);
+        // "Até 90 dias" inclui quem saiu em até 45 dias
+        if (estado.casa === 'ate90' ? !(fx === 'ate45' || fx === 'ate90') : fx !== estado.casa) return false;
+      }
       return true;
     });
     const o = estado.ordem;
     const numId = r => Number(String(r.id).replace(/\D/g, '')) || 0;
+    // Datas do link / da resposta: fichas sem a data vão para o fim da lista
+    const desc = (va, vb) => (va && vb ? String(vb).localeCompare(String(va)) : va ? -1 : vb ? 1 : 0);
     out = out.slice().sort((a, b) => {
+      if (o === 'pendente_antigo') {
+        const la = linkPendente(a) ? dataLinkCompleta(a) : null, lb = linkPendente(b) ? dataLinkCompleta(b) : null;
+        return (la && lb ? String(la).localeCompare(String(lb)) : la ? -1 : lb ? 1 : 0) || String(b.data_solicitacao || '').localeCompare(String(a.data_solicitacao || ''));
+      }
+      if (o === 'link') return desc(dataLinkCompleta(a), dataLinkCompleta(b)) || String(b.data_solicitacao || '').localeCompare(String(a.data_solicitacao || ''));
+      if (o === 'resposta') return desc(dataRespostaCompleta(a), dataRespostaCompleta(b)) || String(b.data_solicitacao || '').localeCompare(String(a.data_solicitacao || ''));
       if (o === 'id') return numId(b) - numId(a);
       if (o === 'demissao') return String(b.data_demissao || '').localeCompare(String(a.data_demissao || ''));
       if (o === 'criterios') return (b.criterios - a.criterios) || String(b.data_solicitacao || '').localeCompare(String(a.data_solicitacao || ''));
@@ -328,7 +398,7 @@
             <td>${U.fmtDateBR(r.data_demissao) || '—'}${r.tempo_casa !== null ? `<div style="font-size:10.5px;color:var(--muted)">${U.fmtInt(r.tempo_casa)} dias de casa</div>` : ''}</td>
             <td style="font-size:11px">${esc(r.db.tipo || '—')}</td>
             <td>${pill(r.db.statusFeedz || '—', CORES_FEEDZ[r.db.statusFeedz] || '#8A8F98')}</td>
-            <td>${pill(st, CORES_ENTREVISTA[st] || '#8A8F98')}${r.link ? `<div style="font-size:9.5px;color:var(--muted);margin-top:2px">link do Hub: ${r.link.status === 'Preenchido' ? 'respondido' : 'pendente'}</div>` : ''}<div style="margin-top:2px">${pill(fl, cor)}</div></td>
+            <td>${pill(st, CORES_ENTREVISTA[st] || '#8A8F98')}${r.link ? `<div style="font-size:9.5px;color:var(--muted);margin-top:2px">link do Hub gerado em ${U.fmtDateBR(dataLink(r)) || '—'}${r.link.status === 'Preenchido' ? '' : ' · pendente' + (diasLinkPendente(r) ? ` há ${diasLinkPendente(r)} dia(s)` : '')}</div>` : ''}${dataResposta(r) ? `<div style="font-size:9.5px;color:var(--muted)">respondida em ${U.fmtDateBR(dataResposta(r))}${r.link && r.link.status === 'Preenchido' ? ' (link)' : r.forms && r.forms.length ? ' (Forms)' : ''}</div>` : ''}<div style="margin-top:2px">${pill(fl, cor)}</div></td>
             <td>${criteriosHtml(r)}</td>
             <td><button type="button" class="btn btn-outline btn-sm" style="width:auto" data-abrir="${ini + i}">Abrir</button></td>
           </tr>`;
