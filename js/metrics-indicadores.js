@@ -586,7 +586,8 @@
       unidade: row.unidade, departamento: row.departamento,
       data_demissao: row.dataDesligamento || null,
       // link gerado e ainda não respondido = entrevista enviada
-      status_entrevista: row.status === 'Preenchido' ? 'Realizada' : 'Enviada',
+      // encerrado = a pessoa recusou a entrevista (ficha "Recusado")
+      status_entrevista: row.status === 'Preenchido' ? 'Realizada' : row.status === 'Encerrado' ? 'Recusado' : 'Enviada',
       tipo: null
     };
   }
@@ -660,6 +661,7 @@
       })[0];
       usadas.add(alvo);
       if (l.status === 'Preenchido') alvo.status_entrevista = 'Realizada';
+      else if (l.status === 'Encerrado') alvo.status_entrevista = 'Recusado';
       else if (!STATUS_MANTIDOS_SE_PENDENTE.has(norm(alvo.status_entrevista))) alvo.status_entrevista = 'Enviada';
     }
     return linhas.concat(novos);
