@@ -129,7 +129,7 @@
     const RD = window.HUB_RECRUIT_DATA;
     const tem = k => simUser.perfil === 'admin' || !!(simUser.permissoes && simUser.permissoes[k] === true);
     if (!tem('indicadores.desligamento')) { RD.controle_desligamento_ind = []; RD.entrevistas_desligamento_ind = []; }
-    if (!tem('indicadores.controle_desligamento')) RD.controle_desligamento = [];
+    if (!tem('indicadores.controle_desligamento')) { RD.controle_desligamento = []; RD.controle_respostas_forms = []; }
     if (!tem('indicadores.controle_desligamento') && !tem('indicadores.desligamento_gerar_link')) RD.entrevistas_desligamento = [];
     if (Array.isArray(RD.entrevistas_desligamento_ind)) RD.entrevistas_desligamento_ind = scopeArray(RD.entrevistas_desligamento_ind, 'unidade', 'departamento');
     if (Array.isArray(RD.controle_desligamento_ind)) RD.controle_desligamento_ind = scopeArray(RD.controle_desligamento_ind, 'unidade', 'departamento');
@@ -308,7 +308,8 @@
     const realRpc = sbOriginal.rpc.bind(sb);
     sb.rpc = (fn, ...args) => (RPC_SO_LEITURA.has(fn) ? realRpc(fn, ...args) : makeBlockedChain());
   }
-  const RPC_SO_LEITURA = new Set(['controle_desligamento_indicadores', 'entrevistas_desligamento_indicadores']);
+  const RPC_SO_LEITURA = new Set(['controle_desligamento_indicadores', 'entrevistas_desligamento_indicadores',
+    'controle_desligamento_respostas_forms_resumo', 'controle_desligamento_respostas_forms']);
   function unblockWrites() {
     if (!sbOriginal) return;
     sb.from = sbOriginal.from;

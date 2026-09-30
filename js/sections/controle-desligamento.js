@@ -142,8 +142,20 @@
     return m;
   }
 
+  // Respostas do Forms (planilhas 34 e 30) ligadas à ficha — só quais existem;
+  // o conteúdo vem sob demanda em abrirRespostasForms().
+  function indexarForms() {
+    const m = new Map();
+    for (const f of (window.HUB_RECRUIT_DATA && HUB_RECRUIT_DATA.controle_respostas_forms) || []) {
+      const k = String(f.controleId);
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push(f);
+    }
+    return m;
+  }
+
   function montarRegistros() {
-    const hc = indexarHeadcount(), ave = indexarAve(), fb = indexarFeedbacks(), links = indexarLinks();
+    const hc = indexarHeadcount(), ave = indexarAve(), fb = indexarFeedbacks(), links = indexarLinks(), forms = indexarForms();
     return lancamentos().map(d => {
       const c = acharColaborador(hc, d);
       const cpf = (d.colaboradorCpf && String(d.colaboradorCpf).trim()) || (c && c.cpf ? String(c.cpf).trim() : null);
@@ -153,6 +165,7 @@
       const qtdFeedbacks = fb.get(n(d.colaboradorNome)) || 0;
       const link = links.get('d:' + d.idDesligamento) || (c && c.external_id && links.get('e:' + c.external_id)) || links.get('n:' + n(d.colaboradorNome)) || null;
       const admissao = d.dataAdmissao || (c && c.data_admissao) || null;
+      const respForms = forms.get(String(d.id)) || [];
       return {
         db: d, id: d.idDesligamento, colab: c,
         data_solicitacao: d.dataSolicitacao, solicitante: d.solicitante, nome: d.colaboradorNome,
@@ -162,8 +175,9 @@
         email: c && c.email ? c.email : null, situacaoHeadcount: c ? c.situacao : null,
         nota45: n45, auto45: notaFeedzAuto(a45), nota90: n90, auto90: notaFeedzAuto(a90), mediaAve, feedbacks: qtdFeedbacks,
         criterios: (n45 !== null && n45 < 3 ? 1 : 0) + (n90 !== null && n90 < 3 ? 1 : 0) + (mediaAve !== null && mediaAve < 3 ? 1 : 0) + (qtdFeedbacks > 0 ? 1 : 0),
-        link,
-        data_realizacao: d.dataRealizacao || (link && link.status === 'Preenchido' && link.dataFinalizacao ? String(link.dataFinalizacao).slice(0, 10) : null)
+        link, forms: respForms,
+        data_realizacao: d.dataRealizacao || (link && link.status === 'Preenchido' && link.dataFinalizacao ? String(link.dataFinalizacao).slice(0, 10) : null) ||
+          (respForms[0] && respForms[0].dataConclusao) || null
       };
     });
   }
@@ -397,7 +411,8 @@
         <div class="field"><label>&nbsp;</label><label style="display:flex;gap:6px;align-items:center;font-weight:500"><input id="cd-f-natal" type="checkbox" ${d.extraNatal ? 'checked' : ''} style="width:auto"> Extra de Natal</label></div>
       </div>
       <div class="field full" style="margin-top:8px"><label>Observações</label><textarea id="cd-f-obs" rows="3" style="width:100%">${esc(d.observacoes || '')}</textarea></div>
-      ${r && r.link ? `<div style="margin-top:6px;font-size:11.5px;color:var(--muted)">Link de entrevista gerado por <b>${esc(r.link.geradoPor || '—')}</b>${r.link.criadoEm ? ' em ' + U.fmtDateBR(String(r.link.criadoEm).slice(0, 10)) : ''} — <b>${r.link.status === 'Preenchido' ? 'respondido' + (r.link.dataFinalizacao ? ' em ' + U.fmtDateBR(String(r.link.dataFinalizacao).slice(0, 10)) : '') : 'aguardando resposta'}</b>. O status exibido na lista acompanha o link automaticamente.</div>` : ''}`;
+      ${r && r.link ? `<div style="margin-top:6px;font-size:11.5px;color:var(--muted)">Link de entrevista gerado por <b>${esc(r.link.geradoPor || '—')}</b>${r.link.criadoEm ? ' em ' + U.fmtDateBR(String(r.link.criadoEm).slice(0, 10)) : ''} — <b>${r.link.status === 'Preenchido' ? 'respondido' + (r.link.dataFinalizacao ? ' em ' + U.fmtDateBR(String(r.link.dataFinalizacao).slice(0, 10)) : '') : 'aguardando resposta'}</b>. O status exibido na lista acompanha o link automaticamente.</div>` : ''}
+      ${r && r.forms && r.forms.length ? `<div style="margin-top:6px;font-size:11.5px;color:var(--muted)">Entrevista respondida pelo <b>Forms</b> em ${r.forms.map(f => `<b>${U.fmtDateBR(f.dataConclusao) || '—'}</b>${f.questionarioAntigo ? ' (questionário antigo, 2023–2025)' : ''}`).join(' e ')}.</div>` : ''}`;
   }
   function lerCampos(m) {
     const v = id => { const e = m.querySelector('#' + id); return e ? e.value.trim() : ''; };
@@ -407,6 +422,47 @@
       cargo: v('cd-f-cargo'), motivo: v('cd-f-motivo'), motivoDetalhe: v('cd-f-motivo-det'), statusFeedz: v('cd-f-feedz'), statusEntrevista: v('cd-f-entrevista'),
       dataRealizacao: v('cd-f-realiz'), contato: v('cd-f-contato'), observacoes: v('cd-f-obs'), extraNatal: !!(m.querySelector('#cd-f-natal') || {}).checked
     };
+  }
+
+  // Respostas do Forms da ficha (supabase-controle-respostas-forms.sql): a
+  // função do banco já devolve sem nome/e-mail/telefone/CPF, na ordem do
+  // questionário. Planilha 30 = questionário antigo, com outras perguntas.
+  const COLUNAS_DO_RH = new Set(['Unidade', 'Departamento', 'Motivo do Desligamento', 'Submotivo de Desligamento', 'Data do Desligamento']);
+  async function abrirRespostasForms(r) {
+    const m = modal('Respostas — ' + esc(r.nome), 'Entrevista de desligamento respondida pelo Forms', '<p class="sub">Carregando respostas...</p>');
+    const corpo = m.lastElementChild.lastElementChild; // área de conteúdo do modal()
+    try {
+      const { data, error } = await sb.rpc('controle_desligamento_respostas_forms', { p_controle_id: r.db.id });
+      if (error) throw error;
+      const grupos = new Map();
+      for (const x of data || []) {
+        if (!grupos.has(x.planilha_id)) grupos.set(x.planilha_id, { data: x.data_conclusao, antigo: x.questionario_antigo, itens: [] });
+        // As últimas colunas da planilha 34 não são respostas: o RH preenchia
+        // (unidade, departamento, motivo/submotivo e data do desligamento, esta
+        // às vezes do vínculo errado) — repetem o que a pessoa respondeu ou o
+        // que já está na ficha.
+        if (!x.questionario_antigo && COLUNAS_DO_RH.has(String(x.pergunta).trim())) continue;
+        grupos.get(x.planilha_id).itens.push(x);
+      }
+      // Datas que o Excel gravou como número de série (ex.: 46228)
+      const valor = (pergunta, v) => {
+        const s = String(v).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return U.fmtDateBR(s);
+        if (/data|demiss|admiss/i.test(pergunta) && /^\d{5}(\.\d+)?$/.test(s) && +s > 30000 && +s < 60000)
+          return U.fmtDateBR(new Date(Date.UTC(1899, 11, 30) + Math.floor(+s) * 864e5).toISOString().slice(0, 10));
+        return s;
+      };
+      corpo.innerHTML = !grupos.size ? '<p class="sub" style="color:var(--muted)">Sem respostas registradas.</p>' : Array.from(grupos.values()).map(g => `
+        <div style="margin-bottom:18px">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Respondida em <b>${U.fmtDateBR(g.data) || '—'}</b>${g.antigo ? ' · <b>questionário antigo (2023–2025)</b>, com perguntas diferentes das atuais' : ''}</div>
+          ${g.itens.map(x => `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:600;margin-bottom:3px">${esc(String(x.pergunta).trim())}</div>
+            <div style="font-size:13px;white-space:pre-wrap">${esc(valor(x.pergunta, x.resposta))}</div>
+          </div>`).join('')}
+        </div>`).join('');
+    } catch (err) {
+      corpo.innerHTML = `<div class="msg err">Não consegui carregar as respostas: ${esc(err.message)}</div>`;
+    }
   }
 
   function abrirFormulario(r) {
@@ -437,7 +493,8 @@
     corpo += `<div class="msg err" id="cd-f-msg" style="display:none"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;flex-wrap:wrap">
         ${!novo && r.link && r.link.status === 'Preenchido' ? '<button type="button" class="btn btn-outline btn-sm" style="width:auto" id="cd-respostas">Ver respostas</button>' : ''}
-        ${!novo && podeLink ? (r.link ? '<button type="button" class="btn btn-outline btn-sm" style="width:auto" id="cd-copiar">Copiar link de entrevista</button>' : '<button type="button" class="btn btn-outline btn-sm" style="width:auto" id="cd-gerar">Gerar link de entrevista</button>') : ''}
+        ${!novo && r.forms && r.forms.length ? `<button type="button" class="btn btn-outline btn-sm" style="width:auto" id="cd-respostas-forms">Ver respostas${r.link && r.link.status === 'Preenchido' ? ' do Forms' : ''}</button>` : ''}
+        ${!novo && podeLink && (r.link || !(r.forms && r.forms.length)) ? (r.link ?'<button type="button" class="btn btn-outline btn-sm" style="width:auto" id="cd-copiar">Copiar link de entrevista</button>' : '<button type="button" class="btn btn-outline btn-sm" style="width:auto" id="cd-gerar">Gerar link de entrevista</button>') : ''}
         <button type="button" class="btn btn-sm" style="width:auto" id="cd-salvar">${novo ? 'Lançar desligamento' : 'Salvar alterações'}</button>
       </div>
       ${!novo ? `<p class="sub" style="margin-top:8px;font-size:10.5px;color:var(--muted);text-align:right">Lançado por ${esc(d.criadoPor || '—')}${d.atualizadoPor ? ` · última alteração por ${esc(d.atualizadoPor)} em ${U.fmtDateBR(String(d.atualizadoEm || '').slice(0, 10))}` : ''}</p>` : ''}`;
@@ -481,6 +538,8 @@
     });
     const btnResp = m.querySelector('#cd-respostas');
     if (btnResp) btnResp.addEventListener('click', () => { m.remove(); HUB_ENTREVISTA_DESLIGAMENTO.abrirRespostas(r.link); });
+    const btnRespForms = m.querySelector('#cd-respostas-forms');
+    if (btnRespForms) btnRespForms.addEventListener('click', () => { m.remove(); abrirRespostasForms(r); });
     const btnCopiar = m.querySelector('#cd-copiar');
     if (btnCopiar) btnCopiar.addEventListener('click', () => HUB_ENTREVISTA_DESLIGAMENTO.copiarLink(r.link));
 

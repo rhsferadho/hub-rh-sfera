@@ -101,7 +101,9 @@
     // linhas sem avisar, inclusive em funções. null = resumo indisponível
     // (função não criada / erro) → os Indicadores usam a fonte antiga;
     // [] = a pessoa não tem linhas no seu recorte.
-    for (const [fn, destino] of [['controle_desligamento_indicadores', 'controle_desligamento_ind'], ['entrevistas_desligamento_indicadores', 'entrevistas_desligamento_ind']]) {
+    // + quais fichas do Controle têm resposta do Forms (sem as respostas;
+    // supabase-controle-respostas-forms.sql — vazio sem a permissão do Controle).
+    for (const [fn, destino] of [['controle_desligamento_indicadores', 'controle_desligamento_ind'], ['entrevistas_desligamento_indicadores', 'entrevistas_desligamento_ind'], ['controle_desligamento_respostas_forms_resumo', 'controle_respostas_forms']]) {
       try {
         let all = [], from = 0;
         for (;;) {
