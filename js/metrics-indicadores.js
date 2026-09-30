@@ -812,6 +812,16 @@
     const statusEntrevista = countBy(solicitacao, 'status_entrevista');
     const tipoSolicitacao = countBy(solicitacao, 'tipo');
 
+    // Participação: dos desligados do período (mesma base das Solicitações,
+    // pela data de demissão), quantos fizeram a entrevista ("Realizada" no
+    // Controle). Não usa "Respostas de pesquisa", que conta pela data da
+    // resposta — as duas bases não fecham dentro do mesmo período. Elegíveis =
+    // sem os "Inelegível" (justa causa, duplicidade etc.).
+    const entrevistasRealizadas = solicitacao.filter(r => norm(r.status_entrevista) === 'realizada').length;
+    const elegiveis = solicitacao.filter(r => norm(r.status_entrevista) !== 'inelegivel').length;
+    const participacao = solicitacao.length ? entrevistasRealizadas / solicitacao.length : null;
+    const participacaoElegiveis = elegiveis ? entrevistasRealizadas / elegiveis : null;
+
     const insights = [];
     if (pesquisa.length) {
       const pctRetornaria = positivos.length / pesquisa.length;
@@ -830,6 +840,7 @@
     return {
       totalRespostas: pesquisa.length,
       totalSolicitacoes: solicitacao.length,
+      entrevistasRealizadas, elegiveis, participacao, participacaoElegiveis,
       positivos: positivos.length, negativos: negativos.length,
       nps, npsDetalhe, motivos, submotivos, motivoSubmotivoPairs, statusEntrevista, tipoSolicitacao,
       comentariosPositivos, comentariosNegativos,

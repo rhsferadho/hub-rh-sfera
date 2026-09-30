@@ -328,10 +328,13 @@
       card('Submotivos', '&#128269;', '<p class="sub" style="margin-bottom:8px">Clique numa barra de "Motivos de desligamento" para detalhar.</p><div id="submotivos-body">' + empty('Selecione um motivo ao lado.') + '</div>');
     el.innerHTML = `
       <div class="kpi-grid">
-        ${kpi('Respostas de pesquisa', U.fmtInt(d.totalRespostas), '', 'var(--p1)')}
+        ${kpi('Respostas de pesquisa', U.fmtInt(d.totalRespostas), 'respondidas no período', 'var(--p1)')}
         ${kpi('Trabalhariam novamente', d.totalRespostas ? U.fmtPct(d.positivos / d.totalRespostas) : '—', `${U.fmtInt(d.positivos)} de ${U.fmtInt(d.totalRespostas)}`, '#1baf7a')}
-        ${kpi('eNPS', d.nps === null ? '—' : d.nps, '', 'var(--p2)')}
-        ${kpi('Solicitações de desligamento', U.fmtInt(d.totalSolicitacoes), '', 'var(--warning)')}
+        ${kpi('eNPS', d.nps === null ? '—' : d.nps, 'das respostas do período', 'var(--p2)')}
+        ${kpi('Solicitações de desligamento', U.fmtInt(d.totalSolicitacoes), 'desligados no período (data da demissão)', 'var(--warning)')}
+        ${kpi('Participação na entrevista', d.participacao === null ? '—' : U.fmtPct(d.participacao),
+          `${U.fmtInt(d.entrevistasRealizadas)} de ${U.fmtInt(d.totalSolicitacoes)} desligados no período` +
+          (d.participacaoElegiveis === null ? '' : ` · ${U.fmtPct(d.participacaoElegiveis)} dos elegíveis`), '#4a3aa7')}
       </div>
       ${renderNpsScale(d.npsDetalhe)}
       <div class="insight info" style="margin-bottom:18px">
