@@ -132,7 +132,10 @@
   function indexarLinks() {
     const m = new Map();
     for (const l of (window.HUB_RECRUIT_DATA && HUB_RECRUIT_DATA.entrevistas_desligamento) || []) {
-      if (l.idDesligamento) m.set('d:' + l.idDesligamento, l);
+      // Link com o ID do desligamento pertence só àquela ficha: casar também
+      // pelo usuário da Feedz ou pelo nome o levaria para outro vínculo da
+      // mesma pessoa (recontratação).
+      if (l.idDesligamento) { m.set('d:' + l.idDesligamento, l); continue; }
       if (l.colaboradorExternalId) m.set('e:' + l.colaboradorExternalId, l);
       m.set('n:' + n(l.colaboradorNome), l);
     }
