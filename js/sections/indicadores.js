@@ -391,9 +391,60 @@
         ${card('Evolução mensal', '&#128200;', d.serie.length ? '<div class="chart-h"><canvas id="c-cel-serie"></canvas></div>' : empty('Sem dados.'))}
         ${card('Gestores que mais enviaram', '&#127942;', topRows(d.porGestor, 'Enviadas'))}
         ${card('Top remetentes', '&#128101;', topRows(d.porRemetente, 'Enviadas'))}
-      </div>`;
+      </div>
+      <div style="height:16px"></div>
+      <div id="cel-semanas"></div>`;
     if (d.porDepartamento.length) { const t = d.porDepartamento.slice(0, 12); barChart('c-cel-depto', t.map(x => x.label), t.map(x => x.value), { horizontal: true }); }
     if (d.serie.length) lineChart('c-cel-serie', d.serie.map(x => x.label), [{ label: 'Celebrações', data: d.serie.map(x => x.value) }]);
+    renderCelebracoesSemanas(el.querySelector('#cel-semanas'), f);
+  }
+
+  // Ritmo semanal das celebrações: lojas × semanas do mês. A meta é 1
+  // celebração do gestor para o próprio time por semana — o total do mês
+  // esconde quem concentrou tudo numa semana só. Mesma regra do Boletim da
+  // Liderança (metrics-boletim.js: celebração conta uma vez, só do gestor para
+  // o time, sem o usuário automático de aniversários).
+  let celSemMes = null;
+  function renderCelebracoesSemanas(el, f) {
+    if (!el || !window.HUB_METRICS_BOLETIM) return;
+    const MB = HUB_METRICS_BOLETIM;
+    const fim = (f.end || U.todayISO()).slice(0, 7);
+    const ini = (f.start || fim + '-01').slice(0, 7);
+    const meses = U.monthsBetween(ini, fim).reverse().slice(0, 24);
+    if (!meses.length) meses.push(fim);
+    if (!celSemMes || !meses.includes(celSemMes)) celSemMes = meses[0];
+    const mes = celSemMes;
+    // Filtros do topo: departamento direto; unidade pelos departamentos que existem nela.
+    const deps = new Set((HUB_DATA.colaboradores || []).filter(c => U.matchesAny(c.unidade, f.unidade)).map(c => U.normalizeText(c.departamento || '')));
+    const r = MB.calcularMes(mes);
+    const linhas = [];
+    for (const op of MB.OPERACOES) for (const l of r.operacoes[op.id].lojas) {
+      if (l.apoio || !l.cel_semanas) continue;
+      if (f.unidade && f.unidade.length && !deps.has(U.normalizeText(l.departamento))) continue;
+      if (!U.matchesAny(l.departamento, f.departamento)) continue;
+      linhas.push({ op: op.nome, nome: l.nome, sem: l.cel_semanas, total: l.ind.celebracoes });
+    }
+    const ultimoDia = Number(MB.fimDoMes(mes).slice(8, 10));
+    const semanas = [[1, 7], [8, 14], [15, 21], [22, 28], [29, ultimoDia]].filter(([a]) => a <= ultimoDia);
+    const n = semanas.length;
+    const com = x => x.sem.slice(0, n).filter(v => v > 0).length;
+    linhas.sort((a, b) => com(b) - com(a) || b.total - a.total || a.op.localeCompare(b.op, 'pt-BR') || a.nome.localeCompare(b.nome, 'pt-BR'));
+    const dd = x => String(x).padStart(2, '0'), mm = mes.slice(5, 7);
+    const cel = v => v
+      ? `<td style="background:#1baf7a;color:#fff;font-weight:700;text-align:center">${U.fmtInt(v)}</td>`
+      : '<td style="background:#F1F3F6;color:#B5BCC8;text-align:center">—</td>';
+    const resumo = x => { const k = com(x); const cor = k >= n - 1 ? '#0f8a4c' : k > 0 ? '#9a6b00' : 'var(--critical)'; return `<td style="text-align:center;font-weight:700;color:${cor}">${k} de ${n}</td>`; };
+    const sel = `<select id="cel-sem-mes" style="margin-left:auto;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:12px">${meses.map(m => `<option value="${m}"${m === mes ? ' selected' : ''}>${U.escapeHtml(MB.nomeDoMes(m, true))}/${m.slice(0, 4)}</option>`).join('')}</select>`;
+    const todas = linhas.filter(x => com(x) === n).length, nenhuma = linhas.filter(x => !com(x)).length;
+    el.innerHTML = card(`Ritmo semanal das celebrações das lideranças ${sel}`, '&#128197;', linhas.length ? `
+      <div class="table-wrap" style="max-height:620px"><table class="dt" style="border-collapse:separate;border-spacing:3px"><thead><tr><th>Operação</th><th>Loja / área</th>
+        ${semanas.map(([a, b], i) => `<th style="text-align:center">${i + 1}ª semana<br><span style="font-weight:400">${dd(a)}/${mm} a ${dd(b)}/${mm}</span></th>`).join('')}
+        <th style="text-align:center">Semanas com<br>celebração</th><th style="text-align:center">Total</th></tr></thead><tbody>
+        ${linhas.map(x => `<tr><td>${U.escapeHtml(x.op)}</td><td>${U.escapeHtml(x.nome)}</td>${x.sem.slice(0, n).map(cel).join('')}${resumo(x)}<td style="text-align:center">${U.fmtInt(x.total)}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="sub" style="color:var(--muted);font-size:11.5px;margin-top:8px">Cada quadrado verde é uma semana em que o gestor celebrou o próprio time (liderados diretos, mesma loja ou @todos); o número é quantas celebrações. A meta é 1 por semana: o ideal é a linha toda verde. ${todas} de ${linhas.length} lojas/áreas celebraram em todas as semanas; ${nenhuma} não celebraram nenhuma vez. Cada celebração conta uma vez (o export repete a linha por destinatário) e o usuário automático de aniversários não entra.</p>`
+      : empty('Nenhuma loja no recorte dos filtros.'), { full: true });
+    el.querySelector('#cel-sem-mes').addEventListener('change', e => { celSemMes = e.target.value; renderCelebracoesSemanas(el, f); });
   }
 
   // ==================================================================

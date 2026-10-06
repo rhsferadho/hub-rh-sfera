@@ -24,7 +24,8 @@
         { key: 'indicadores.treinamentos', label: 'Treinamentos' },
         { key: 'indicadores.celebracoes', label: 'Celebrações' },
         { key: 'indicadores.pesquisa_clima', label: 'Pesquisa de Clima — resultados e comentários (Dados Sigilosos)' },
-        { key: 'indicadores.engajamento', label: 'Pesquisa de Engajamento — índice de participação por unidade e departamento' }
+        { key: 'indicadores.engajamento', label: 'Pesquisa de Engajamento — índice de participação por unidade e departamento' },
+        { key: 'indicadores.boletim', label: 'Boletim da Liderança — indicadores mensais por operação, textos e fechamento do mês' }
       ]
     },
     {
@@ -86,8 +87,10 @@
     // deve ver, em vez do contrário).
     // Pesquisa de Engajamento (índice de participação) fica só com o Administrador:
     // fora dos presets RH e Gestor, só é ligada manualmente no Cadastro de Acessos.
+    // Boletim da Liderança: entra no preset RH (é a ferramenta de quem monta o
+    // boletim) e fica fora do preset Gestor.
     gestor: CATALOG.find(g => g.group === 'indicadores').items.map(i => i.key)
-      .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.controle_desligamento' && k !== 'indicadores.oneonone' && k !== 'indicadores.organograma_completo' && k !== 'indicadores.headcount_completo' && k !== 'indicadores.engajamento')
+      .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.controle_desligamento' && k !== 'indicadores.oneonone' && k !== 'indicadores.organograma_completo' && k !== 'indicadores.headcount_completo' && k !== 'indicadores.engajamento' && k !== 'indicadores.boletim')
       .concat(['recrutamento.parecer_gestor'])
   };
 

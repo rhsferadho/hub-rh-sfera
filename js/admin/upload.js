@@ -18,7 +18,12 @@
     // Pesquisa de Engajamento (só participação): uma planilha, gravada por inteiro numa
     // transação no banco (ver supabase-engajamento.sql). A base de convidados vem do
     // headcount ativo (tabela colaboradores).
-    { key: 'eng', table: 'engajamento_pulso', label: '33. Pesquisa de Engajamento', file: '33. Pesquisa de Engajamento 2026.xlsx (reenvie a cada atualização)', icon: '&#128200;', custom: importarEngajamento }
+    { key: 'eng', table: 'engajamento_pulso', label: '33. Pesquisa de Engajamento', file: '33. Pesquisa de Engajamento 2026.xlsx (reenvie a cada atualização)', icon: '&#128200;', custom: importarEngajamento },
+    // Boletim da Liderança: bases AGREGADAS no navegador (sem nomes) — ver
+    // parsers-boletim.js e supabase-boletim.sql. As notas da Pesquisa de
+    // Engajamento entram junto com o card 33 acima.
+    { key: 'humor', table: 'humor_mensal', label: '36. Termômetro de Humor', file: '36. Humor.xlsx', icon: '&#127777;&#65039;', custom: importarHumor },
+    { key: 'satisfacao', table: 'satisfacao_suporte', label: '61. Pesquisa de Satisfação (Suporte do Escritório)', file: '61.Pesquisa de Satisfação.xlsx', icon: '&#127970;', custom: importarSatisfacao }
   ];
 
   const dm = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7);
@@ -46,10 +51,43 @@
     await HUB_ENGAJAMENTO.salvarBase(r.pulsos, r.linhas, hoje);
     const p = r.resumo.atual;
     const nome = p.numero ? `${p.numero}º pulso` : 'Pulso atual';
+    const avisoNotas = await importarNotasJunto(wb, setStatus);
     return {
-      linhas: r.linhas.length, avisos: r.avisos,
+      linhas: r.linhas.length, avisos: r.avisos.concat(avisoNotas ? [avisoNotas] : []),
       resumo: `${r.pulsos.length} pulsos importados. ${nome} · ${dm(p.inicio)} a ${dm(p.fim)}${p.parcial ? ' (parcial)' : ''}: ${U.fmtInt(p.respondentes)} de ${U.fmtInt(p.convidados)} responderam (${U.fmtPct(p.respondentes / p.convidados, 1)}). Base por departamento: ${U.fmtInt(r.resumo.hcTotal)} colaboradores ativos em ${r.resumo.hcDeptos} departamentos.`
     };
+  }
+
+  // Notas da Pesquisa de Engajamento (Boletim da Liderança): lidas da aba
+  // "Respostas" do MESMO arquivo do card 33, depois que a participação já foi
+  // gravada. Se o arquivo não trouxer as respostas, ou as tabelas do boletim
+  // ainda não existirem, vira só um aviso — a participação continua importada.
+  async function importarNotasJunto(wb, setStatus) {
+    if (!window.HUB_PARSERS_BOLETIM || !window.HUB_BOLETIM) return null;
+    let r;
+    try { r = HUB_PARSERS_BOLETIM.parseEngajamentoNotas(wb); }
+    catch (err) { return 'Notas da pesquisa (Boletim da Liderança) não encontradas neste arquivo: ' + err.message; }
+    try {
+      setStatus(`Gravando as notas agregadas (${U.fmtInt(r.linhas.length)} linhas)...`);
+      await HUB_BOLETIM.salvarEngNotas(r.inicio, r.fim, r.linhas);
+      return null;
+    } catch (err) {
+      return 'Participação importada, mas as notas não foram gravadas: ' + err.message + (/does not exist|schema cache|not find/i.test(err.message) ? ' (rode supabase-boletim.sql)' : '');
+    }
+  }
+
+  async function importarHumor(wb, setStatus) {
+    const r = HUB_PARSERS_BOLETIM.parseHumor(wb);
+    setStatus(`Gravando ${U.fmtInt(r.linhas.length)} linhas agregadas...`);
+    await HUB_BOLETIM.salvarHumor(r.linhas, (feito, total) => setStatus(`Gravando... ${U.fmtInt(feito)} de ${U.fmtInt(total)}`));
+    return { linhas: r.linhas.length, avisos: r.avisos, resumo: `${U.fmtInt(r.resumo.registros)} registros de humor de ${r.resumo.inicio.slice(5, 7)}/${r.resumo.inicio.slice(0, 4)} a ${r.resumo.fim.slice(5, 7)}/${r.resumo.fim.slice(0, 4)}, agregados em ${U.fmtInt(r.linhas.length)} linhas (mês × loja, sem nomes).` };
+  }
+
+  async function importarSatisfacao(wb, setStatus) {
+    const r = HUB_PARSERS_BOLETIM.parseSatisfacao(wb);
+    setStatus(`Gravando ${U.fmtInt(r.linhas.length)} linhas agregadas...`);
+    await HUB_BOLETIM.salvarSatisfacao(r.linhas);
+    return { linhas: r.linhas.length, avisos: r.avisos, resumo: `${U.fmtInt(r.resumo.respondentes)} respostas de ${r.resumo.inicio.slice(5, 7)}/${r.resumo.inicio.slice(0, 4)} a ${r.resumo.fim.slice(5, 7)}/${r.resumo.fim.slice(0, 4)}, agregadas por mês e loja (sem nomes nem comentários).` };
   }
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -133,7 +171,7 @@
         <div class="progress" id="pg-${u.key}" style="display:none"><div></div></div>
         <div class="status" id="st-${u.key}"></div>
       </div>`).join('')}</div>
-      <p class="sub" style="color:var(--muted);font-size:11.5px">Cada upload substitui completamente os dados daquela planilha — pode reenviar quantas vezes precisar, sempre com o mesmo modelo de colunas. Exceção: na Pesquisa de Engajamento, o histórico (33) substitui só os pulsos do histórico, e o export do Feedz (33.1) substitui apenas o pulso do período dele — reenviar durante o pulso atualiza aquele pulso; um novo período vira um novo pulso. Os indicadores de Recrutamento não aparecem aqui: eles são lidos automaticamente das telas do módulo Recrutamento.</p>`;
+      <p class="sub" style="color:var(--muted);font-size:11.5px">Cada upload substitui completamente os dados daquela planilha — pode reenviar quantas vezes precisar, sempre com o mesmo modelo de colunas. Na Pesquisa de Engajamento (33), as notas também são guardadas (só médias por loja e pilar, sem respostas individuais) para o Boletim da Liderança. Humor (36) e Pesquisa de Satisfação (61) substituem os meses presentes no arquivo e são guardados já agregados, sem nomes. Os indicadores de Recrutamento não aparecem aqui: eles são lidos automaticamente das telas do módulo Recrutamento.</p>`;
     el.querySelectorAll('input[type=file]').forEach(inp => inp.addEventListener('change', e => handleUpload(e.target.dataset.key, e.target.files[0])));
     el.querySelector('#btn-upload-history').addEventListener('click', openHistory);
     Object.keys(resumos).forEach(k => mostrarResumo(k, resumos[k]));
@@ -177,6 +215,7 @@
       // as linhas novas (que só ganham "id" no banco).
       const cicloAve = window.HUB_EXPERIENCIA && HUB_EXPERIENCIA.cicloDaTabela(cfg.table);
       if (cicloAve) HUB_EXPERIENCIA.invalidar(cicloAve);
+      if (window.HUB_BOLETIM) HUB_BOLETIM.invalidar();
       await HUB_DAL.logUpload({ tabela: cfg.table, arquivo: file.name, linhas: totalLinhas, status: 'ok' });
       await HUB_RELOAD_DATA(false);
       loadLastUpdates();

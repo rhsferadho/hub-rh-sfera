@@ -199,6 +199,23 @@ produção — projetos pagos não pausam por inatividade.
 
 Rode [`supabase-pesquisa-clima.sql`](supabase-pesquisa-clima.sql) no SQL Editor: cria `pesquisa_clima` e `pesquisa_clima_hc` (sem nome/CPF/e-mail — a pesquisa é anônima), liberadas só para quem tiver a permissão `indicadores.pesquisa_clima` (respeitando unidade/departamento via `can_see`). Não há upload: os dados foram importados uma única vez, e a tela (Indicadores → Pesquisa de Clima) os busca sob demanda, na primeira abertura da sessão. Os arquivos de importação contêm os comentários e ficam fora deste repositório.
 
+### 2.2.1. Boletim da Liderança
+
+Rode [`supabase-boletim.sql`](supabase-boletim.sql) no SQL Editor (depois do `supabase-engajamento.sql`). Ele cria:
+
+- `humor_mensal`, `engajamento_notas` e `satisfacao_suporte` — bases **já agregadas** por mês/dia e loja (sem nome, CPF, e-mail ou comentário: as planilhas são resumidas no navegador antes de gravar);
+- `boletim_entradas` — valores informados à mão (Unibê, Academia Hering);
+- `boletim_fechamento` — a foto de cada mês fechado (o que foi publicado), usada na comparação do mês seguinte;
+- a permissão `indicadores.boletim` para quem já tem o perfil RH (o preset RH já a inclui; o preset Gestor não), e a leitura da participação da Pesquisa de Engajamento e da AvE para quem tem essa permissão.
+
+Rotina mensal (Indicadores → **Boletim da Liderança**):
+
+1. Em **Administração → Upload de Planilhas**, envie as planilhas do mês: Colaboradores (1), Feedbacks (4), 1 on 1 (5), Celebrações (20), AvE 45/90 (28), Pesquisa de Engajamento (33 — o mesmo arquivo grava a participação e as notas), **Humor (36)** e **Pesquisa de Satisfação (61)**.
+2. Abra o Boletim da Liderança, escolha o mês e confira a aba **Qualidade dos dados**.
+3. Informe Unibê/Academia Hering em **Valores manuais**.
+4. Para cada operação: baixe os gráficos (botão **Baixar imagem**) e copie os textos da aba **Texto do boletim** para o Mailchimp.
+5. Clique em **Fechar mês** — congela os números publicados (inclusive o componente "acessos", que só existe na foto do mês).
+
 ### 2.2. Organograma e Headcount por galho
 
 Rode [`supabase-organograma.sql`](supabase-organograma.sql) no SQL Editor. Ele cria:

@@ -13,7 +13,7 @@
 
   const NAV_TITLES = {
     dashboard: 'Dashboard',
-    'ind-headcount': 'Headcount', 'ind-recrutamento': 'Recrutamento', 'ind-rotatividade': 'Rotatividade', 'ind-experiencia': 'Avaliação da Experiência', 'ind-pesquisa-clima': 'Pesquisa de Clima', 'ind-engajamento': 'Pesquisa de Engajamento', 'ind-organograma': 'Organograma',
+    'ind-headcount': 'Headcount', 'ind-recrutamento': 'Recrutamento', 'ind-rotatividade': 'Rotatividade', 'ind-experiencia': 'Avaliação da Experiência', 'ind-pesquisa-clima': 'Pesquisa de Clima', 'ind-engajamento': 'Pesquisa de Engajamento', 'ind-boletim': 'Boletim da Liderança', 'ind-organograma': 'Organograma',
     'ind-desligamento': 'Entrevista de Desligamento', 'ind-feedbacks': 'Feedbacks', 'ind-oneonone': '1:1',
     'ind-treinamentos': 'Treinamentos', 'ind-celebracoes': 'Celebrações',
     'rec-dashboard': 'Dashboard — Recrutamento', 'rec-vagas': 'Controle de Vagas', 'rec-candidatos': 'Candidatos',
@@ -28,7 +28,7 @@
   // lateral e para o conteúdo ser renderizado.
   const NAV_PERMISSIONS = {
     'ind-headcount': 'indicadores.headcount', 'ind-recrutamento': 'indicadores.recrutamento',
-    'ind-rotatividade': 'indicadores.rotatividade', 'ind-experiencia': 'indicadores.experiencia', 'ind-pesquisa-clima': 'indicadores.pesquisa_clima', 'ind-engajamento': 'indicadores.engajamento', 'ind-organograma': 'indicadores.organograma', 'ind-desligamento': 'indicadores.desligamento',
+    'ind-rotatividade': 'indicadores.rotatividade', 'ind-experiencia': 'indicadores.experiencia', 'ind-pesquisa-clima': 'indicadores.pesquisa_clima', 'ind-engajamento': 'indicadores.engajamento', 'ind-boletim': 'indicadores.boletim', 'ind-organograma': 'indicadores.organograma', 'ind-desligamento': 'indicadores.desligamento',
     'ind-feedbacks': 'indicadores.feedbacks', 'ind-oneonone': 'indicadores.oneonone',
     'ind-treinamentos': 'indicadores.treinamentos', 'ind-celebracoes': 'indicadores.celebracoes',
     'rec-dashboard': 'recrutamento.dashboard', 'rec-vagas': 'recrutamento.vagas', 'rec-candidatos': 'recrutamento.candidatos',
@@ -62,6 +62,7 @@
       case 'ind-celebracoes': return HUB_SECTIONS.renderCelebracoes(el, f);
       case 'ind-pesquisa-clima': return HUB_SECTIONS.renderPesquisaClima(el, f);
       case 'ind-engajamento': return HUB_SECTIONS.renderEngajamento(el, f);
+      case 'ind-boletim': return HUB_SECTIONS.renderBoletim(el);
       case 'ind-organograma': return HUB_SECTIONS.renderOrganograma(el, f);
       case 'rec-dashboard': return HUB_SECTIONS.renderRecrutamentoDashboard(el, f);
       case 'rec-vagas': return HUB_SECTIONS.renderVagas(el, f);
@@ -128,6 +129,8 @@
     $('#fg-trilha').style.display = showTwygo ? 'flex' : 'none';
     $('#fg-conteudo').style.display = showTwygo ? 'flex' : 'none';
     $('#fg-experiencia').style.display = name === 'ind-headcount' ? 'flex' : 'none';
+    // O Boletim da Liderança tem seletor próprio de mês e operação.
+    $('#filter-bar').style.display = name === 'ind-boletim' ? 'none' : '';
     renderCurrentSection();
   }
   // Exposto pra navegação entre módulos a partir de uma seção (ex.: botão
@@ -421,6 +424,7 @@
     // A Pesquisa de Engajamento é carregada sob demanda e muda a cada export novo:
     // "Atualizar dados" (e os uploads) descartam o cache para a próxima leitura.
     if (window.HUB_ENGAJAMENTO) HUB_ENGAJAMENTO.invalidar();
+    if (window.HUB_BOLETIM) HUB_BOLETIM.invalidar();
     try {
       await HUB_DAL.loadAll((table, i, total, rowsSoFar) => {
         if (showStatus !== false) statusEl.textContent = `Carregando dados... (${i + 1}/${total}: ${table}, ${U.fmtInt(rowsSoFar)} linhas)`;
