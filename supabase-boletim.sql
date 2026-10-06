@@ -246,4 +246,5 @@ end $$;
 -- ----------------------------------------------------------------------------
 update public.profiles
    set permissoes = coalesce(permissoes, '{}'::jsonb) || '{"indicadores.boletim": true}'::jsonb
- where perfil = 'rh';
+ where perfil = 'rh'
+   and coalesce(status, '') <> 'desligado';  -- a tabela profiles não deixa editar cadastro desligado
