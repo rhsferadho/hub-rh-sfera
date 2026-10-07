@@ -377,25 +377,7 @@
       com('twygo_progresso').length ? cardGrafico('bl-c-tw', 'Twygo — progresso por loja', '&#128218;', alturaPara(com('twygo_progresso').length), 'Progresso médio das inscrições confirmadas (foto atual do Twygo, não do mês).') : '',
       com('unibe_adesao').length ? cardGrafico('bl-c-ub', 'Unibê — adesão por loja', '&#127891;', alturaPara(com('unibe_adesao').length), 'Valores informados em "Valores manuais".') : ''
     ].filter(Boolean);
-    return `<div class="grid2">${html.join('')}</div>` + tabelaPesquisaBaixa(r) + (r.id === 'escritorio' ? tabelaSatisfacaoEmpresa(b) : '');
-  }
-
-  // Pesquisa de Engajamento: lojas/departamentos sem resposta ou abaixo da meta de 60%.
-  function tabelaPesquisaBaixa(r) {
-    const xs = r.lojas.filter(l => l.base.pesquisa_convidados)
-      .map(l => ({ nome: l.nome, conv: l.base.pesquisa_convidados, resp: l.base.pesquisa_respondentes, p: l.ind.pesquisa_participacao }));
-    if (!xs.length) return '';
-    const baixa = xs.filter(x => !x.resp || x.p < 0.6).sort((a, c) => (a.p || 0) - (c.p || 0) || c.conv - a.conv);
-    const esc_ = r.id === 'escritorio';
-    const unid = esc_ ? 'departamentos' : 'lojas';
-    const situ = x => !x.resp ? badge('Sem resposta', 'critico') : x.p < 0.4 ? badge('Crítica (abaixo de 40%)', 'critico') : badge('Abaixo da meta', 'atencao');
-    const corpo = baixa.length
-      ? `<div class="table-wrap" style="max-height:420px"><table class="dt bl-lojas"><thead><tr><th>${esc_ ? 'Departamento' : 'Loja / área'}</th><th>Convidados</th><th>Responderam</th><th>Participação</th><th>Situação</th></tr></thead><tbody>
-        ${baixa.map(x => `<tr><td>${esc(x.nome)}</td><td>${U.fmtInt(x.conv)}</td><td>${U.fmtInt(x.resp)}</td><td>${x.p == null ? '—' : U.fmtPct(x.p, 0)}</td><td>${situ(x)}</td></tr>`).join('')}
-        </tbody></table></div>`
-      : `<p style="font-size:13px">Todos os ${unid} atingiram a meta de 60% de participação neste pulso.</p>`;
-    return '<div style="height:16px"></div>' + card(`Pesquisa de Engajamento — ${unid} sem resposta ou com baixa adesão`, '&#128200;', corpo +
-      `<p class="bl-note">${baixa.length} de ${xs.length} ${unid} abaixo da meta de 60% (${baixa.filter(x => !x.resp).length} sem nenhuma resposta). Convidados = headcount ativo do departamento no pulso.</p>`, { full: true });
+    return `<div class="grid2">${html.join('')}</div>` + (r.id === 'escritorio' ? tabelaSatisfacaoEmpresa(b) : '');
   }
 
   // Boletim do Escritório: todas as lojas/áreas da empresa com gestores aptos, responderam ou não.

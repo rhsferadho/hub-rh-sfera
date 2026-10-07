@@ -127,7 +127,30 @@
         ${card('Participação por unidade', '&#127970;', tabelaUnidades(d))}
         ${card('Evolução da adesão (últimos 12 pulsos)', '&#128200;', '<div class="chart-h" style="height:300px"><canvas id="c-eg-evo-geral"></canvas></div><p class="pc-note">Linha tracejada: meta de ' + U.fmtPct(M.META, 0) + '. Ponto vazado: pulso parcial. "~": estimativa por unidade/departamento (histórico).</p>')}
       </div>
+      ${cardBaixaAdesao(d)}
       ${tabDepartamentos(d)}`;
+  }
+
+  // ---- Departamentos sem resposta ou abaixo da meta -----------------------------
+  // Resumo para cobrança: só quem não respondeu nada ou está abaixo da meta, do
+  // pior para o melhor (respeita os filtros de Unidade/Departamento/Gestor do topo).
+  function cardBaixaAdesao(d) {
+    const xs = d.departamentos.filter(x => x.conv && (!x.resp || (x.pct !== null && x.pct < M.META)))
+      .sort((a, b) => (a.pct || 0) - (b.pct || 0) || b.conv - a.conv);
+    const semResp = xs.filter(x => !x.resp).length;
+    const situ = x => !x.resp ? `<span class="badge b3">Sem resposta</span>`
+      : x.pct < M.LIMITE_CRITICO ? `<span class="badge b3">Crítica (abaixo de ${U.fmtPct(M.LIMITE_CRITICO, 0)})</span>`
+        : `<span class="badge b4">Abaixo da meta</span>`;
+    const corpo = xs.length
+      ? `<div class="table-wrap" style="max-height:420px"><table class="dt eg-tbl"><thead><tr><th>Departamento</th><th>Unidade</th><th>Gestor</th><th class="num">Convidados</th><th class="num">Responderam</th><th class="num">Participação</th><th>Situação</th></tr></thead><tbody>
+        ${xs.map(x => `<tr><td>${esc(x.departamento)}</td><td>${esc(x.unidade || '—')}</td><td>${esc(x.gestor || '—')}</td><td class="num">${num(x.conv)}</td><td class="num">${num(x.resp)}</td><td class="num">${pct(x.pct, x.est)}</td><td>${situ(x)}</td></tr>`).join('')}
+        </tbody></table></div>`
+      : `<p style="font-size:13px">Todos os departamentos atingiram a meta de ${U.fmtPct(M.META, 0)} neste pulso.</p>`;
+    return `<div class="card full eg-body-card">
+      <h3><span class="card-ic">${HUB_ICON('alert')}</span>Departamentos sem resposta ou com baixa adesão — ${esc(d.sel.rotuloLongo)}</h3>
+      ${corpo}
+      <p class="pc-note">${U.fmtInt(xs.length)} de ${U.fmtInt(d.departamentos.length)} departamentos abaixo da meta de ${U.fmtPct(M.META, 0)} (${U.fmtInt(semResp)} sem nenhuma resposta). Convidados = headcount ativo do departamento no pulso.</p>
+    </div>`;
   }
 
   // ---- Gráfico de evolução -------------------------------------------------------
