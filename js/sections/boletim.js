@@ -131,7 +131,8 @@
       k('ave45_gestor', b.ave45_total ? `auto ${M.fmtValor('ave45_auto', i.ave45_auto)} · ${b.ave45_total} no ciclo` : 'ninguém venceu 45 dias', 'AvE 45 dias'),
       k('ave90_gestor', b.ave90_total ? `auto ${M.fmtValor('ave90_auto', i.ave90_auto)} · ${b.ave90_total} no ciclo` : 'ninguém venceu 90 dias', 'AvE 90 dias'),
       k('satisfacao_respondentes', (b.satisfacao_aptos ? `${M.fmtValor('satisfacao_participacao', i.satisfacao_participacao)} de ${b.satisfacao_aptos} gestores aptos` : 'nenhum gestor com a tag pesquisa.satisfação') + (i.satisfacao_empresa ? ' · empresa toda' : ''), 'Pesquisa de Satisfação'),
-      k('pesquisa_nota', i.pesquisa_participacao != null ? `participação ${M.fmtValor('pesquisa_participacao', i.pesquisa_participacao)} ${chip('pesquisa_participacao', v.pesquisa_participacao)}` : (b.pesquisa_respostas ? `${U.fmtInt(b.pesquisa_respostas)} respostas` : 'sem pulso no mês'), 'Pesquisa de Engajamento'),
+      k('pesquisa_nota', b.pesquisa_respondentes ? `${U.fmtInt(b.pesquisa_respondentes)} respondentes no pulso` : (b.pesquisa_respostas ? 'respostas sem a base de participação' : 'sem respostas no pulso'), 'Pesquisa de Engajamento — nota'),
+      k('pesquisa_participacao', b.pesquisa_convidados != null ? `${U.fmtInt(b.pesquisa_respondentes)} de ${U.fmtInt(b.pesquisa_convidados)} convidados · meta ${U.fmtPct(M.INDICADORES.pesquisa_participacao.meta, 0)}` : 'pulso sem a base de convidados', 'Pesquisa de Engajamento — participação'),
       k('nps', i.nps_respostas ? `${i.nps_respostas} resposta(s) · média ${M.fmtValor('pesquisa_nota', i.nps_media)}` : 'sem respostas'),
       b.twygo_pessoas ? k('twygo_progresso', `${b.twygo_pessoas} pessoas · foto atual`) : '',
       i.unibe_adesao != null ? k('unibe_adesao', 'valor informado') : '',
@@ -344,6 +345,13 @@
   const rotuloSat = x => `${x.aptos ? U.fmtPct(pctDe(x), 0) : '—'} (${U.fmtInt(x.resp)} de ${U.fmtInt(x.aptos)})`;
   const badge = (txt, tipo) => `<span class="badge" style="background:${TINT[tipo]};color:${tipo === 'ok' ? '#0f8a4c' : tipo === 'atencao' ? '#9a6b00' : 'var(--critical)'}">${txt}</span>`;
 
+  // Nota da pesquisa por loja: todas as lojas da operação (não só as com nota),
+  // da maior nota para a menor; depois as ocultas pelo anonimato e as sem resposta.
+  function lojasPesquisa(r) {
+    const ordem = l => l.ind.pesquisa_nota != null ? 0 : (l.ind.pesquisa_oculta || l.base.pesquisa_respondentes) ? 1 : 2;
+    return r.lojas.filter(l => !l.apoio && (l.base.hc_fim || l.base.pesquisa_convidados || l.base.pesquisa_respostas))
+      .sort((a, b) => ordem(a) - ordem(b) || (b.ind.pesquisa_nota || 0) - (a.ind.pesquisa_nota || 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
+  }
   const FAIXAS_NOTA = ' Verde = 4,0 ou mais; azul = 3,5 a 3,9 (aceitável); laranja = 3,0 a 3,4 (atenção); vermelho = abaixo de 3,0.';
   const alturaPara = n => Math.max(150, n * 30 + 50);
   const pctFmt = v => U.fmtPct(v, 0);
@@ -367,7 +375,7 @@
       lojas.some(l => l.ind.turnover > 0) ? cardGrafico('bl-c-turn', 'Turnover por loja', '&#128260;', alturaPara(lojas.filter(l => l.ind.turnover > 0).length), '((Admissões + desligamentos) ÷ 2) ÷ headcount no início do mês. Lojas com 0% não aparecem.') : '',
       ave.some(l => l.base.ave45_total) ? cardGrafico('bl-c-ave45', 'AvE 45 dias — avaliações dos gestores', '&#128221;', alturaPara(ave.filter(l => l.base.ave45_total).length) + 30, 'Avaliações que venceram no mês (admissão + 44 dias): respondidas pelo gestor × pendentes. Entre parênteses, o total da loja.') : '',
       ave.some(l => l.base.ave90_total) ? cardGrafico('bl-c-ave90', 'AvE 90 dias — avaliações dos gestores', '&#128221;', alturaPara(ave.filter(l => l.base.ave90_total).length) + 30, 'Avaliações que venceram no mês (admissão + 89 dias): respondidas pelo gestor × pendentes. Entre parênteses, o total da loja.') : '',
-      com('pesquisa_nota').length ? cardGrafico('bl-c-pq', 'Pesquisa de Engajamento — nota por loja', '&#128200;', alturaPara(com('pesquisa_nota').length), `Só lojas com ${M.MIN_RESPOSTAS_NOTA} ou mais respondentes (anonimato). Meta 4,0; saudável a partir de 3,5.${FAIXAS_NOTA}`) : '',
+      lojasPesquisa(r).length && (r.ind.pesquisa_nota != null || r.base.pesquisa_convidados) ? cardGrafico('bl-c-pq', 'Pesquisa de Engajamento — nota por loja', '&#128200;', alturaPara(lojasPesquisa(r).length), `Todas as lojas: sem resposta no pulso = 0,0; com 1 ou 2 respondentes a nota fica oculta (anonimato: com tão poucas pessoas, a nota mostraria a resposta individual). Meta 4,0; saudável a partir de 3,5.${FAIXAS_NOTA}`) : '',
       pilares.length ? cardGrafico('bl-c-pil', 'Pesquisa de Engajamento — pilares', '&#127919;', alturaPara(pilares.length), 'Média das respostas de cada pilar no pulso do mês.' + FAIXAS_NOTA) : '',
       com('pesquisa_participacao').length ? cardGrafico('bl-c-pqp', 'Pesquisa de Engajamento — participação por loja', '&#128101;', alturaPara(com('pesquisa_participacao').length), 'Respondentes ÷ convidados do pulso. Meta: 60%.') : '',
       r.id === 'escritorio'
@@ -425,7 +433,10 @@
     const sp = r.id !== 'escritorio' ? [] : satisfacaoParticipacao(r, b).sort((a, d) => (pctDe(d) || 0) - (pctDe(a) || 0));
     if (sp.length) barras('bl-c-satp', sp.map(x => x.nome), sp.map(x => pctDe(x) || 0), { max: 1, fmt: pctFmt, tick: pctFmt, rotulos: sp.map(rotuloSat),
       cores: sp.map(x => { const p = pctDe(x); return p == null ? COR.neutro : p >= 1 ? COR.ok : p >= 0.5 ? COR.atencao : COR.critico; }) });
-    s = serie('pesquisa_nota'); barras('bl-c-pq', s.map(l => l.nome), s.map(l => l.ind.pesquisa_nota), { max: 5, fmt: notaFmt, cores: cores('pesquisa_nota', s) });
+    s = lojasPesquisa(r);
+    barras('bl-c-pq', s.map(l => l.nome), s.map(l => l.ind.pesquisa_nota || 0), { max: 5, fmt: notaFmt,
+      rotulos: s.map(l => l.ind.pesquisa_nota != null ? notaFmt(l.ind.pesquisa_nota) : l.ind.pesquisa_oculta || l.base.pesquisa_respondentes ? `oculta (menos de ${M.MIN_RESPOSTAS_NOTA} respostas)` : '0,0 (sem resposta)'),
+      cores: s.map(l => l.ind.pesquisa_nota != null ? COR[M.statusMeta('pesquisa_nota', l.ind.pesquisa_nota)] : '#BFBFBF') });
     const pil = Object.entries(r.ind.pilares || {}).filter(([, v]) => v != null).sort((a, b) => b[1] - a[1]);
     barras('bl-c-pil', pil.map(p => p[0]), pil.map(p => p[1]), { max: 5, fmt: notaFmt, cores: pil.map(p => COR[M.statusMeta('pesquisa_nota', p[1])]) });
     s = serie('pesquisa_participacao'); barras('bl-c-pqp', s.map(l => l.nome), s.map(l => l.ind.pesquisa_participacao), { max: 1, fmt: pctFmt, tick: pctFmt, cores: cores('pesquisa_participacao', s) });
