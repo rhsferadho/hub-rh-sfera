@@ -352,7 +352,9 @@
     for (const linhas of celebracoes.values()) {
       const r = linhas[0];
       const remetente = ctx.pessoa(r.colaborador_enviou);
-      const l = (r.unidade || r.departamento) ? lojaDe(r.unidade, r.departamento) : lojaDaPessoa(remetente);
+      // Loja de quem enviou, como vem no export; se a linha vier sem departamento,
+      // usa o do cadastro do remetente (senão cairia em "Sem departamento").
+      const l = String(r.departamento || '').trim() ? lojaDe(r.unidade, r.departamento) : (lojaDaPessoa(remetente) || (r.unidade ? lojaDe(r.unidade, null) : null));
       if (!remetente && !r.departamento) conta(naoEncontrados.celebracao, r.colaborador_enviou || '—');
       const destinatarios = [];
       let todos = false;

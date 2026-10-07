@@ -366,6 +366,10 @@ run('13. Celebrações do gestor para o próprio time', () => {
   g.gestor_direto = 'Gestora Rodo';
   check('liderado direto de outra loja conta', carregar().operacoes['boti-sg'].ind.celebracoes === antes + 3);
   delete g.gestor_direto;
+  // linha do export sem departamento: vai para a loja do remetente no cadastro
+  cel('C5', '2026-08-24', 'Gestora Rodo', 'todos', null, { departamento: '' });
+  const sg2 = carregar().operacoes['boti-sg'];
+  check('celebração sem departamento no export cai na loja do remetente (papel vazio → cadastro)', sg2.ind.celebracoes === antes + 3 && !sg2.lojas.some(l => l.nome === 'Sem departamento'), `${sg2.ind.celebracoes} ${sg2.lojas.map(l => l.nome).join(',')}`);
 });
 
 run('14. Pesquisa de Satisfação: base = tag pesquisa.satisfação; Escritório vê a empresa toda', () => {
