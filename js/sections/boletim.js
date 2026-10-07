@@ -14,8 +14,8 @@
   const esc = U.escapeHtml;
 
   const state = { mes: null, op: 'geral', aba: 'indicadores' };
-  const COR = { ok: '#1baf7a', atencao: '#e0a100', critico: '#d03b3b', neutro: '#1C7CEC' };
-  const TINT = { ok: '#E6F7F0', atencao: '#FFF6E0', critico: '#FDECEC' };
+  const COR = { ok: '#1baf7a', aceitavel: '#1C7CEC', atencao: '#e0a100', critico: '#d03b3b', neutro: '#1C7CEC' };
+  const TINT = { ok: '#E6F7F0', aceitavel: '#E7F1FD', atencao: '#FFF6E0', critico: '#FDECEC' };
 
   const STYLE = `<style>
     .bl-top{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
@@ -45,6 +45,11 @@
     .bl-man td input:focus{outline:none;border-color:var(--p1)}
     .bl-man td.ok-salvo{color:#0f8a4c;font-size:11px}
     .bl-dic td{white-space:normal;vertical-align:top;line-height:1.5}
+    .bl-itens{display:none;flex-wrap:wrap;gap:4px 14px;padding:10px 12px;margin:0 0 10px;border:1px solid var(--border);border-radius:8px;background:#F7F9FC;font-size:12px;max-height:180px;overflow:auto}
+    .bl-itens.aberto{display:flex}
+    .bl-itens label{display:flex;gap:5px;align-items:center;cursor:pointer;white-space:nowrap}
+    .bl-itens .bl-itens-acoes{width:100%;display:flex;gap:12px;font-size:11px}
+    .bl-itens .bl-itens-acoes a{cursor:pointer;color:var(--p1)}
   </style>`;
 
   const podeEditar = () => HUB_PERMISSIONS.hasPerm(HUB_USER, 'admin.upload');
@@ -143,8 +148,61 @@
 
   function cardGrafico(id, titulo, ic, altura, nota) {
     CHARTS.push(id);
-    return card(`${esc(titulo)}<span style="margin-left:auto"></span><button class="btn btn-outline btn-sm bl-png" data-canvas="${id}" data-nome="${esc(titulo)}" title="Baixar o gráfico como imagem (PNG) para o Mailchimp">Baixar imagem</button>`, ic,
-      `<div class="chart-h" style="height:${altura}px"><canvas id="${id}"></canvas></div>${nota ? `<p class="bl-note">${nota}</p>` : ''}`);
+    return card(`${esc(titulo)}<span style="margin-left:auto"></span><button class="btn btn-outline btn-sm bl-itens-btn" data-canvas="${id}" title="Escolher o que aparece no gráfico (e na imagem baixada)" style="margin-right:6px">Itens</button><button class="btn btn-outline btn-sm bl-png" data-canvas="${id}" data-nome="${esc(titulo)}" title="Baixar o gráfico como imagem (PNG) para o Mailchimp">Baixar imagem</button>`, ic,
+      `<div class="bl-itens" id="${id}-itens"></div><div class="chart-h" style="height:${altura}px"><canvas id="${id}"></canvas></div>${nota ? `<p class="bl-note">${nota}</p>` : ''}`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Mostrar/ocultar itens de um gráfico (ex.: tirar um gestor antes de baixar a
+  // imagem). Guarda os dados originais e redesenha só com os itens marcados; a
+  // escolha vale para o mês e a operação até recarregar a página.
+  // ---------------------------------------------------------------------------
+  const ORIGINAIS = {};
+  const OCULTOS = {};
+  const chaveItens = id => `${state.mes}|${state.op}|${id}`;
+  // Índice original do item (os rótulos/cores calculados por item usam o índice da lista completa).
+  const oi = c => (c.chart && c.chart.$idx ? c.chart.$idx[c.dataIndex] : c.dataIndex);
+
+  function guardarOriginais() {
+    for (const id of CHARTS) {
+      const ch = window.Chart && Chart.getChart(id);
+      if (!ch) continue;
+      ORIGINAIS[id] = { labels: ch.data.labels.slice(), ds: ch.data.datasets.map(d => ({ data: d.data.slice(), bg: Array.isArray(d.backgroundColor) ? d.backgroundColor.slice() : null })) };
+      if ((OCULTOS[chaveItens(id)] || new Set()).size) aplicarItens(id);
+    }
+  }
+
+  function aplicarItens(id) {
+    const ch = Chart.getChart(id), o = ORIGINAIS[id];
+    if (!ch || !o) return;
+    const oc = OCULTOS[chaveItens(id)] || new Set();
+    const keep = o.labels.map((_, i) => i).filter(i => !oc.has(String(o.labels[i])));
+    ch.$idx = keep;
+    ch.data.labels = keep.map(i => o.labels[i]);
+    ch.data.datasets.forEach((d, k) => {
+      d.data = keep.map(i => o.ds[k].data[i]);
+      if (o.ds[k].bg) d.backgroundColor = keep.map(i => o.ds[k].bg[i]);
+    });
+    ch.update();
+  }
+
+  function abrirItens(id) {
+    const painel = document.getElementById(id + '-itens'), o = ORIGINAIS[id];
+    if (!painel || !o) return;
+    if (painel.classList.toggle('aberto') === false) return;
+    const oc = OCULTOS[chaveItens(id)] || (OCULTOS[chaveItens(id)] = new Set());
+    painel.innerHTML = '<div class="bl-itens-acoes"><a data-acao="todos">Mostrar todos</a><a data-acao="nenhum">Ocultar todos</a></div>' +
+      o.labels.map(l => `<label><input type="checkbox" value="${esc(String(l))}"${oc.has(String(l)) ? '' : ' checked'}> ${esc(String(l))}</label>`).join('');
+    painel.querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
+      if (inp.checked) oc.delete(inp.value); else oc.add(inp.value);
+      aplicarItens(id);
+    }));
+    painel.querySelectorAll('a[data-acao]').forEach(a => a.addEventListener('click', () => {
+      oc.clear();
+      if (a.dataset.acao === 'nenhum') o.labels.forEach(l => oc.add(String(l)));
+      painel.querySelectorAll('input').forEach(inp => { inp.checked = a.dataset.acao === 'todos'; });
+      aplicarItens(id);
+    }));
   }
 
   function barras(id, labels, valores, o) {
@@ -158,8 +216,8 @@
         layout: { padding: { right: o.rotulos ? 92 : 48 } },
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: { label: c => o.rotulos ? o.rotulos[c.dataIndex] : fmt(c.parsed.x) } },
-          datalabels: { color: '#16181D', font: { size: 10.5, weight: '700' }, anchor: 'end', align: 'end', formatter: (v, c) => v == null ? '' : o.rotulos ? o.rotulos[c.dataIndex] : fmt(v) }
+          tooltip: { callbacks: { label: c => o.rotulos ? o.rotulos[oi(c)] : fmt(c.parsed.x) } },
+          datalabels: { color: '#16181D', font: { size: 10.5, weight: '700' }, anchor: 'end', align: 'end', formatter: (v, c) => v == null ? '' : o.rotulos ? o.rotulos[oi(c)] : fmt(v) }
         },
         scales: { x: { min: 0, max: o.max, suggestedMax: o.suggestedMax, ticks: o.inteiro ? { precision: 0, stepSize: 1 } : { callback: o.tick || (v => v) } }, y: { grid: { display: false } } }
       }
@@ -175,10 +233,10 @@
       type: 'bar',
       data: { labels, datasets: [
         { type: 'line', label: 'Meta', data: labels.map(() => meta), borderColor: COR.critico, borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, pointHoverRadius: 0, fill: false, order: 0,
-          datalabels: { display: c => c.dataIndex === ultimo, color: COR.critico, font: { size: 11, weight: '700' }, align: 'top', anchor: 'end', offset: 2, formatter: () => `Meta: ${meta}` } },
+          datalabels: { display: c => c.dataIndex === c.chart.data.labels.length - 1, color: COR.critico, font: { size: 11, weight: '700' }, align: 'top', anchor: 'end', offset: 2, formatter: () => `Meta: ${meta}` } },
         { label: 'Celebrações', data: valores, order: 1, borderRadius: 4, maxBarThickness: 34,
           backgroundColor: valores.map(v => v >= meta ? COR.ok : v > 0 ? COR.atencao : COR.critico),
-          datalabels: { display: c => !!valores[c.dataIndex], color: '#16181D', font: { size: 11, weight: '700' }, align: 'end', anchor: 'end', formatter: v => U.fmtInt(v) } }
+          datalabels: { display: c => !!c.dataset.data[c.dataIndex], color: '#16181D', font: { size: 11, weight: '700' }, align: 'end', anchor: 'end', formatter: v => U.fmtInt(v) } }
       ] },
       options: {
         layout: { padding: { top: 22, right: 8 } },
@@ -198,7 +256,7 @@
       options: {
         plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 12 } } },
           tooltip: { callbacks: { label: c => `${c.label}: ${U.fmtInt(c.parsed)} gestor(es)` } },
-          datalabels: { color: c => c.dataIndex === 0 ? '#fff' : '#16181D', font: { size: 15, weight: '700' }, formatter: v => v && aptos ? U.fmtPct(v / aptos, 0) : '' } }
+          datalabels: { color: c => c.chart.data.labels[c.dataIndex] === 'Participação' ? '#fff' : '#16181D', font: { size: 15, weight: '700' }, formatter: v => v && aptos ? U.fmtPct(v / aptos, 0) : '' } }
       }
     });
   }
@@ -217,8 +275,8 @@
       data: { labels: xs.map(x => curto(x.gestor)), datasets: [
         { label: 'Time (liderados)', data: xs.map(x => x.liderados), backgroundColor: '#D9D9D9', grouped: false, barPercentage: 0.75, maxBarThickness: 30, borderRadius: 4, order: 2,
           datalabels: { anchor: 'end', align: 'end', offset: 2, textAlign: 'center', font: { size: 10.5, weight: '700' },
-            color: c => corAdesao(xs[c.dataIndex].adesao),
-            formatter: (v, c) => U.fmtPct(xs[c.dataIndex].adesao, 0) } },
+            color: c => corAdesao(xs[oi(c)].adesao),
+            formatter: (v, c) => U.fmtPct(xs[oi(c)].adesao, 0) } },
         { label: 'Receberam feedback do líder', data: xs.map(x => x.receberam), backgroundColor: xs.map(x => corAdesao(x.adesao)), grouped: false, barPercentage: 0.75, maxBarThickness: 30, borderRadius: 4, order: 1,
           datalabels: { display: false } }
       ] },
@@ -230,8 +288,8 @@
             { text: '50% a 79%', fillStyle: COR.atencao, strokeStyle: COR.atencao, lineWidth: 0 },
             { text: 'Abaixo de 50%', fillStyle: COR.critico, strokeStyle: COR.critico, lineWidth: 0 }
           ] }, onClick: () => {} },
-          tooltip: { callbacks: { title: c => `${xs[c[0].dataIndex].gestor} — ${xs[c[0].dataIndex].loja}`,
-            label: c => c.datasetIndex === 0 ? 'Time do gestor' : `Adesão aos feedbacks: ${U.fmtPct(xs[c.dataIndex].adesao, 0)}` } } },
+          tooltip: { callbacks: { title: c => `${xs[oi(c[0])].gestor} — ${xs[oi(c[0])].loja}`,
+            label: c => c.datasetIndex === 0 ? 'Time do gestor' : `Adesão aos feedbacks: ${U.fmtPct(xs[oi(c)].adesao, 0)}` } } },
         scales: {
           y: { min: 0, ticks: { precision: 0 }, title: { display: true, text: 'pessoas' } },
           x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }
@@ -286,6 +344,7 @@
   const rotuloSat = x => `${x.aptos ? U.fmtPct(pctDe(x), 0) : '—'} (${U.fmtInt(x.resp)} de ${U.fmtInt(x.aptos)})`;
   const badge = (txt, tipo) => `<span class="badge" style="background:${TINT[tipo]};color:${tipo === 'ok' ? '#0f8a4c' : tipo === 'atencao' ? '#9a6b00' : 'var(--critical)'}">${txt}</span>`;
 
+  const FAIXAS_NOTA = ' Verde = 4,0 ou mais; azul = 3,5 a 3,9 (aceitável); laranja = 3,0 a 3,4 (atenção); vermelho = abaixo de 3,0.';
   const alturaPara = n => Math.max(150, n * 30 + 50);
   const pctFmt = v => U.fmtPct(v, 0);
   const notaFmt = v => Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -303,13 +362,13 @@
       cardGrafico('bl-c-fb', r.id === 'escritorio' ? 'Feedback ou 1:1 por área' : 'Adesão aos feedbacks por loja', '&#128172;', alturaPara(com(fbId).length), 'Pessoas que receberam ao menos um feedback de gestor no mês ÷ liderados ativos no fim do mês.'),
       (r.feedback_lideres || []).length ? cardGraficoLargo('bl-c-fbl', 'Feedbacks por liderança', '&#128172;', 340, `Liderados de cada gestor (gestor direto no cadastro) que receberam ao menos um feedback dele no mês: a barra cinza é o time inteiro e a colorida mostra quanto dele foi alcançado (verde = 80% ou mais, amarelo = 50% a 79%, vermelho = abaixo de 50%). Do maior time para o menor. Uma ${r.id === 'escritorio' ? 'área' : 'loja'} pode ter mais de um time (ex.: gerente de venda direta, gerente de atendimento, coordenador de logística). Passe o mouse para ver a ${r.id === 'escritorio' ? 'área' : 'loja'}.`) : '',
       cardGrafico('bl-c-cel', 'Celebrações das lideranças por loja', '&#127881;', 300, `Celebrações do gestor para o próprio time (liderados diretos, mesma loja ou @todos), contadas uma vez cada. Verde = bateu a meta de ${M.META_CELEBRACOES_LOJA} no mês (1 por semana); amarelo = celebrou, mas abaixo da meta. ${lojas.filter(l => !l.ind.celebracoes).length} de ${lojas.length} ${r.id === 'escritorio' ? 'departamentos' : 'lojas'} sem nenhuma celebração no mês.`),
-      cardGrafico('bl-c-hum', 'Termômetro de Humor por loja', '&#127777;&#65039;', alturaPara(com('humor_media').length), 'Média dos registros do mês (1 a 5). Meta: acima de 3,5.'),
+      cardGrafico('bl-c-hum', 'Termômetro de Humor por loja', '&#127777;&#65039;', alturaPara(com('humor_media').length), 'Média dos registros do mês (1 a 5). Meta: acima de 3,5.' + FAIXAS_NOTA),
       cardGrafico('bl-c-eng', 'Engajamento na Feedz por loja', '&#127939;', alturaPara(com('engajamento_feedz').length), `Média dos módulos: acessos, ${r.id === 'escritorio' ? '1:1' : 'feedbacks'}, celebrações e humor (contas da Feedz, base = colaboradores ativos) e participação na Pesquisa de Engajamento, na Pesquisa de Satisfação e na AvE do mês. Verde = realizado; cinza = o que falta para 100%. * = sem acessos informados.`),
       lojas.some(l => l.ind.turnover > 0) ? cardGrafico('bl-c-turn', 'Turnover por loja', '&#128260;', alturaPara(lojas.filter(l => l.ind.turnover > 0).length), '((Admissões + desligamentos) ÷ 2) ÷ headcount no início do mês. Lojas com 0% não aparecem.') : '',
       ave.some(l => l.base.ave45_total) ? cardGrafico('bl-c-ave45', 'AvE 45 dias — avaliações dos gestores', '&#128221;', alturaPara(ave.filter(l => l.base.ave45_total).length) + 30, 'Avaliações que venceram no mês (admissão + 44 dias): respondidas pelo gestor × pendentes. Entre parênteses, o total da loja.') : '',
       ave.some(l => l.base.ave90_total) ? cardGrafico('bl-c-ave90', 'AvE 90 dias — avaliações dos gestores', '&#128221;', alturaPara(ave.filter(l => l.base.ave90_total).length) + 30, 'Avaliações que venceram no mês (admissão + 89 dias): respondidas pelo gestor × pendentes. Entre parênteses, o total da loja.') : '',
-      com('pesquisa_nota').length ? cardGrafico('bl-c-pq', 'Pesquisa de Engajamento — nota por loja', '&#128200;', alturaPara(com('pesquisa_nota').length), `Só lojas com ${M.MIN_RESPOSTAS_NOTA} ou mais respondentes (anonimato). Meta 4,0; saudável a partir de 3,5.`) : '',
-      pilares.length ? cardGrafico('bl-c-pil', 'Pesquisa de Engajamento — pilares', '&#127919;', alturaPara(pilares.length), 'Média das respostas de cada pilar no pulso do mês.') : '',
+      com('pesquisa_nota').length ? cardGrafico('bl-c-pq', 'Pesquisa de Engajamento — nota por loja', '&#128200;', alturaPara(com('pesquisa_nota').length), `Só lojas com ${M.MIN_RESPOSTAS_NOTA} ou mais respondentes (anonimato). Meta 4,0; saudável a partir de 3,5.${FAIXAS_NOTA}`) : '',
+      pilares.length ? cardGrafico('bl-c-pil', 'Pesquisa de Engajamento — pilares', '&#127919;', alturaPara(pilares.length), 'Média das respostas de cada pilar no pulso do mês.' + FAIXAS_NOTA) : '',
       com('pesquisa_participacao').length ? cardGrafico('bl-c-pqp', 'Pesquisa de Engajamento — participação por loja', '&#128101;', alturaPara(com('pesquisa_participacao').length), 'Respondentes ÷ convidados do pulso. Meta: 60%.') : '',
       r.id === 'escritorio'
         ? (satP.length ? cardGrafico('bl-c-satp', 'Pesquisa de Satisfação — participação por operação', '&#128101;', alturaPara(satP.length), 'Gestores que responderam no ciclo ÷ gestores aptos (tag pesquisa.satisfação no cadastro). Lista de todas as lojas e áreas abaixo.') : '')
@@ -615,6 +674,8 @@
 
     if (state.aba === 'indicadores' && state.op !== 'geral') {
       desenharGraficos(b.operacoes[state.op], b);
+      guardarOriginais();
+      el.querySelectorAll('.bl-itens-btn').forEach(btn => btn.addEventListener('click', () => abrirItens(btn.dataset.canvas)));
       el.querySelectorAll('.bl-png').forEach(btn => btn.addEventListener('click', () => baixarPng(btn.dataset.canvas, btn.dataset.nome)));
     }
     if (state.aba === 'texto' && state.op !== 'geral') {

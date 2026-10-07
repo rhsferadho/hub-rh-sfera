@@ -656,8 +656,9 @@
   function statusMeta(id, v) {
     const def = INDICADORES[id] || {};
     if (v == null) return null;
-    if (id === 'pesquisa_nota') return v >= def.meta ? 'ok' : v >= def.saudavel ? 'atencao' : 'critico';
-    if (id === 'humor_media') return v >= 4 ? 'ok' : v >= def.meta ? 'atencao' : 'critico';
+    // Notas de 1 a 5 (pesquisa e humor): 4,0 ou mais = meta; 3,5 a 3,9 = aceitável
+    // na Sfera; 3,0 a 3,4 = atenção; abaixo de 3,0 = crítico.
+    if (id === 'pesquisa_nota' || id === 'humor_media') return v >= 4 ? 'ok' : v >= 3.5 ? 'aceitavel' : v >= 3 ? 'atencao' : 'critico';
     if (id === 'nps') return v >= 50 ? 'ok' : v >= 0 ? 'atencao' : 'critico';
     if (id === 'turnover') return v <= 0.03 ? 'ok' : v <= 0.06 ? 'atencao' : 'critico';
     if (def.meta == null) return null;
