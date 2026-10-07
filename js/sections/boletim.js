@@ -217,7 +217,7 @@
         layout: { padding: { right: o.rotulos ? 92 : 48 } },
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: { label: c => o.rotulos ? o.rotulos[oi(c)] : fmt(c.parsed.x) } },
+          tooltip: { callbacks: { label: c => o.dicas ? o.dicas[oi(c)] : o.rotulos ? o.rotulos[oi(c)] : fmt(c.parsed.x) } },
           datalabels: { color: '#16181D', font: { size: 10.5, weight: '700' }, anchor: 'end', align: 'end', formatter: (v, c) => v == null ? '' : o.rotulos ? o.rotulos[oi(c)] : fmt(v) }
         },
         scales: { x: { min: 0, max: o.max, suggestedMax: o.suggestedMax, ticks: o.inteiro ? { precision: 0, stepSize: 1 } : { callback: o.tick || (v => v) } }, y: { grid: { display: false } } }
@@ -378,7 +378,7 @@
       lojas.some(l => l.ind.turnover > 0) ? cardGrafico('bl-c-turn', 'Turnover por loja', '&#128260;', alturaPara(lojas.filter(l => l.ind.turnover > 0).length), '((Admissões + desligamentos) ÷ 2) ÷ headcount no início do mês. Lojas com 0% não aparecem.') : '',
       ave.some(l => l.base.ave45_total) ? cardGrafico('bl-c-ave45', 'AvE 45 dias — avaliações dos gestores', '&#128221;', alturaPara(ave.filter(l => l.base.ave45_total).length) + 30, 'Avaliações que venceram no mês (admissão + 44 dias): respondidas pelo gestor × pendentes. Entre parênteses, o total da loja.') : '',
       ave.some(l => l.base.ave90_total) ? cardGrafico('bl-c-ave90', 'AvE 90 dias — avaliações dos gestores', '&#128221;', alturaPara(ave.filter(l => l.base.ave90_total).length) + 30, 'Avaliações que venceram no mês (admissão + 89 dias): respondidas pelo gestor × pendentes. Entre parênteses, o total da loja.') : '',
-      lojasPesquisa(r).length && (r.ind.pesquisa_nota != null || r.base.pesquisa_convidados) ? cardGrafico('bl-c-pq', 'Pesquisa de Engajamento — nota por loja', '&#128200;', alturaPara(lojasPesquisa(r).length), `<label style="display:inline-flex;gap:6px;align-items:center;cursor:pointer;color:var(--text);font-weight:600;margin-bottom:4px"><input type="checkbox" id="bl-pq-poucas"${state.mostrarPoucas ? ' checked' : ''}> Mostrar notas de lojas com menos de ${M.MIN_RESPOSTAS_NOTA} respondentes</label><br>Todas as lojas: sem resposta no pulso = 0,0. Com 1 ou 2 respondentes a nota fica oculta, a não ser que a opção acima esteja marcada (aí aparece com o número de respondentes; com tão poucas pessoas, a nota da loja pode mostrar a resposta individual). Meta 4,0; saudável a partir de 3,5.${FAIXAS_NOTA}`) : '',
+      lojasPesquisa(r).length && (r.ind.pesquisa_nota != null || r.base.pesquisa_convidados) ? cardGrafico('bl-c-pq', 'Pesquisa de Engajamento — nota por loja', '&#128200;', alturaPara(lojasPesquisa(r).length), `<label style="display:inline-flex;gap:6px;align-items:center;cursor:pointer;color:var(--text);font-weight:600;margin-bottom:4px"><input type="checkbox" id="bl-pq-poucas"${state.mostrarPoucas ? ' checked' : ''}> Mostrar notas de lojas com menos de ${M.MIN_RESPOSTAS_NOTA} respondentes</label><br>Todas as lojas: sem resposta no pulso = 0,0. Com 1 ou 2 respondentes a nota fica oculta, a não ser que a opção acima esteja marcada (com tão poucas pessoas, a nota da loja pode mostrar a resposta individual). Passe o mouse na barra para ver quantos responderam. Meta 4,0; saudável a partir de 3,5.${FAIXAS_NOTA}`) : '',
       pilares.length ? cardGrafico('bl-c-pil', 'Pesquisa de Engajamento — pilares', '&#127919;', alturaPara(pilares.length), 'Média das respostas de cada pilar no pulso do mês.' + FAIXAS_NOTA) : '',
       com('pesquisa_participacao').length ? cardGrafico('bl-c-pqp', 'Pesquisa de Engajamento — participação por loja', '&#128101;', alturaPara(com('pesquisa_participacao').length), 'Respondentes ÷ convidados do pulso. Meta: 60%.') : '',
       r.id === 'escritorio'
@@ -438,8 +438,10 @@
       cores: sp.map(x => { const p = pctDe(x); return p == null ? COR.neutro : p >= 1 ? COR.ok : p >= 0.5 ? COR.atencao : COR.critico; }) });
     s = lojasPesquisa(r);
     barras('bl-c-pq', s.map(l => l.nome), s.map(l => notaLoja(l) || 0), { max: 5, fmt: notaFmt,
-      rotulos: s.map(l => notaLoja(l) != null ? notaFmt(notaLoja(l)) + (l.ind.pesquisa_nota == null ? ` (${U.fmtInt(l.base.pesquisa_respondentes)} resp.)` : '')
+      rotulos: s.map(l => notaLoja(l) != null ? notaFmt(notaLoja(l))
         : l.ind.pesquisa_oculta || l.base.pesquisa_respondentes ? `oculta (menos de ${M.MIN_RESPOSTAS_NOTA} respostas)` : '0,0 (sem resposta)'),
+      // Ao passar o mouse: nota e número de respondentes.
+      dicas: s.map(l => (notaLoja(l) != null ? 'Nota ' + notaFmt(notaLoja(l)) : l.base.pesquisa_respondentes ? 'Nota oculta' : 'Sem resposta') + ` · ${U.fmtInt(l.base.pesquisa_respondentes || 0)} respondente(s)`),
       cores: s.map(l => notaLoja(l) != null ? COR[M.statusMeta('pesquisa_nota', notaLoja(l))] : '#BFBFBF') });
     const pil = Object.entries(r.ind.pilares || {}).filter(([, v]) => v != null).sort((a, b) => b[1] - a[1]);
     barras('bl-c-pil', pil.map(p => p[0]), pil.map(p => p[1]), { max: 5, fmt: notaFmt, cores: pil.map(p => COR[M.statusMeta('pesquisa_nota', p[1])]) });
