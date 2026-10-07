@@ -165,6 +165,10 @@ returns void
 language plpgsql security definer set search_path = public as $$
 begin
   if not public.has_permission('admin.upload') then raise exception 'Você não tem permissão para editar o boletim.'; end if;
+  -- Mês fechado não aceita edição (reabra o mês para alterar).
+  if exists (select 1 from public.boletim_fechamento where mes = p_mes) then
+    raise exception 'Este mês está fechado. Reabra o mês para alterar os valores manuais.';
+  end if;
   delete from public.boletim_entradas
     where mes = p_mes and operacao = p_operacao and coalesce(loja, '') = coalesce(p_loja, '') and indicador = p_indicador;
   if p_valor is not null then

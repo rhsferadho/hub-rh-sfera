@@ -494,13 +494,17 @@
   function abaManuais(b) {
     if (state.op === 'geral') return empty('Escolha uma operação para informar os valores manuais.');
     const r = b.operacoes[state.op];
-    const pode = podeEditar();
+    // Mês fechado: a foto já foi guardada como publicada; editar aqui deixaria a
+    // tela diferente da foto. Para mudar, é preciso reabrir o mês.
+    const fechado = M.OPERACOES.some(o => b.operacoes[o.id].fechado);
+    const pode = podeEditar() && !fechado;
     const campos = [['unibe_adesao', 'Unibê — adesão (%)', true]].concat(state.op === 'hering' ? [['academia_pontos', 'Academia Hering — pontos', false]] : []);
     const inp = (loja, id, pct, v) => pode
       ? `<input type="number" step="${pct ? '0.1' : '1'}" min="0" ${pct ? 'max="100"' : ''} data-loja="${esc(loja || '')}" data-ind="${id}" data-pct="${pct ? 1 : 0}" value="${v == null ? '' : (pct ? +(v * 100).toFixed(1) : v)}">`
       : esc(v == null ? '—' : (pct ? U.fmtPct(v, 1) : U.fmtInt(v)));
     const lojas = r.lojas.filter(l => !l.apoio);
-    return cardEngajamento(r, b, inp) + '<div style="height:16px"></div>' + card(`Treinamentos — ${esc(r.op.nome)} · ${esc(mesLabel(b.mes))}`, '&#128221;', `
+    const aviso = fechado ? `<div class="insight info" style="margin-bottom:16px"><span class="ic">${HUB_ICON('info')}</span><span><b>${esc(mesLabel(b.mes))} está fechado:</b> os valores manuais ficam travados. Para alterar, clique em <b>Reabrir mês</b> no topo, ajuste e feche de novo.</span></div>` : '';
+    return aviso + cardEngajamento(r, b, inp) + '<div style="height:16px"></div>' + card(`Treinamentos — ${esc(r.op.nome)} · ${esc(mesLabel(b.mes))}`, '&#128221;', `
       <p class="bl-note" style="margin:0 0 12px">Indicadores que não têm planilha no Hub. O valor salva ao sair do campo; apagar o campo remove o valor. Se só a operação for informada, ela vale como total.</p>
       <div class="table-wrap" style="max-height:600px"><table class="dt bl-man"><thead><tr><th>Loja</th>${campos.map(c => `<th>${c[1]}</th>`).join('')}<th></th></tr></thead><tbody>
         <tr style="font-weight:700;background:#F7F9FC"><td>Total da operação</td>${campos.map(c => `<td>${inp(null, c[0], c[2], manual(r, null, c[0]))}</td>`).join('')}<td class="ok-salvo"></td></tr>
