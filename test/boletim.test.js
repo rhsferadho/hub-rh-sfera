@@ -183,6 +183,14 @@ run('3b. Feedback por liderança', () => {
   check('Gestor Mini lidera 8 na loja Grande: feedback do Gestor Grande não conta para ele', m && m.liderados === 8 && m.receberam === 0 && m.loja === 'Grande', JSON.stringify(m));
   check('liderados sem gestor direto ficam em "Sem gestor direto"', rj.feedback_lideres.some(x => x.gestor === 'Sem gestor direto'));
   for (let i = 1; i <= 28; i++) delete colabs.find(c => c.nome === 'Grande ' + i).gestor_direto;
+  // Gestor direto abreviado no cadastro ('Gestor Grande' escrito como 'Gestor Grande' com nome do meio)
+  const g2 = pessoa('Ana Maria Souza', RJ, 'O Boticário Mini', 'Gestor', '2023-01-01'); colabs.push(g2);
+  const m1 = colabs.find(c => c.nome === 'Mini 1'), m2 = colabs.find(c => c.nome === 'Mini 2');
+  m1.gestor_direto = 'Ana Souza'; m2.gestor_direto = 'Ana Souza';
+  feedbacks.push({ data: '2026-08-15', de: 'Ana Maria Souza', para: 'Mini 1' });
+  const ana = carregar().operacoes['boti-rj'].feedback_lideres.find(x => x.gestor === 'Ana Maria Souza');
+  check('gestor direto abreviado ("Ana Souza") é reconhecido: 1 de 2 liderados', ana && ana.liderados === 2 && ana.receberam === 1, JSON.stringify(ana));
+  feedbacks.pop(); delete m1.gestor_direto; delete m2.gestor_direto; colabs.splice(colabs.indexOf(g2), 1);
 });
 
 run('4. Turnover igual ao da tela Rotatividade', () => {

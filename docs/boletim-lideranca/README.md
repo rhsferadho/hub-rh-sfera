@@ -205,6 +205,8 @@ Outras conferências que bateram: as celebrações de SG (▼9) e a variação d
 - **Nota da pesquisa:** a planilha misturava meses e fazia média das lojas.
 - **Hering 3,9:** não foi possível reproduzir esse valor da base, que dá 3,44.
 
+**Revalidação com os dados do Supabase (07/10/2026, jul a set/2026):** cada indicador foi recalculado por um caminho independente no navegador (script local `_valida.js`, fora do git) e comparado com o motor: quadro, turnover (bate com a tela Rotatividade, empresa toda), feedback, celebrações, humor, AvE, nota/eNPS/participação da pesquisa, satisfação, componentes do engajamento e soma das lojas = total. Tudo bateu. A divisão RJ × SG confere com as lojas da supervisora regional de SG. Achado corrigido: gestor direto abreviado no cadastro ("Odir Garcez", "Douglas Cairo") não casava com o nome completo — o motor agora reconhece pelo primeiro + último nome.
+
 **Não validado:**
 - **Turnover:** a aba Colaboradores da planilha não tem datas.
 - **Participação da pesquisa:** não estava na planilha; no Hub vem do card 33.

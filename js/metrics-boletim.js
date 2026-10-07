@@ -150,6 +150,7 @@
     const colabs = (window.HUB_DATA && HUB_DATA.colaboradores) || [];
     if (ctxCache && ctxCache.ref === colabs) return ctxCache;
     const porNome = new Map();
+    const cacheGestor = new Map();
     const porEmail = new Map();
     const preferir = (atual, novo) => {
       if (!atual) return novo;
@@ -175,6 +176,23 @@
       pessoa(nome, email) {
         if (email && porEmail.has(N(email))) return porEmail.get(N(email));
         return nome ? porNome.get(N(nome)) || null : null;
+      },
+      // Gestor direto como vem no cadastro, às vezes abreviado ("Odir Garcez" =
+      // "Odir Luiz Ferreira Garcez"): nome exato; senão, primeiro + último nome,
+      // desde que só uma pessoa bata.
+      gestor(nome) {
+        const k = N(nome);
+        if (!k) return null;
+        if (cacheGestor.has(k)) return cacheGestor.get(k);
+        let g = porNome.get(k) || null;
+        if (!g) {
+          const t = k.split(/\s+/);
+          const achados = t.length > 1 ? Array.from(new Set(colabs.filter(c => { const u = N(c.nome_completo).split(/\s+/); return u.length > 1 && u[0] === t[0] && u[u.length - 1] === t[t.length - 1]; }))) : [];
+          const ativos = achados.filter(c => N(c.situacao) !== 'desligado');
+          g = ativos.length === 1 ? ativos[0] : achados.length === 1 ? achados[0] : null;
+        }
+        cacheGestor.set(k, g);
+        return g;
       },
       // Departamento sem unidade (1:1, Twygo): operação só se o nome do departamento for único.
       opDoDepartamento(dep) {
@@ -251,8 +269,9 @@
     // loja pode ter mais de um time (ex.: VD com gerente de venda direta,
     // gerente de atendimento e coordenador de logística).
     const lideres = new Map();
+    const nomeLider = c => { const g = ctx.gestor(c.gestor_direto); return g ? String(g.nome_completo || g.nome).trim() : (String(c.gestor_direto || '').trim() || 'Sem gestor direto'); };
     function liderDe(c, l) {
-      const nome = String(c.gestor_direto || '').trim() || 'Sem gestor direto';
+      const nome = nomeLider(c);
       const k = l.op + '|' + N(nome);
       if (!lideres.has(k)) lideres.set(k, { op: l.op, gestor: nome, liderados: new Set(), receberam: new Set(), feedbacks: 0, lojas: new Map() });
       const x = lideres.get(k);
@@ -295,8 +314,8 @@
       if (para && ativoEm(para, fim) && N(para.papel) === 'colaborador') {
         l.fb_recebeu.add(kp); l.devolutiva.add(kp);
         // Por liderança: só o feedback que o próprio gestor direto deu ao liderado.
-        const lider = lideres.get(l.op + '|' + N(para.gestor_direto || 'Sem gestor direto'));
-        if (lider && [N(de.nome_completo), N(de.nome)].includes(N(para.gestor_direto))) { lider.receberam.add(kp); lider.feedbacks++; }
+        const lider = lideres.get(l.op + '|' + N(nomeLider(para)));
+        if (lider && ctx.gestor(para.gestor_direto) === de) { lider.receberam.add(kp); lider.feedbacks++; }
       }
       l.fb_part.add(kp);
       const ld = lojaDaPessoa(de);
@@ -353,7 +372,7 @@
       if (N(r.papel || (remetente && remetente.papel)) !== 'gestor') continue;
       const doTime = todos || destinatarios.some(p =>
         N(p.gestor_direto) === N(r.colaborador_enviou) ||
-        (remetente && N(p.gestor_direto) === N(remetente.nome_completo || remetente.nome)) ||
+        (remetente && ctx.gestor(p.gestor_direto) === remetente) ||
         N(p.departamento) === N(r.departamento || (remetente && remetente.departamento)));
       if (doTime) {
         l.cel_gestores++;
