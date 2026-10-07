@@ -620,6 +620,8 @@
     const poucas = o.loja && l.pq_resp < MIN_RESPOSTAS_NOTA;
     ind.pesquisa_oculta = !!(poucas && l.pq_n);
     ind.pesquisa_nota = poucas ? null : div(l.pq_soma, l.pq_n);
+    // Nota sem a regra de anonimato — só exibida quando o usuário marca a opção na tela.
+    ind.pesquisa_nota_bruta = div(l.pq_soma, l.pq_n);
     ind.pilares = {};
     if (!poucas) for (const [d, x] of Object.entries(l.pilares)) ind.pilares[d] = div(x.s, x.n);
     ind.nps = (!o.loja && l.nps_n) ? Math.round((l.nps_prom - l.nps_det) / l.nps_n * 100) : null;

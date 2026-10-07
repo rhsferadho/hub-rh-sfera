@@ -13,7 +13,7 @@
   const { kpi, empty, card } = HUB_UI;
   const esc = U.escapeHtml;
 
-  const state = { mes: null, op: 'geral', aba: 'indicadores' };
+  const state = { mes: null, op: 'geral', aba: 'indicadores', mostrarPoucas: false };
   const COR = { ok: '#1baf7a', aceitavel: '#1C7CEC', atencao: '#e0a100', critico: '#d03b3b', neutro: '#1C7CEC' };
   const TINT = { ok: '#E6F7F0', aceitavel: '#E7F1FD', atencao: '#FFF6E0', critico: '#FDECEC' };
 
@@ -347,10 +347,13 @@
 
   // Nota da pesquisa por loja: todas as lojas da operação (não só as com nota),
   // da maior nota para a menor; depois as ocultas pelo anonimato e as sem resposta.
+  // Com a opção marcada, mostra também a nota das lojas com menos de
+  // MIN_RESPOSTAS_NOTA respondentes (sem a regra de anonimato).
+  const notaLoja = l => l.ind.pesquisa_nota != null ? l.ind.pesquisa_nota : state.mostrarPoucas ? (l.ind.pesquisa_nota_bruta != null ? l.ind.pesquisa_nota_bruta : null) : null;
   function lojasPesquisa(r) {
-    const ordem = l => l.ind.pesquisa_nota != null ? 0 : (l.ind.pesquisa_oculta || l.base.pesquisa_respondentes) ? 1 : 2;
+    const ordem = l => notaLoja(l) != null ? 0 : (l.ind.pesquisa_oculta || l.base.pesquisa_respondentes) ? 1 : 2;
     return r.lojas.filter(l => !l.apoio && (l.base.hc_fim || l.base.pesquisa_convidados || l.base.pesquisa_respostas))
-      .sort((a, b) => ordem(a) - ordem(b) || (b.ind.pesquisa_nota || 0) - (a.ind.pesquisa_nota || 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
+      .sort((a, b) => ordem(a) - ordem(b) || (notaLoja(b) || 0) - (notaLoja(a) || 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
   }
   const FAIXAS_NOTA = ' Verde = 4,0 ou mais; azul = 3,5 a 3,9 (aceitável); laranja = 3,0 a 3,4 (atenção); vermelho = abaixo de 3,0.';
   const alturaPara = n => Math.max(150, n * 30 + 50);
@@ -375,7 +378,7 @@
       lojas.some(l => l.ind.turnover > 0) ? cardGrafico('bl-c-turn', 'Turnover por loja', '&#128260;', alturaPara(lojas.filter(l => l.ind.turnover > 0).length), '((Admissões + desligamentos) ÷ 2) ÷ headcount no início do mês. Lojas com 0% não aparecem.') : '',
       ave.some(l => l.base.ave45_total) ? cardGrafico('bl-c-ave45', 'AvE 45 dias — avaliações dos gestores', '&#128221;', alturaPara(ave.filter(l => l.base.ave45_total).length) + 30, 'Avaliações que venceram no mês (admissão + 44 dias): respondidas pelo gestor × pendentes. Entre parênteses, o total da loja.') : '',
       ave.some(l => l.base.ave90_total) ? cardGrafico('bl-c-ave90', 'AvE 90 dias — avaliações dos gestores', '&#128221;', alturaPara(ave.filter(l => l.base.ave90_total).length) + 30, 'Avaliações que venceram no mês (admissão + 89 dias): respondidas pelo gestor × pendentes. Entre parênteses, o total da loja.') : '',
-      lojasPesquisa(r).length && (r.ind.pesquisa_nota != null || r.base.pesquisa_convidados) ? cardGrafico('bl-c-pq', 'Pesquisa de Engajamento — nota por loja', '&#128200;', alturaPara(lojasPesquisa(r).length), `Todas as lojas: sem resposta no pulso = 0,0; com 1 ou 2 respondentes a nota fica oculta (anonimato: com tão poucas pessoas, a nota mostraria a resposta individual). Meta 4,0; saudável a partir de 3,5.${FAIXAS_NOTA}`) : '',
+      lojasPesquisa(r).length && (r.ind.pesquisa_nota != null || r.base.pesquisa_convidados) ? cardGrafico('bl-c-pq', 'Pesquisa de Engajamento — nota por loja', '&#128200;', alturaPara(lojasPesquisa(r).length), `<label style="display:inline-flex;gap:6px;align-items:center;cursor:pointer;color:var(--text);font-weight:600;margin-bottom:4px"><input type="checkbox" id="bl-pq-poucas"${state.mostrarPoucas ? ' checked' : ''}> Mostrar notas de lojas com menos de ${M.MIN_RESPOSTAS_NOTA} respondentes</label><br>Todas as lojas: sem resposta no pulso = 0,0. Com 1 ou 2 respondentes a nota fica oculta, a não ser que a opção acima esteja marcada (aí aparece com o número de respondentes; com tão poucas pessoas, a nota da loja pode mostrar a resposta individual). Meta 4,0; saudável a partir de 3,5.${FAIXAS_NOTA}`) : '',
       pilares.length ? cardGrafico('bl-c-pil', 'Pesquisa de Engajamento — pilares', '&#127919;', alturaPara(pilares.length), 'Média das respostas de cada pilar no pulso do mês.' + FAIXAS_NOTA) : '',
       com('pesquisa_participacao').length ? cardGrafico('bl-c-pqp', 'Pesquisa de Engajamento — participação por loja', '&#128101;', alturaPara(com('pesquisa_participacao').length), 'Respondentes ÷ convidados do pulso. Meta: 60%.') : '',
       r.id === 'escritorio'
@@ -434,9 +437,10 @@
     if (sp.length) barras('bl-c-satp', sp.map(x => x.nome), sp.map(x => pctDe(x) || 0), { max: 1, fmt: pctFmt, tick: pctFmt, rotulos: sp.map(rotuloSat),
       cores: sp.map(x => { const p = pctDe(x); return p == null ? COR.neutro : p >= 1 ? COR.ok : p >= 0.5 ? COR.atencao : COR.critico; }) });
     s = lojasPesquisa(r);
-    barras('bl-c-pq', s.map(l => l.nome), s.map(l => l.ind.pesquisa_nota || 0), { max: 5, fmt: notaFmt,
-      rotulos: s.map(l => l.ind.pesquisa_nota != null ? notaFmt(l.ind.pesquisa_nota) : l.ind.pesquisa_oculta || l.base.pesquisa_respondentes ? `oculta (menos de ${M.MIN_RESPOSTAS_NOTA} respostas)` : '0,0 (sem resposta)'),
-      cores: s.map(l => l.ind.pesquisa_nota != null ? COR[M.statusMeta('pesquisa_nota', l.ind.pesquisa_nota)] : '#BFBFBF') });
+    barras('bl-c-pq', s.map(l => l.nome), s.map(l => notaLoja(l) || 0), { max: 5, fmt: notaFmt,
+      rotulos: s.map(l => notaLoja(l) != null ? notaFmt(notaLoja(l)) + (l.ind.pesquisa_nota == null ? ` (${U.fmtInt(l.base.pesquisa_respondentes)} resp.)` : '')
+        : l.ind.pesquisa_oculta || l.base.pesquisa_respondentes ? `oculta (menos de ${M.MIN_RESPOSTAS_NOTA} respostas)` : '0,0 (sem resposta)'),
+      cores: s.map(l => notaLoja(l) != null ? COR[M.statusMeta('pesquisa_nota', notaLoja(l))] : '#BFBFBF') });
     const pil = Object.entries(r.ind.pilares || {}).filter(([, v]) => v != null).sort((a, b) => b[1] - a[1]);
     barras('bl-c-pil', pil.map(p => p[0]), pil.map(p => p[1]), { max: 5, fmt: notaFmt, cores: pil.map(p => COR[M.statusMeta('pesquisa_nota', p[1])]) });
     s = serie('pesquisa_participacao'); barras('bl-c-pqp', s.map(l => l.nome), s.map(l => l.ind.pesquisa_participacao), { max: 1, fmt: pctFmt, tick: pctFmt, cores: cores('pesquisa_participacao', s) });
@@ -670,6 +674,8 @@
     el.querySelectorAll('.bl-mx tr[data-op]').forEach(tr => tr.addEventListener('click', () => { state.op = tr.dataset.op; renderConteudo(el); }));
 
     if (state.aba === 'indicadores' && state.op !== 'geral') {
+      const cbPoucas = el.querySelector('#bl-pq-poucas');
+      if (cbPoucas) cbPoucas.addEventListener('change', e => { state.mostrarPoucas = e.target.checked; renderConteudo(el); });
       desenharGraficos(b.operacoes[state.op], b);
       guardarOriginais();
       el.querySelectorAll('.bl-itens-btn').forEach(btn => btn.addEventListener('click', () => abrirItens(btn.dataset.canvas)));
