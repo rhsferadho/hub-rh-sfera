@@ -23,6 +23,12 @@ A fonte oficial é `1 - DHO/2.7 People Analytics/1. Base de Dados/16. Base Pesqu
   - Uma linha por gestor e por ciclo.
   - Vem anônima: "Anônimo", e CPF e e-mail com "N/A". Mas traz Unidade, Departamento e Líder direto.
   - Em DHO, T&D e Suprimentos Indiretos, o título da coluna é o texto da pergunta no Feedz ("Pergunta: Sobre o setor …, em uma escala de 0 a 10…"). Em seguida vêm as perguntas genéricas de "o que melhorar" e de comentário, que o parser lê pela posição.
+- **Compras é dividido em duas áreas** (orientação do RH em 07/10/2026): um time atende O Boticário e outro Hering e Levi's. Como o formulário tem uma pergunta só de Compras, o Hub separa pela operação de quem respondeu, com `areaDaResposta()` em `parsers-boletim.js`:
+  - **Compras O Boticário:** lojas O Boticário, VD, Quem disse, Berenice? e, no Escritório, o Comercial O Boticário;
+  - **Compras Hering e Levis:** lojas Hering e Levi's e, no Escritório, o Comercial Hering e Levis e a Supervisão Levis;
+  - quem não se encaixa em nenhuma das duas fica em "Compras (operação não identificada)", e o upload avisa. Na 16 de 07/10/2026 não havia nenhum caso assim.
+
+  As duas são áreas próprias no módulo, no Cadastro de Acessos e no Boletim. Na pesquisa de set/26: O Boticário 7,8 (43 respostas, NPS +23) e Hering e Levis 8,5 (10 respostas, NPS +60).
 - **Coluna extra:** há uma coluna sem título no fim, preenchida em só 23 linhas de set/26, que repete o comentário de Suprimentos. Ela é ignorada.
 - **Volume:** em 07/10/2026, eram 1.188 respostas em 26 ciclos (ago/24 → set/26) e 13 áreas.
 - **Notas 0 de quem não usa a área:** vêm com comentários como "Não utilizo" ou "Desconheço o setor" e puxam a média para baixo. Sugestão: incluir a opção "Não utilizo" no formulário.
@@ -110,7 +116,8 @@ O card **16. Pesquisa de Satisfação** do Upload grava as duas coisas: o agrega
 | Auditoria | 8,5 |
 | Recrutamento e Seleção | 8,1 |
 | TI | 8,0 |
-| Compras | 7,9 |
+| Compras O Boticário | 7,8 |
+| Compras Hering e Levis | 8,5 |
 | Financeiro | 7,4 |
 | Manutenção | 7,3 |
 | Marketing | 7,3 |

@@ -98,7 +98,7 @@ let r;
 run('Parser da planilha 16 (export do Feedz) e conferência', () => {
   const p = PS.parse(wb16, { colaboradores: colabs });
   check('lê a aba Worksheet (não a tabela dinâmica)', p.resumo.respondentes === 15, p.resumo.respondentes);
-  check('áreas pelo título "Pergunta: Sobre o setor ..."', JSON.stringify(p.resumo.areas) === JSON.stringify(['Financeiro', 'DHO', 'TI', 'Suprimentos Indiretos']), JSON.stringify(p.resumo.areas));
+  check('áreas pelo título "Pergunta: Sobre o setor ..."', JSON.stringify(M.ordenarAreas(p.resumo.areas)) === JSON.stringify(['Financeiro', 'DHO', 'TI', 'Suprimentos Indiretos']), JSON.stringify(p.resumo.areas));
   check('coluna sem título que repete comentário não vira área', !p.avisos.some(a => /sem título/.test(a)));
   const dho = p.linhas.find(l => l.area === 'DHO' && l.pesquisa === '2026-09-01');
   check('"o que melhorar" e comentário da pergunta genérica, pela posição', dho && dho.melhorar.join() === 'Tempo de resposta' && dho.comentario === 'Clima bom', JSON.stringify(dho));
@@ -115,7 +115,7 @@ run('Parser da planilha 16 (export do Feedz) e conferência', () => {
 run('Parser do modelo antigo (61)', () => {
   r = PS.parse(wb, { colaboradores: colabs });
   const areas = r.resumo.areas;
-  check('acha as áreas pelo título e a de Suprimentos pelas colunas sem título', JSON.stringify(areas) === JSON.stringify(['Financeiro', 'Compras', 'DHO', 'Suprimentos Indiretos']), JSON.stringify(areas));
+  check('acha as áreas pelo título e a de Suprimentos pelas colunas sem título; Compras dividido', JSON.stringify(M.ordenarAreas(areas)) === JSON.stringify(['Financeiro', 'Compras O Boticário', 'Compras Hering e Levis', 'DHO', 'Suprimentos Indiretos']), JSON.stringify(areas));
   check('avisa sobre as colunas sem título', r.avisos.some(a => /sem título/.test(a) && /Suprimentos Indiretos/.test(a)), JSON.stringify(r.avisos));
   check('ignora a linha sem PESQUISA', r.avisos.some(a => /1 linha/.test(a)) && r.ciclos.reduce((s, c) => s + c.respondentes, 0) === 5);
   check('DHO fora do formulário em ago/26 não gera linha', !r.linhas.some(l => l.area === 'DHO' && l.pesquisa === '2026-08-01'));
@@ -123,12 +123,15 @@ run('Parser do modelo antigo (61)', () => {
   const fin = r.linhas.find(l => l.area === 'Financeiro' && l.departamento === 'O Boticário Centro');
   check('"O que melhorar?" vira lista', JSON.stringify(fin.melhorar) === JSON.stringify(['Tempo de resposta', 'Educação e cordialidade']), JSON.stringify(fin.melhorar));
   check('comentário guardado', fin.comentario === 'Demora para responder os e-mails da loja');
-  check('reuniões de Compras no campo extra', r.linhas.find(l => l.area === 'Compras' && l.departamento === 'O Boticário Rodo' && l.pesquisa === '2026-09-01').extra === '1 reunião');
+  check('reuniões de Compras no campo extra', r.linhas.find(l => l.area === 'Compras O Boticário' && l.departamento === 'O Boticário Rodo' && l.pesquisa === '2026-09-01').extra === '1 reunião');
+  check('Compras da loja Hering vai para Compras Hering e Levis', r.linhas.filter(l => l.unidade === 'Hering' && /^Compras/.test(l.area)).every(l => l.area === 'Compras Hering e Levis'));
+  check('Compras da loja O Boticário vai para Compras O Boticário', r.linhas.filter(l => l.unidade === RJ && /^Compras/.test(l.area)).every(l => l.area === 'Compras O Boticário'));
+  check('ciclo set/26 lista as duas Compras', ['Compras O Boticário', 'Compras Hering e Levis'].every(a => r.ciclos.find(c => c.pesquisa === '2026-09-01').areas.includes(a)));
   check('nota 0 de Suprimentos conta (não é vazio)', r.linhas.some(l => l.area === 'Suprimentos Indiretos' && l.nota === 0));
   const txt = JSON.stringify(r.linhas);
   check('não guarda líder direto, tempo de empresa, data nem "Anônimo"', !/Fulana|13 meses|21\/09|Anônimo/.test(txt));
   const set = r.ciclos.find(c => c.pesquisa === '2026-09-01');
-  check('ciclo set/26: 3 respondentes e 4 áreas', set.respondentes === 3 && set.areas.length === 4, JSON.stringify(set));
+  check('ciclo set/26: 3 respondentes e 5 áreas (Compras em duas)', set.respondentes === 3 && set.areas.length === 5, JSON.stringify(set));
   check('aptos no fim de set/26: tag com e sem acento, ativo no fim do mês (2)', set.aptos === 2, set.aptos);
   check('aptos no fim de ago/26: quem saiu em 15/09 ainda conta (2)', r.ciclos.find(c => c.pesquisa === '2026-08-01').aptos === 2);
 });

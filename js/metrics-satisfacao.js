@@ -33,7 +33,8 @@
   const MELHORAR = ['Tempo de resposta', 'Tempo para resolução', 'Qualidade da solução', 'Educação e cordialidade'];
   const NADA = 'Nada a melhorar';
   // Ordem das áreas (a do formulário); área nova entra no fim, em ordem alfabética.
-  const ORDEM_AREAS = ['Financeiro', 'Compras', 'Recrutamento e Seleção', 'DHO', 'T&D', 'DP', 'TI', 'Manutenção', 'Auditoria', 'Administrativo', 'Marketing', 'Jurídico', 'Suprimentos Indiretos'];
+  // Compras vem dividido pela operação de quem respondeu (parsers-boletim.js, areaDaResposta).
+  const ORDEM_AREAS = ['Financeiro', 'Compras O Boticário', 'Compras Hering e Levis', 'Recrutamento e Seleção', 'DHO', 'T&D', 'DP', 'TI', 'Manutenção', 'Auditoria', 'Administrativo', 'Marketing', 'Jurídico', 'Suprimentos Indiretos'];
   const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
   const MESES_LONGOS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 

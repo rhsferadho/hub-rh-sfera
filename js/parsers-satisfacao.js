@@ -154,8 +154,10 @@
         const melhorar = c.melhorar ? opcoes(row[c.melhorar]) : [];
         const comentario = c.comentario ? texto(row[c.comentario]) : null;
         if (nota == null && !melhorar.length && !comentario) continue;   // área fora do formulário neste ciclo
-        linhas.push({ pesquisa, unidade, departamento, area: c.area, nota, melhorar, extra: c.extra ? texto(row[c.extra]) : null, comentario });
-        ciclo.areas.add(c.area);
+        // Compras vira "Compras O Boticário" ou "Compras Hering e Levis" pela operação de quem respondeu.
+        const area = B.areaDaResposta(c.area, unidade, departamento);
+        linhas.push({ pesquisa, unidade, departamento, area, nota, melhorar, extra: c.extra ? texto(row[c.extra]) : null, comentario });
+        ciclo.areas.add(area);
       }
     }
     if (!linhas.length) throw new Error('Não encontrei respostas com a coluna PESQUISA preenchida.');
@@ -167,10 +169,12 @@
     const sem = colunas.filter(c => c.semCabecalho).map(c => c.area);
     if (sem.length) avisos.push(`Colunas de nota sem título no fim da planilha lidas como: ${sem.join(', ')}. Coloque o título na planilha (ex.: "SUPRIMENTOS INDIRETOS - 0 a 10") para não depender disso.`);
     if (!opts.colaboradores || !opts.colaboradores.length) avisos.push('Cadastro de colaboradores não carregado: a participação (gestores aptos) ficou sem base nesta importação.');
+    const semOp = linhas.filter(l => /operação não identificada/.test(l.area)).length;
+    if (semOp) avisos.push(`${semOp} avaliação(ões) de Compras de quem não é de loja/área O Boticário, Hering ou Levi's ficaram como "Compras (operação não identificada)".`);
     const conferencia = validar(rows, colunas);
     return {
       linhas, ciclos: lista, avisos: avisos.concat(conferencia), conferencia,
-      resumo: { inicio: lista[0].pesquisa, fim: lista[lista.length - 1].pesquisa, respondentes: lista.reduce((s, c) => s + c.respondentes, 0), areas: Array.from(new Set(colunas.map(c => c.area))) }
+      resumo: { inicio: lista[0].pesquisa, fim: lista[lista.length - 1].pesquisa, respondentes: lista.reduce((s, c) => s + c.respondentes, 0), areas: Array.from(new Set(linhas.map(l => l.area))) }
     };
   }
 

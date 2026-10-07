@@ -111,7 +111,7 @@
   const TAG_SATISFACAO = 'pesquisa.satisfacao';
   const MIN_RESPOSTAS_NOTA = 3;          // anonimato da nota por loja
   const PILARES = ['Satisfação', 'Bem-estar', 'Empoderamento', 'Crescimento pessoal', 'Cultura', 'Embaixador', 'Reconhecimento & Feedback', 'Conexão com colegas', 'Conexão com líder'];
-  const AREAS_SUPORTE = ['Financeiro', 'Compras', 'Recrutamento e Seleção', 'DP', 'TI', 'Manutenção', 'Auditoria', 'Administrativo', 'Marketing', 'Jurídico', 'DHO', 'T&D', 'Suprimentos Indiretos'];
+  const AREAS_SUPORTE = ['Financeiro', 'Compras O Boticário', 'Compras Hering e Levis', 'Recrutamento e Seleção', 'DP', 'TI', 'Manutenção', 'Auditoria', 'Administrativo', 'Marketing', 'Jurídico', 'DHO', 'T&D', 'Suprimentos Indiretos'];
 
   function rotuloHumor(nota) {
     if (nota == null) return null;

@@ -149,6 +149,18 @@
     return AREA_NOME[n] || AREA_NOME[norm(bruto)] || String(bruto).trim().toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
   }
 
+  // Compras é dividido em dois times: um atende O Boticário (lojas, VD, Quem disse,
+  // Berenice? e o Comercial O Boticário) e outro Hering e Levi's. A pergunta é
+  // uma só no formulário, então a área avaliada sai da operação de quem respondeu.
+  const COMPRAS_BOTI = 'Compras O Boticário', COMPRAS_HL = 'Compras Hering e Levis';
+  function areaDaResposta(area, unidade, departamento) {
+    if (area !== 'Compras') return area;
+    const t = norm((unidade || '') + ' ' + (departamento || ''));
+    if (/hering|levi/.test(t)) return COMPRAS_HL;
+    if (/boticario|berenice|qdb/.test(t)) return COMPRAS_BOTI;
+    return 'Compras (operação não identificada)';
+  }
+
   function linhasSatisfacao(wb) {
     return escolherAba(wb, ['Worksheet', 'Base Original'], ['PESQUISA', 'Unidade', 'Departamento', 'Posição na empresa', 'Financeiro - 0 a 10'], 3, '16. Base Pesquisa Feedz (Pesquisa de Satisfação)');
   }
@@ -213,7 +225,8 @@
       for (const c of colunasArea) {
         const v = I.num(row[c.k]);
         if (v == null || v < 0 || v > 10) continue;
-        const a = x.areas[c.area] || (x.areas[c.area] = { soma: 0, n: 0 });
+        const nome = areaDaResposta(c.area, unidade, departamento);
+        const a = x.areas[nome] || (x.areas[nome] = { soma: 0, n: 0 });
         a.soma += v; a.n++;
       }
     }
@@ -226,5 +239,5 @@
     return { linhas: out, avisos, resumo: { inicio: meses[0], fim: meses[meses.length - 1], respondentes: out.reduce((s, x) => s + x.respondentes, 0) } };
   }
 
-  window.HUB_PARSERS_BOLETIM = { parseHumor, parseEngajamentoNotas, parseSatisfacao, _internal: { dataBR, mesBR, norm, txt, linhasSatisfacao, colunasSatisfacao } };
+  window.HUB_PARSERS_BOLETIM = { parseHumor, parseEngajamentoNotas, parseSatisfacao, _internal: { dataBR, mesBR, norm, txt, linhasSatisfacao, colunasSatisfacao, areaDaResposta, COMPRAS_BOTI, COMPRAS_HL } };
 })();
