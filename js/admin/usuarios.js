@@ -173,7 +173,7 @@
         <td>${U.escapeHtml(p.nome)}</td><td>${U.escapeHtml(p.email)}</td>
         <td><span class="badge b1">${PERM.PERFIL_LABELS[p.perfil] || p.perfil}</span></td>
         <td><span class="badge b-${st}" title="${U.escapeHtml(tip)}">${STATUS_LABEL[st]}</span></td>
-        <td>${n} de ${PERM.ALL_KEYS.length}</td>
+        <td>${n} de ${PERM.ALL_KEYS.length}${satisfacaoResumo(p)}</td>
         <td class="acc-scope">${scopeCell(p.unidades, 'Todas')}</td>
         <td class="acc-scope">${scopeCell(p.departamentos, 'Todos')}</td>
         <td class="acc-actions">
@@ -294,6 +294,22 @@
     });
   }
 
+  // Na lista de contas: quais áreas da Pesquisa de Satisfação (sigilosa) a conta vê.
+  function satisfacaoResumo(p) {
+    const perm = p.permissoes || {};
+    if (p.perfil !== 'admin' && !perm['indicadores.satisfacao']) return '';
+    const txt = p.perfil === 'admin' || perm['indicadores.satisfacao_completo'] ? 'todas as áreas' : ((p.satisfacao_areas || []).join(', ') || 'nenhuma área');
+    return `<div style="font-size:10.5px;color:var(--muted);margin-top:2px" title="Pesquisa de Satisfação (dados sigilosos)">&#128274; Satisfação: ${U.escapeHtml(txt)}</div>`;
+  }
+
+  // Áreas avaliadas na Pesquisa de Satisfação (checkboxes do campo próprio).
+  function satAreasChecks(marcadas, extras) {
+    const MS = window.HUB_METRICS_SATISFACAO;
+    const base = MS ? MS.ORDEM_AREAS : [];
+    const areas = MS ? MS.ordenarAreas(base.concat(marcadas, extras || [])) : Array.from(new Set(base.concat(marcadas, extras || [])));
+    return areas.map(a => `<label class="chk"><input type="checkbox" value="${U.escapeHtml(a)}" ${marcadas.includes(a) ? 'checked' : ''}>${U.escapeHtml(a)}</label>`).join('');
+  }
+
   function renderAccessForm(el) {
     const { unidades, departamentosPorUnidade } = orgOptions();
     const colabOpts = colaboradorOptions();
@@ -327,6 +343,14 @@
               <h4><span class="perm-ic">${HUB_ICON(g.icon)}</span>${g.groupLabel}</h4>
               ${permGroupHtml(g.items, p).join('')}
             </div>`).join('')}
+        </div>
+
+        <div class="form-grid" id="acc-sat-wrap" style="display:none">
+          <div class="field full">
+            <label>Áreas da Pesquisa de Satisfação que pode ver</label>
+            <div class="checks" id="acc-sat-areas">${satAreasChecks(p.satisfacao_areas || [])}</div>
+            <p class="sub" style="color:var(--muted);margin-top:6px">Dados sigilosos: a pessoa vê só as notas e os comentários das áreas marcadas, sem a loja de quem respondeu. Com "ver todas as áreas" marcado acima, esta lista não é usada.</p>
+          </div>
         </div>
 
         <div class="form-grid" id="acc-org-wrap">
@@ -386,7 +410,23 @@
       b.classList.add('btn-primary'); b.style.background = 'var(--p1)'; b.style.color = '#fff'; b.style.borderColor = 'var(--p1)';
       const preset = PERM.presetPermissoes(perfilAtual);
       document.querySelectorAll('#acc-perm-groups input[data-perm]').forEach(chk => { chk.checked = !!preset[chk.dataset.perm]; });
+      syncSatWrap();
     }));
+
+    // Pesquisa de Satisfação: a lista de áreas só aparece com a permissão marcada.
+    function syncSatWrap() {
+      const chk = document.querySelector('#acc-perm-groups input[data-perm="indicadores.satisfacao"]');
+      document.getElementById('acc-sat-wrap').style.display = chk && chk.checked ? '' : 'none';
+    }
+    document.getElementById('acc-perm-groups').addEventListener('change', syncSatWrap);
+    syncSatWrap();
+    // Áreas novas que já apareceram na pesquisa (fora da lista fixa) entram também.
+    if (window.HUB_SATISFACAO) HUB_SATISFACAO.areasConhecidas().then(extras => {
+      const box = document.getElementById('acc-sat-areas');
+      if (!box) return;
+      const marcadas = Array.from(box.querySelectorAll('input:checked')).map(i => i.value);
+      box.innerHTML = satAreasChecks(marcadas, extras);
+    }).catch(() => {});
 
     if (isEdit) document.getElementById('acc-cancel').addEventListener('click', () => { editingProfile = null; renderAccessForm(el); });
     document.getElementById('acc-form').addEventListener('submit', e => submitAccessForm(e, isEdit, () => perfilAtual, colabOpts));
@@ -430,6 +470,18 @@
     // continua funcionando antes de supabase-organograma.sql ter sido rodado.
     const extra = (colaboradorExt || anterior) ? { colaborador_external_id: colaboradorExt || null } : {};
 
+    // Áreas da Pesquisa de Satisfação: idem (coluna criada por supabase-satisfacao.sql).
+    // Sem a permissão do módulo, a lista é limpa.
+    const satAreas = permissoes['indicadores.satisfacao'] ? Array.from(document.querySelectorAll('#acc-sat-areas input:checked')).map(i => i.value) : [];
+    if (permissoes['indicadores.satisfacao'] && !permissoes['indicadores.satisfacao_completo'] && !satAreas.length) {
+      msg.textContent = 'Marque ao menos uma área da Pesquisa de Satisfação (ou "ver todas as áreas").';
+      msg.className = 'msg err';
+      msg.style.display = 'block';
+      return;
+    }
+    const satAnterior = isEdit && editingProfile ? (editingProfile.satisfacao_areas || []) : [];
+    if (satAreas.length || satAnterior.length) extra.satisfacao_areas = satAreas;
+
     btn.disabled = true;
     btn.textContent = 'Salvando...';
     try {
@@ -446,7 +498,7 @@
       }
       render(document.getElementById('sec-adm-usuarios'));
     } catch (err) {
-      msg.textContent = err.message || 'Erro ao salvar.';
+      msg.textContent = (err.message || 'Erro ao salvar.') + (/satisfacao_areas/i.test(err.message || '') ? ' — rode supabase-satisfacao.sql no Supabase primeiro.' : '');
       msg.style.display = 'block';
       btn.disabled = false;
       btn.textContent = isEdit ? 'Salvar alterações' : 'Criar acesso';

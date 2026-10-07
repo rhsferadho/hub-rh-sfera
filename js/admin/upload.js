@@ -23,7 +23,10 @@
     // parsers-boletim.js e supabase-boletim.sql. As notas da Pesquisa de
     // Engajamento entram junto com o card 33 acima.
     { key: 'humor', table: 'humor_mensal', label: '36. Termômetro de Humor', file: '36. Humor.xlsx', icon: '&#127777;&#65039;', custom: importarHumor },
-    { key: 'satisfacao', table: 'satisfacao_suporte', label: '61. Pesquisa de Satisfação (Suporte do Escritório)', file: '61.Pesquisa de Satisfação.xlsx', icon: '&#127970;', custom: importarSatisfacao }
+    // Pesquisa de Satisfação: a fonte oficial é a 16 (export do Feedz). Alimenta o
+    // Boletim e o módulo Pesquisa de Satisfação (respostas por área, sem nomes —
+    // ver parsers-satisfacao.js e supabase-satisfacao.sql).
+    { key: 'satisfacao', table: 'satisfacao_suporte', label: '16. Pesquisa de Satisfação (Suporte do Escritório)', file: '16. Base Pesquisa Feedz.xlsx', icon: '&#127970;', custom: importarSatisfacao }
   ];
 
   const dm = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7);
@@ -87,7 +90,31 @@
     const r = HUB_PARSERS_BOLETIM.parseSatisfacao(wb);
     setStatus(`Gravando ${U.fmtInt(r.linhas.length)} linhas agregadas...`);
     await HUB_BOLETIM.salvarSatisfacao(r.linhas);
-    return { linhas: r.linhas.length, avisos: r.avisos, resumo: `${U.fmtInt(r.resumo.respondentes)} respostas de ${r.resumo.inicio.slice(5, 7)}/${r.resumo.inicio.slice(0, 4)} a ${r.resumo.fim.slice(5, 7)}/${r.resumo.fim.slice(0, 4)}, agregadas por mês e loja (sem nomes nem comentários).` };
+    const modulo = await importarSatisfacaoModulo(wb, setStatus);
+    return {
+      linhas: r.linhas.length, avisos: r.avisos.concat(modulo.avisos || []),
+      resumo: `${U.fmtInt(r.resumo.respondentes)} respostas de ${r.resumo.inicio.slice(5, 7)}/${r.resumo.inicio.slice(0, 4)} a ${r.resumo.fim.slice(5, 7)}/${r.resumo.fim.slice(0, 4)}, agregadas por mês e loja para o Boletim.` + (modulo.resumo ? ' ' + modulo.resumo : '')
+    };
+  }
+
+  // Módulo Pesquisa de Satisfação: notas, "o que melhorar" e comentários por área
+  // (sem nome, CPF, e-mail nem líder direto). Se falhar (ex.: SQL ainda não
+  // rodado), o Boletim continua gravado e só aparece um aviso.
+  async function importarSatisfacaoModulo(wb, setStatus) {
+    if (!window.HUB_PARSERS_SATISFACAO || !window.HUB_SATISFACAO) return {};
+    try {
+      const r = HUB_PARSERS_SATISFACAO.parse(wb, { colaboradores: HUB_DATA.colaboradores || [] });
+      setStatus(`Gravando ${U.fmtInt(r.linhas.length)} avaliações por área (módulo Pesquisa de Satisfação)...`);
+      await HUB_SATISFACAO.salvar(r.linhas, r.ciclos, (feito, total) => setStatus(`Gravando avaliações... ${U.fmtInt(feito)} de ${U.fmtInt(total)}`));
+      const ult = r.ciclos[r.ciclos.length - 1];
+      const extras = r.avisos.filter(a => !/sem título/.test(a));   // o aviso de colunas sem título já vem do Boletim
+      return {
+        avisos: extras.map(a => /^Conferência/.test(a) ? a : 'Pesquisa de Satisfação: ' + a),
+        resumo: `Módulo Pesquisa de Satisfação: ${U.fmtInt(r.linhas.length)} avaliações de ${r.resumo.areas.length} áreas em ${r.ciclos.length} ciclos; último ciclo ${ult.pesquisa.slice(5, 7)}/${ult.pesquisa.slice(0, 4)} com ${U.fmtInt(ult.respondentes)} gestores${ult.aptos ? ` de ${U.fmtInt(ult.aptos)} aptos` : ''}.`
+      };
+    } catch (err) {
+      return { avisos: ['O Boletim foi atualizado, mas o módulo Pesquisa de Satisfação não: ' + err.message] };
+    }
   }
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -171,7 +198,7 @@
         <div class="progress" id="pg-${u.key}" style="display:none"><div></div></div>
         <div class="status" id="st-${u.key}"></div>
       </div>`).join('')}</div>
-      <p class="sub" style="color:var(--muted);font-size:11.5px">Cada upload substitui completamente os dados daquela planilha — pode reenviar quantas vezes precisar, sempre com o mesmo modelo de colunas. Na Pesquisa de Engajamento (33), as notas também são guardadas (só médias por loja e pilar, sem respostas individuais) para o Boletim da Liderança. Humor (36) e Pesquisa de Satisfação (61) substituem os meses presentes no arquivo e são guardados já agregados, sem nomes. Os indicadores de Recrutamento não aparecem aqui: eles são lidos automaticamente das telas do módulo Recrutamento.</p>`;
+      <p class="sub" style="color:var(--muted);font-size:11.5px">Cada upload substitui completamente os dados daquela planilha — pode reenviar quantas vezes precisar, sempre com o mesmo modelo de colunas. Na Pesquisa de Engajamento (33), as notas também são guardadas (só médias por loja e pilar, sem respostas individuais) para o Boletim da Liderança. Humor (36) e Pesquisa de Satisfação (16) substituem os meses presentes no arquivo e são guardados já agregados, sem nomes. A 16 também guarda as notas, o "O que melhorar?" e os comentários de cada área (sem nome, CPF, e-mail nem líder direto) para o módulo Pesquisa de Satisfação, que só mostra cada área a quem a tem liberada no cadastro. Os indicadores de Recrutamento não aparecem aqui: eles são lidos automaticamente das telas do módulo Recrutamento.</p>`;
     el.querySelectorAll('input[type=file]').forEach(inp => inp.addEventListener('change', e => handleUpload(e.target.dataset.key, e.target.files[0])));
     el.querySelector('#btn-upload-history').addEventListener('click', openHistory);
     Object.keys(resumos).forEach(k => mostrarResumo(k, resumos[k]));

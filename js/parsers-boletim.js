@@ -5,7 +5,7 @@
 //   • "36. Humor.xlsx"                      → parseHumor
 //   • Notas da Pesquisa de Engajamento      → parseEngajamentoNotas
 //       (aba "Respostas" da planilha 33 ou aba "pesquisa_engajamento" do export do Feedz)
-//   • "61. Pesquisa de Satisfação.xlsx"     → parseSatisfacao
+//   • "16. Base Pesquisa Feedz.xlsx"        → parseSatisfacao (Pesquisa de Satisfação)
 (function () {
   const I = HUB_PARSERS._internal;
   const norm = h => String(h == null ? '' : h).normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -58,7 +58,7 @@
   }
   const mesDe = d => d ? d.slice(0, 7) + '-01' : null;
 
-  // Coluna PESQUISA da planilha 61: texto "set/26" (ou "setembro/2026"), às vezes data.
+  // Coluna PESQUISA da Pesquisa de Satisfação: texto "set/26" (ou "setembro/2026"), às vezes data.
   const MESES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
   function mesBR(v) {
     if (v == null || v === '') return null;
@@ -130,22 +130,75 @@
   }
 
   // ---------------------------------------------------------------------
-  // 61. Pesquisa de Satisfação → satisfacao_suporte (pesquisa × unidade × departamento)
+  // Pesquisa de Satisfação → satisfacao_suporte (pesquisa × unidade × departamento)
+  // Fonte oficial: "16. Base Pesquisa Feedz.xlsx", aba "Worksheet" (export do
+  // Feedz). Lê também o modelo antigo "61. Pesquisa de Satisfação" (aba "Base Original").
   // ---------------------------------------------------------------------
   const AREA_NOME = {
     'financeiro': 'Financeiro', 'compras': 'Compras', 'recrutamento e selecao': 'Recrutamento e Seleção',
-    'dp': 'DP', 'ti': 'TI', 'manutencao': 'Manutenção', 'auditoria': 'Auditoria', 'administrativo': 'Administrativo',
-    'marketing': 'Marketing', 'juridico': 'Jurídico', 'dho': 'DHO', 't&d': 'T&D'
+    'dp': 'DP', 'departamento pessoal': 'DP', 'ti': 'TI', 'tecnologia da informacao': 'TI', 'manutencao': 'Manutenção', 'auditoria': 'Auditoria', 'administrativo': 'Administrativo',
+    'marketing': 'Marketing', 'juridico': 'Jurídico', 'dho': 'DHO', 'desenvolvimento humano organizacional': 'DHO',
+    't&d': 'T&D', 'treinamento e desenvolvimento': 'T&D', 'suprimentos indiretos': 'Suprimentos Indiretos'
   };
+  // Colunas de área sem título no fim da planilha (o SheetJS chama de __EMPTY,
+  // __EMPTY_1...): na planilha 61 eram as de Suprimentos Indiretos (nota, o que
+  // melhorar, comentários), incluídas em jun/2026 sem título.
+  const AREAS_SEM_CABECALHO = ['Suprimentos Indiretos'];
   function nomeArea(bruto) {
-    const n = norm(bruto);
-    return AREA_NOME[n] || String(bruto).trim().toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+    const n = norm(bruto).replace(/\s*\([^)]*\)\s*$/, '');   // "... ORGANIZACIONAL (DHO)" → sem a sigla
+    return AREA_NOME[n] || AREA_NOME[norm(bruto)] || String(bruto).trim().toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+  }
+
+  function linhasSatisfacao(wb) {
+    return escolherAba(wb, ['Worksheet', 'Base Original'], ['PESQUISA', 'Unidade', 'Departamento', 'Posição na empresa', 'Financeiro - 0 a 10'], 3, '16. Base Pesquisa Feedz (Pesquisa de Satisfação)');
+  }
+
+  // Colunas de cada área avaliada: { area, k (nota 0 a 10), melhorar, comentario,
+  // extra (Compras: reuniões no mês), semCabecalho }. Dois formatos de título:
+  //   "TI - 0 a 10" / "TI - O que melhorar?" / "TI - Comentários"
+  //   "Pergunta: Sobre o setor DESENVOLVIMENTO HUMANO ORGANIZACIONAL (DHO), em uma
+  //    escala de 0 a 10..." seguido das perguntas genéricas "Em quais pontos..." e
+  //    "Pensando nas suas respostas anteriores..." (lidas pela posição).
+  function colunasSatisfacao(rows) {
+    const keys = Object.keys(rows[0] || {});
+    const out = [];
+    let ultima = -1;
+    keys.forEach((k, i) => {
+      const t = String(k).replace(/\s+/g, ' ').trim();
+      const m = /^(.*?)\s*-\s*0 a 10$/i.exec(t);
+      if (m) {
+        const pre = norm(m[1]) + ' -';
+        const acha = re => keys.find(x => x !== k && norm(x).startsWith(pre) && re.test(norm(x))) || null;
+        out.push({ area: nomeArea(m[1]), k, melhorar: acha(/melhorar/), comentario: acha(/coment/), extra: acha(/reuni/), semCabecalho: false });
+        ultima = i;
+        return;
+      }
+      const p = /^pergunta:\s*sobre o setor (?:de |da |do )?(.+?),\s*em uma escala de 0 a 10/i.exec(t);
+      if (p) {
+        const prox = (j, re) => keys[j] && re.test(norm(keys[j])) ? keys[j] : null;
+        out.push({ area: nomeArea(p[1]), k, melhorar: prox(i + 1, /melhorar/), comentario: prox(i + 2, /coment|feedback/), extra: null, semCabecalho: false });
+        ultima = i;
+      }
+    });
+    // Trios sem título depois da última área: nota, o que melhorar, comentários.
+    // Só conta se a maioria dos valores preenchidos for nota de 0 a 10 (na 16 há
+    // uma coluna sem título que só repete comentários).
+    const vazias = keys.slice(ultima + 1).filter(k => /^__EMPTY(_\d+)?$/.test(k));
+    for (let j = 0, n = 0; j < vazias.length; j += 3) {
+      const k = vazias[j];
+      const cheios = rows.filter(r => r[k] !== '' && r[k] != null);
+      const notas = cheios.filter(r => { const v = I.num(r[k]); return v != null && v >= 0 && v <= 10; });
+      if (!notas.length || notas.length < cheios.length / 2) continue;
+      out.push({ area: AREAS_SEM_CABECALHO[n] || `Área sem título ${n + 1}`, k, melhorar: vazias[j + 1] || null, comentario: vazias[j + 2] || null, extra: null, semCabecalho: true });
+      n++;
+    }
+    return out;
   }
 
   function parseSatisfacao(wb) {
-    const rows = escolherAba(wb, ['Base Original'], ['PESQUISA', 'Unidade', 'Departamento', 'Posição na empresa', 'Financeiro - 0 a 10'], 3, '61. Pesquisa de Satisfação');
-    const colunasArea = Object.keys(rows[0]).map(k => ({ k, m: /^(.*?)\s*-\s*0 a 10$/i.exec(String(k).trim()) })).filter(x => x.m).map(x => ({ k: x.k, area: nomeArea(x.m[1]) }));
-    if (!colunasArea.length) throw new Error('Não encontrei as colunas de nota das áreas ("Financeiro - 0 a 10", "DP - 0 a 10"...).');
+    const rows = linhasSatisfacao(wb);
+    const colunasArea = colunasSatisfacao(rows);
+    if (!colunasArea.length) throw new Error('Não encontrei as colunas de nota das áreas ("Financeiro - 0 a 10", "Pergunta: Sobre o setor ...").');
     const grupos = new Map();
     let ignoradas = 0;
     for (const row of rows) {
@@ -167,8 +220,11 @@
     const out = Array.from(grupos.values());
     if (!out.length) throw new Error('Não encontrei respostas com a coluna PESQUISA preenchida.');
     const meses = out.map(x => x.pesquisa).sort();
-    return { linhas: out, avisos: ignoradas ? [`${ignoradas} linha(s) sem a data da PESQUISA foram ignoradas.`] : [], resumo: { inicio: meses[0], fim: meses[meses.length - 1], respondentes: out.reduce((s, x) => s + x.respondentes, 0) } };
+    const avisos = ignoradas ? [`${ignoradas} linha(s) sem a data da PESQUISA foram ignoradas.`] : [];
+    const sem = colunasArea.filter(c => c.semCabecalho).map(c => c.area);
+    if (sem.length) avisos.push(`Colunas de nota sem título no fim da planilha lidas como: ${sem.join(', ')}. Coloque o título (ex.: "SUPRIMENTOS INDIRETOS - 0 a 10") para não depender disso.`);
+    return { linhas: out, avisos, resumo: { inicio: meses[0], fim: meses[meses.length - 1], respondentes: out.reduce((s, x) => s + x.respondentes, 0) } };
   }
 
-  window.HUB_PARSERS_BOLETIM = { parseHumor, parseEngajamentoNotas, parseSatisfacao, _internal: { dataBR, mesBR, norm } };
+  window.HUB_PARSERS_BOLETIM = { parseHumor, parseEngajamentoNotas, parseSatisfacao, _internal: { dataBR, mesBR, norm, txt, linhasSatisfacao, colunasSatisfacao } };
 })();

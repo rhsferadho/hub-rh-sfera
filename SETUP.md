@@ -210,11 +210,22 @@ Rode [`supabase-boletim.sql`](supabase-boletim.sql) no SQL Editor (depois do `su
 
 Rotina mensal (Indicadores → **Boletim da Liderança**):
 
-1. Em **Administração → Upload de Planilhas**, envie as planilhas do mês: Colaboradores (1), Feedbacks (4), 1 on 1 (5), Celebrações (20), AvE 45/90 (28), Pesquisa de Engajamento (33 — o mesmo arquivo grava a participação e as notas), **Humor (36)** e **Pesquisa de Satisfação (61)**.
+1. Em **Administração → Upload de Planilhas**, envie as planilhas do mês: Colaboradores (1), Feedbacks (4), 1 on 1 (5), Celebrações (20), AvE 45/90 (28), Pesquisa de Engajamento (33 — o mesmo arquivo grava a participação e as notas), **Humor (36)** e **Pesquisa de Satisfação (16. Base Pesquisa Feedz)**.
 2. Abra o Boletim da Liderança, escolha o mês e confira a aba **Qualidade dos dados**.
 3. Informe Unibê/Academia Hering em **Valores manuais**.
 4. Para cada operação: baixe os gráficos (botão **Baixar imagem**) e copie os textos da aba **Texto do boletim** para o Mailchimp.
 5. Clique em **Fechar mês** — congela os números publicados (inclusive o componente "acessos", que só existe na foto do mês).
+
+### 2.2.2. Pesquisa de Satisfação (dados sigilosos)
+
+Rode [`supabase-satisfacao.sql`](supabase-satisfacao.sql) no SQL Editor (depois do `supabase-boletim.sql`). Ele cria a coluna `profiles.satisfacao_areas`, as tabelas `satisfacao_respostas` (uma linha por resposta × área avaliada, com nota, "O que melhorar?" e comentário — sem nome, CPF, e-mail nem líder direto) e `satisfacao_ciclo`, e a função de leitura `satisfacao_dados()`. Ninguém lê a tabela direto: a função devolve só as áreas liberadas no cadastro da pessoa e, sem a visão completa, sem a loja de quem respondeu.
+
+Acesso (Administração → Cadastro de Acessos), fora de todos os presets:
+
+- **Pesquisa de Satisfação** + o campo **Áreas da Pesquisa de Satisfação que pode ver** (ex.: só TI): a pessoa vê o total da própria área — nota, NPS, evolução, "O que melhorar?" e comentários — sem loja/operação.
+- **↳ ver todas as áreas** (`indicadores.satisfacao_completo`): RH/Diretoria; inclui a nota por operação e por loja.
+
+Rotina: o upload do card **16. Pesquisa de Satisfação** (arquivo "16. Base Pesquisa Feedz.xlsx") grava o Boletim e o módulo de uma vez (envie com o cadastro de Colaboradores carregado, para a base de gestores aptos). Detalhes em [`docs/pesquisa-satisfacao/README.md`](docs/pesquisa-satisfacao/README.md).
 
 ### 2.2. Organograma e Headcount por galho
 

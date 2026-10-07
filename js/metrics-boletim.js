@@ -111,7 +111,7 @@
   const TAG_SATISFACAO = 'pesquisa.satisfacao';
   const MIN_RESPOSTAS_NOTA = 3;          // anonimato da nota por loja
   const PILARES = ['Satisfação', 'Bem-estar', 'Empoderamento', 'Crescimento pessoal', 'Cultura', 'Embaixador', 'Reconhecimento & Feedback', 'Conexão com colegas', 'Conexão com líder'];
-  const AREAS_SUPORTE = ['Financeiro', 'Compras', 'Recrutamento e Seleção', 'DP', 'TI', 'Manutenção', 'Auditoria', 'Administrativo', 'Marketing', 'Jurídico', 'DHO', 'T&D'];
+  const AREAS_SUPORTE = ['Financeiro', 'Compras', 'Recrutamento e Seleção', 'DP', 'TI', 'Manutenção', 'Auditoria', 'Administrativo', 'Marketing', 'Jurídico', 'DHO', 'T&D', 'Suprimentos Indiretos'];
 
   function rotuloHumor(nota) {
     if (nota == null) return null;
@@ -560,7 +560,7 @@
     if (!humorDoMes.length) avisos.push({ tipo: 'alerta', area: 'Humor', texto: `Sem registros do Termômetro de Humor para ${nomeDoMes(mes)} — envie a planilha "36. Humor" em Administração → Upload de Planilhas.` });
     if (!pulso) avisos.push({ tipo: 'alerta', area: 'Pesquisa de Engajamento', texto: `Nenhum pulso da Pesquisa de Engajamento começa em ${nomeDoMes(mes)} — envie a planilha "33. Pesquisa de Engajamento" atualizada.` });
     else if (!(B.engajamento_notas || []).some(r => entre(iso(r.dia), janela[0], janela[1]))) avisos.push({ tipo: 'alerta', area: 'Pesquisa de Engajamento', texto: 'O pulso do mês tem participação, mas não tem as notas — reenvie a planilha "33. Pesquisa de Engajamento" (as notas vêm da aba Respostas).' });
-    if (!(B.satisfacao_suporte || []).some(r => noMes(iso(r.pesquisa), mes))) avisos.push({ tipo: 'alerta', area: 'Pesquisa de Satisfação', texto: `Sem respostas da Pesquisa de Satisfação de ${nomeDoMes(mes)} — envie a planilha "61. Pesquisa de Satisfação".` });
+    if (!(B.satisfacao_suporte || []).some(r => noMes(iso(r.pesquisa), mes))) avisos.push({ tipo: 'alerta', area: 'Pesquisa de Satisfação', texto: `Sem respostas da Pesquisa de Satisfação de ${nomeDoMes(mes)} — envie a planilha "16. Base Pesquisa Feedz" (Pesquisa de Satisfação).` });
     if (!exp[45] || !exp[90]) avisos.push({ tipo: 'info', area: 'AvE', texto: 'Avaliação da Experiência ainda carregando.' });
     const semAcesso = OPERACOES.map(o => [o.nome, porOp[o.id].lojas.filter(l => !l.apoio && l.hc_fim && !l.acc_hc).length]).filter(x => x[1]);
     if (semAcesso.length) avisos.push({ tipo: 'alerta', area: 'Engajamento na Feedz', texto: `Lojas/áreas sem o % de Acessos da Feedz em Valores manuais (${semAcesso.map(([n, q]) => `${n}: ${q}`).join('; ')}). Nelas o engajamento usa só os outros 3 módulos.` + (ctx.atualizado ? ` A foto de Colaboradores (${U.fmtDateBR(ctx.atualizado)}) só preenche os acessos de ${nomeDoMes(ctx.atualizado.slice(0, 7))}.` : '') });
