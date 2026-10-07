@@ -386,34 +386,13 @@
       pilares.length ? cardGrafico('bl-c-pil', 'Pesquisa de Engajamento — pilares', '&#127919;', alturaPara(pilares.length), 'Média das respostas de cada pilar no pulso do mês.' + FAIXAS_NOTA) : '',
       com('pesquisa_participacao').length ? cardGrafico('bl-c-pqp', 'Pesquisa de Engajamento — participação por loja', '&#128101;', alturaPara(com('pesquisa_participacao').length), 'Respondentes ÷ convidados do pulso. Meta: 60%.') : '',
       r.id === 'escritorio'
-        ? (satP.length ? cardGrafico('bl-c-satp', 'Pesquisa de Satisfação — participação por operação', '&#128101;', alturaPara(satP.length), 'Gestores que responderam no ciclo ÷ gestores aptos (tag pesquisa.satisfação no cadastro). Lista de todas as lojas e áreas abaixo.') : '')
+        ? (satP.length ? cardGrafico('bl-c-satp', 'Pesquisa de Satisfação — participação por operação', '&#128101;', alturaPara(satP.length), 'Gestores que responderam no ciclo ÷ gestores aptos (tag pesquisa.satisfação no cadastro).') : '')
         : (r.base.satisfacao_aptos ? cardGrafico('bl-c-satp', 'Pesquisa de Satisfação — participação dos gestores', '&#128101;', 280, `${U.fmtInt(Math.min(r.base.satisfacao_respondentes, r.base.satisfacao_aptos))} de ${U.fmtInt(r.base.satisfacao_aptos)} gestores aptos responderam no ciclo (tag pesquisa.satisfação no cadastro). Visão da operação, sem identificar lojas.`) : ''),
       areas.length ? cardGrafico('bl-c-sat', 'Satisfação com o Suporte do Escritório — notas por área', '&#127970;', alturaPara(areas.length), r.id === 'escritorio' ? 'Notas de 0 a 10 dadas pelos gestores de todas as operações.' : 'Notas de 0 a 10 dadas pelos gestores desta operação.') : '',
       com('twygo_progresso').length ? cardGrafico('bl-c-tw', 'Twygo — progresso por loja', '&#128218;', alturaPara(com('twygo_progresso').length), 'Progresso médio das inscrições confirmadas (foto atual do Twygo, não do mês).') : '',
       com('unibe_adesao').length ? cardGrafico('bl-c-ub', 'Unibê — adesão por loja', '&#127891;', alturaPara(com('unibe_adesao').length), 'Valores informados em "Valores manuais".') : ''
     ].filter(Boolean);
-    return `<div class="grid2">${html.join('')}</div>` + (r.id === 'escritorio' ? tabelaSatisfacaoEmpresa(b) : '');
-  }
-
-  // Boletim do Escritório: todas as lojas/áreas da empresa com gestores aptos, responderam ou não.
-  function tabelaSatisfacaoEmpresa(b) {
-    const linhas = [];
-    for (const o of M.OPERACOES) for (const l of b.operacoes[o.id].lojas) {
-      const x = { op: o.nome, nome: l.nome, resp: l.base.satisfacao_respondentes, aptos: l.base.satisfacao_aptos };
-      if (x.aptos || x.resp) linhas.push(x);
-    }
-    if (!linhas.length) return '';
-    const ordem = x => pctDe(x) == null ? 2 : pctDe(x);
-    linhas.sort((a, c) => ordem(a) - ordem(c) || a.op.localeCompare(c.op, 'pt-BR') || a.nome.localeCompare(c.nome, 'pt-BR'));
-    const situ = x => !x.resp ? badge('Não respondeu', 'critico') : x.aptos && x.resp < x.aptos ? badge('Parcial', 'atencao') : badge('Respondeu', 'ok');
-    const nao = linhas.filter(x => !x.resp).length;
-    const t = linhas.reduce((a, x) => ({ resp: a.resp + x.resp, aptos: a.aptos + x.aptos }), { resp: 0, aptos: 0 });
-    return '<div style="height:16px"></div>' + card('Pesquisa de Satisfação — participação de todas as lojas e áreas', '&#127970;', `
-      <div class="table-wrap" style="max-height:520px"><table class="dt bl-lojas bl-nom"><thead><tr><th>Operação</th><th>Loja / área</th><th>Gestores aptos</th><th>Responderam</th><th>Participação</th><th>Situação</th></tr></thead><tbody>
-        ${linhas.map(x => `<tr><td>${esc(x.op)}</td><td>${esc(x.nome)}</td><td>${U.fmtInt(x.aptos)}</td><td>${U.fmtInt(x.resp)}</td><td>${x.aptos ? U.fmtPct(pctDe(x), 0) : '—'}</td><td>${situ(x)}</td></tr>`).join('')}
-        <tr style="font-weight:700;background:#F7F9FC"><td>Total</td><td></td><td>${U.fmtInt(t.aptos)}</td><td>${U.fmtInt(t.resp)}</td><td>${t.aptos ? U.fmtPct(Math.min(1, t.resp / t.aptos), 0) : '—'}</td><td></td></tr>
-      </tbody></table></div>
-      <p class="bl-note">${nao} de ${linhas.length} lojas/áreas sem nenhuma resposta no ciclo. A pesquisa é anônima: a conta é por loja/área (gestores aptos = tag pesquisa.satisfação no cadastro), não por pessoa. Mais respostas que aptos indica gestor respondendo sem a tag.</p>`, { full: true });
+    return `<div class="grid2">${html.join('')}</div>`;
   }
 
   function desenharGraficos(r, b) {

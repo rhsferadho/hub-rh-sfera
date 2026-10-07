@@ -60,6 +60,13 @@
   </style>`;
 
   const pct = v => v == null ? '—' : U.fmtPct(v, 0);
+
+  // Participação de todas as lojas e áreas (quem respondeu ou não): confidencial,
+  // só o Administrador (permissão própria, fora de todos os presets). As contas são
+  // as do Boletim da Liderança (js/metrics-boletim.js): respondentes por loja da
+  // planilha 16 e gestores aptos = ativos com a tag pesquisa.satisfação.
+  const PERM_PARTICIPACAO = 'indicadores.satisfacao_participacao';
+  const veParticipacao = () => HUB_PERMISSIONS.hasPerm(window.HUB_USER, PERM_PARTICIPACAO);
   const corNota = v => { const f = M.faixa(v); return f ? f.cor : 'var(--muted)'; };
   function varHtml(v, fmt) {
     if (v == null) return '<span class="sf-var eq">—</span>';
@@ -149,7 +156,54 @@
       }
     }
 
-    return kpis + rank + '<div class="sf-gap"></div>' + heat + '<div class="sf-gap"></div>' + `<div class="grid2">${evo}${melh}</div>` + mx + comoLer(acesso);
+    return kpis + rank + '<div class="sf-gap"></div>' + heat + '<div class="sf-gap"></div>' + `<div class="grid2">${evo}${melh}</div>` + mx + cardParticipacao() + comoLer(acesso);
+  }
+
+  // ---- Participação por loja (só Administrador) -----------------------------
+  function cardParticipacao() {
+    if (!veParticipacao()) return '';
+    return '<div class="sf-gap"></div>' + card(`Participação de todas as lojas e áreas — ${esc(M.rotuloCiclo(state.ciclo))}`, 'building',
+      `<div class="sf-sigilo" style="margin-bottom:10px">${HUB_ICON('lock')}<span>Confidencial · visível só para o Administrador.</span></div><div id="sf-part">${tabelaParticipacao()}</div>`, { full: true });
+  }
+
+  function tabelaParticipacao() {
+    if (!HUB_BOLETIM.jaCarregado()) return '<p class="sf-note">Carregando a participação por loja...</p>';
+    const MB = HUB_METRICS_BOLETIM;
+    let calc;
+    try { calc = MB.calcularMes(M.mesISO(state.ciclo)); }
+    catch (err) { return `<p class="sf-note">Não consegui calcular a participação: ${esc(err.message || '')}</p>`; }
+    const linhas = [];
+    for (const o of MB.OPERACOES) for (const l of calc.operacoes[o.id].lojas) {
+      const x = { op: o.nome, nome: l.nome, resp: l.base.satisfacao_respondentes, aptos: l.base.satisfacao_aptos };
+      if (x.aptos || x.resp) linhas.push(x);
+    }
+    if (!linhas.length) return '<p class="sf-note">Nenhuma loja ou área com gestores aptos ou respostas neste ciclo.</p>';
+    const pctDe = x => x.aptos ? Math.min(1, x.resp / x.aptos) : null;
+    const ordem = x => pctDe(x) == null ? 2 : pctDe(x);
+    linhas.sort((a, c) => ordem(a) - ordem(c) || a.op.localeCompare(c.op, 'pt-BR') || a.nome.localeCompare(c.nome, 'pt-BR'));
+    const badge = (txt, fundo, cor) => `<span class="badge" style="background:${fundo};color:${cor}">${txt}</span>`;
+    const situ = x => !x.resp ? badge('Não respondeu', '#FDECEC', 'var(--critical)') : x.aptos && x.resp < x.aptos ? badge('Parcial', '#FFF6E0', '#9a6b00') : badge('Respondeu', '#E6F7F0', '#0f8a4c');
+    const nao = linhas.filter(x => !x.resp).length;
+    const t = linhas.reduce((a, x) => ({ resp: a.resp + x.resp, aptos: a.aptos + x.aptos }), { resp: 0, aptos: 0 });
+    return `<div class="table-wrap" style="max-height:520px"><table class="dt"><thead><tr><th>Operação</th><th>Loja / área</th><th class="num">Gestores aptos</th><th class="num">Responderam</th><th class="num">Participação</th><th>Situação</th></tr></thead><tbody>
+        ${linhas.map(x => `<tr><td>${esc(x.op)}</td><td>${esc(x.nome)}</td><td class="num">${U.fmtInt(x.aptos)}</td><td class="num">${U.fmtInt(x.resp)}</td><td class="num">${x.aptos ? U.fmtPct(pctDe(x), 0) : '—'}</td><td>${situ(x)}</td></tr>`).join('')}
+        <tr style="font-weight:700;background:#F7F9FC"><td>Total</td><td></td><td class="num">${U.fmtInt(t.aptos)}</td><td class="num">${U.fmtInt(t.resp)}</td><td class="num">${t.aptos ? U.fmtPct(Math.min(1, t.resp / t.aptos), 0) : '—'}</td><td></td></tr>
+      </tbody></table></div>
+      <p class="sf-note">${nao} de ${linhas.length} lojas/áreas sem nenhuma resposta no ciclo. A pesquisa é anônima: a conta é por loja/área (gestores aptos = ativos com a tag pesquisa.satisfação no cadastro, foto de hoje), não por pessoa. Mais respostas que aptos indica gestor respondendo sem a tag.</p>`;
+  }
+
+  // Os dados por loja vêm do Boletim da Liderança, buscados só quando a tabela aparece.
+  function carregarParticipacao(el) {
+    const box = el.querySelector('#sf-part');
+    if (!box || HUB_BOLETIM.jaCarregado()) return;
+    HUB_BOLETIM.carregar().then(() => {
+      HUB_METRICS_BOLETIM._invalidar();
+      const b = el.querySelector('#sf-part');
+      if (b) b.innerHTML = tabelaParticipacao();
+    }).catch(err => {
+      const b = el.querySelector('#sf-part');
+      if (b) b.innerHTML = `<p class="sf-note">Não consegui carregar a participação por loja: ${esc(err.message || '')}</p>`;
+    });
   }
 
   function legendaFaixas() {
@@ -360,6 +414,7 @@
       }
     } else {
       desenharGeral(ctx);
+      carregarParticipacao(el);
       // Mapa de calor abre no ciclo mais recente (fim da tabela).
       el.querySelectorAll('.sf-heat-wrap').forEach(w => { w.scrollLeft = w.scrollWidth; });
     }

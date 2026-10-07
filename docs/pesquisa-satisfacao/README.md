@@ -100,6 +100,7 @@ O card **16. Pesquisa de Satisfação** do Upload grava as duas coisas: o agrega
   - crítica: abaixo de 0.
 - **Variação:** contra a pesquisa anterior em que a área foi avaliada.
 - **Participação:** respondentes da pesquisa ÷ gestores aptos, limitada a 100%. Os aptos são calculados no upload, com as tags do cadastro atual.
+- **Participação de todas as lojas e áreas** (quem respondeu, parcial ou não respondeu): card no fim da visão geral, **confidencial, só para o Administrador** (permissão `indicadores.satisfacao_participacao`, fora de todos os presets). Veio do boletim do Escritório em 07/10/2026. As contas são as do motor do Boletim (`calcularMes` do mês da pesquisa): respondentes por loja da planilha 16 e aptos = ativos com a tag pesquisa.satisfação hoje. Os dados por loja são buscados com o Boletim (`HUB_BOLETIM.carregar`), então quem tiver essa permissão também precisa de `indicadores.boletim` (o Administrador tem tudo).
 - **"O que melhorar?":** % das avaliações em que o ponto foi marcado. O "principal ponto" ignora "Nada a melhorar".
 - **Comentários "vazios"** (".", "ok", "nada a declarar", "sem comentários"...) ficam ocultos por padrão. Uma caixa na tela mostra todos.
 

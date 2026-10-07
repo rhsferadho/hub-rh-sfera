@@ -27,7 +27,8 @@
         { key: 'indicadores.engajamento', label: 'Pesquisa de Engajamento — índice de participação por unidade e departamento' },
         { key: 'indicadores.boletim', label: 'Boletim da Liderança — indicadores mensais por operação, textos e fechamento do mês' },
         { key: 'indicadores.satisfacao', label: 'Pesquisa de Satisfação — notas e comentários das áreas do Escritório (Dados Sigilosos: vê só as áreas marcadas em "Áreas da Pesquisa de Satisfação", e só o total de cada área)' },
-        { key: 'indicadores.satisfacao_completo', label: 'Pesquisa de Satisfação — ver todas as áreas, com o recorte por operação e loja (RH/Diretoria)' }
+        { key: 'indicadores.satisfacao_completo', label: 'Pesquisa de Satisfação — ver todas as áreas, com o recorte por operação e loja (RH/Diretoria)' },
+        { key: 'indicadores.satisfacao_participacao', label: 'Pesquisa de Satisfação — participação de todas as lojas e áreas (Dados Sigilosos: só Administrador)' }
       ]
     },
     {
@@ -75,7 +76,7 @@
     // Clima também saem do preset RH (ajuste de 30/09/2026 — antes entravam).
     rh: ALL_KEYS.filter(k => k !== 'admin.usuarios' && k !== 'indicadores.controle_desligamento'
       && k !== 'indicadores.desligamento' && k !== 'indicadores.pesquisa_clima' && k !== 'indicadores.engajamento'
-      && k !== 'indicadores.satisfacao' && k !== 'indicadores.satisfacao_completo'),
+      && k !== 'indicadores.satisfacao' && k !== 'indicadores.satisfacao_completo' && k !== 'indicadores.satisfacao_participacao'),
     // "Gerar link" da Entrevista de Desligamento e o Controle de Desligamento
     // ficam de fora do preset Gestor de propósito — envolvem dado sensível
     // (CPF/e-mail/celular de ex-colaborador) e devem ser ligados
@@ -94,10 +95,12 @@
     // boletim) e fica fora do preset Gestor.
     // Pesquisa de Satisfação (notas e comentários das áreas do Escritório): dado
     // sigiloso, fora de todos os presets — ligada pessoa a pessoa, junto com as
-    // áreas que ela pode ver (profiles.satisfacao_areas).
+    // áreas que ela pode ver (profiles.satisfacao_areas). A participação de todas
+    // as lojas e áreas (quem respondeu ou não) é confidencial: só o Administrador
+    // (indicadores.satisfacao_participacao, fora de todos os presets).
     gestor: CATALOG.find(g => g.group === 'indicadores').items.map(i => i.key)
       .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.controle_desligamento' && k !== 'indicadores.oneonone' && k !== 'indicadores.organograma_completo' && k !== 'indicadores.headcount_completo' && k !== 'indicadores.engajamento' && k !== 'indicadores.boletim'
-        && k !== 'indicadores.satisfacao' && k !== 'indicadores.satisfacao_completo')
+        && k !== 'indicadores.satisfacao' && k !== 'indicadores.satisfacao_completo' && k !== 'indicadores.satisfacao_participacao')
       .concat(['recrutamento.parecer_gestor'])
   };
 
