@@ -817,11 +817,13 @@
       ]);
     }
 
-    // Celebrações
+    // Celebrações (as das áreas de apoio — supervisão — contam no total e são citadas no texto)
+    const celApoio = r.lojas.filter(l => l.apoio).reduce((t, l) => t + (l.ind.celebracoes || 0), 0);
     add('celebracoes', '🎉 Celebrações na Feedz', [
       'Neste período, seguimos acompanhando de perto as celebrações registradas na Feedz, reforçando a importância desse movimento para fortalecer nossa cultura de reconhecimento.',
       `O ideal é realizar ao menos uma celebração por semana, mantendo o foco em reconhecer o que traduz o nosso jeito de ser: resultados, colaboração, atitudes positivas, marcos importantes da jornada profissional e atitudes alinhadas aos valores da Sfera.`,
       `Neste mês, as lideranças registraram ${plural(i.celebracoes || 0, 'celebração', 'celebrações')}${v.celebracoes ? ` (${fmtVariacao('celebracoes', v.celebracoes)})` : ''}` +
+        (celApoio ? (celApoio === (i.celebracoes || 0) ? (celApoio === 1 ? ', feita pela supervisão' : ', todas feitas pela supervisão') : (celApoio === 1 ? ', uma delas feita pela supervisão' : `, ${U.fmtInt(celApoio)} delas feitas pela supervisão`)) : '') +
         (i.celebracoes_lojas ? `, e ${U.fmtInt(i.celebracoes_lojas_meta)} de ${plural(i.celebracoes_lojas, unid, unid + 's')} ${i.celebracoes_lojas_meta === 1 ? 'atingiu' : 'atingiram'} a referência de ${META_CELEBRACOES_LOJA} celebrações no mês.` : '.'),
       'Confira a seguir o panorama de celebrações do mês:'
     ]);
