@@ -34,6 +34,9 @@
     .bl-mx th:first-child{background:#F7F9FC;z-index:2}
     .bl-mx td .v{display:block;font-weight:700;font-size:12.5px}
     .bl-mx tr{cursor:pointer}
+    .bl-mx tr.bl-total{cursor:default}
+    .bl-mx tr.bl-total td{border-top:2px solid var(--text);font-weight:700}
+    .bl-mx tr.bl-total td:first-child{background:#F7F9FC}
     .bl-lojas td,.bl-lojas th{text-align:right}
     .bl-lojas td:first-child,.bl-lojas th:first-child{text-align:left}
     .bl-lojas tr.apoio td{color:var(--muted)}
@@ -93,9 +96,10 @@
 
   function visaoGeral(b) {
     const linha = op => {
-      const r = b.operacoes[op.id];
-      return `<tr data-op="${op.id}"><td>${esc(op.nome)}</td>${COLUNAS_GERAL.map(id => {
-        const idReal = id === 'feedback_adesao' && op.id === 'escritorio' ? 'devolutiva_adesao' : id;
+      const r = op.id === 'empresa' ? b.empresa : b.operacoes[op.id];
+      const total = op.id === 'empresa';
+      return `<tr${total ? ' class="bl-total"' : ` data-op="${op.id}"`}><td>${esc(op.nome)}</td>${COLUNAS_GERAL.map(id => {
+        const idReal = id === 'feedback_adesao' ? (total ? 'feedback_painel' : op.id === 'escritorio' ? 'devolutiva_adesao' : id) : id;
         const v = r.ind[idReal];
         const st = M.statusMeta(id, v);
         return `<td style="background:${st ? TINT[st] : 'transparent'}"><span class="v">${esc(M.fmtValor(idReal, v))}</span>${chip(idReal, r.variacoes[idReal])}</td>`;
@@ -103,8 +107,8 @@
     };
     return `${card(`Todas as operações — ${esc(mesLabel(b.mes))}`, '&#128202;', `
       <div class="table-wrap" style="max-height:none"><table class="dt bl-mx"><thead><tr><th>Operação</th>${COLUNAS_GERAL.map(id => `<th>${CURTO[id]}</th>`).join('')}</tr></thead>
-      <tbody>${M.OPERACOES.map(linha).join('')}</tbody></table></div>
-      <p class="bl-note">Clique numa operação para abrir o boletim dela. Cor de fundo: verde = na meta, amarelo = atenção, vermelho = crítico. Setas comparam com ${esc(M.nomeDoMes(b.mesAnterior))} (verde = melhorou, vermelho = piorou). No Escritório, a coluna Feedback considera feedback ou 1:1.</p>`, { full: true })}`;
+      <tbody>${M.OPERACOES.map(linha).join('')}${linha({ id: 'empresa', nome: 'Total da empresa' })}</tbody></table></div>
+      <p class="bl-note">Clique numa operação para abrir o boletim dela. Cor de fundo: verde = na meta, amarelo = atenção, vermelho = crítico. Setas comparam com ${esc(M.nomeDoMes(b.mesAnterior))} (verde = melhorou, vermelho = piorou). No Escritório, a coluna Feedback considera feedback ou 1:1. Total da empresa: todas as lojas somadas e ponderadas pelo tamanho de cada uma (não é a média das operações).</p>`, { full: true })}`;
   }
 
   // ---------------------------------------------------------------------------
@@ -614,7 +618,7 @@
     return M.OPERACOES.map(op => {
       const r = b.operacoes[op.id];
       return { operacao: op.id, dados: { ind: r.ind, base: r.base, lojas: r.lojas.map(l => ({ departamento: l.departamento, nome: l.nome, apoio: l.apoio, ind: l.ind, base: l.base })) } };
-    });
+    }).concat([{ operacao: 'empresa', dados: { ind: b.empresa.ind, base: b.empresa.base, lojas: [] } }]);
   }
 
   async function fechar(el, b) {

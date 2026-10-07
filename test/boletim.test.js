@@ -164,6 +164,13 @@ run('2. Ponderação dos totais', () => {
   check('total = 18/32 (ponderado), não 75% (média simples)', perto(rj.ind.feedback_adesao, 18 / 32), rj.ind.feedback_adesao);
   check('nota da pesquisa do total = soma ÷ n de todas as lojas', perto(rj.ind.pesquisa_nota, (40 + 30 + 20) / 24), rj.ind.pesquisa_nota);
   check('participação do total = 14/32', perto(rj.ind.pesquisa_participacao, 14 / 32), rj.ind.pesquisa_participacao);
+  const b = M.boletim('2026-08'), e = b.empresa;
+  const ops = Object.values(b.operacoes);
+  const somaB = k => ops.reduce((t, o) => t + o.base[k], 0);
+  check('total da empresa: HC = soma das operações', e.base.hc_fim === somaB('hc_fim'), `${e.base.hc_fim} × ${somaB('hc_fim')}`);
+  check('total da empresa: feedback = pessoas ÷ liderados de todas as operações', perto(e.ind.feedback_painel, somaB('feedback_pessoas') / somaB('liderados')), e.ind.feedback_painel);
+  check('total da empresa: turnover ponderado', perto(e.ind.turnover, (somaB('admissoes') + somaB('desligamentos')) / 2 / somaB('hc_inicio')), e.ind.turnover);
+  check('total da empresa: eNPS de todas as respostas = (6+0) − (2+3) ÷ 14 → 7', e.ind.nps === 7, e.ind.nps);
 });
 
 run('3. Feedback conta pessoas', () => {

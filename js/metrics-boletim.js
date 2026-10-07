@@ -81,6 +81,8 @@
   const INDICADORES = {
     feedback_adesao: { rotulo: 'Adesão aos feedbacks', tipo: 'pct', sentido: 'maior', meta: 1 },
     devolutiva_adesao: { rotulo: 'Feedback ou 1:1', tipo: 'pct', sentido: 'maior', meta: 1 },
+    // Total da empresa no painel: feedback nas operações + feedback ou 1:1 no Escritório.
+    feedback_painel: { rotulo: 'Feedback (empresa)', tipo: 'pct', sentido: 'maior', meta: 1 },
     oneonone_adesao: { rotulo: 'Adesão ao 1 on 1', tipo: 'pct', sentido: 'maior', meta: 1 },
     celebracoes: { rotulo: 'Celebrações de gestores', tipo: 'int', sentido: 'maior' },
     humor_media: { rotulo: 'Termômetro de Humor', tipo: 'nota', sentido: 'maior', meta: 3.5, casas: 1 },
@@ -524,6 +526,23 @@
     // respostas de TODAS as operações (gestores com a tag pesquisa.satisfação no cadastro).
     const empresa = novaLoja('escritorio', 'Empresa');
     for (const op of OPERACOES) for (const l of porOp[op.id].lojas) { empresa.sat_resp += l.sat_resp; empresa.sat_aptos += l.sat_aptos; for (const [a, p] of Object.entries(l.sat_areas)) { const x = empresa.sat_areas[a] || (empresa.sat_areas[a] = { s: 0, n: 0 }); x.s += p.s; x.n += p.n; } }
+    // Total da empresa: todas as lojas de todas as operações, ponderado (soma dos
+    // numeradores ÷ soma dos denominadores). Feedback e o módulo de feedback do
+    // engajamento seguem cada operação: no Escritório valem feedback ou 1:1 e o 1:1.
+    const emp = novaLoja('empresa', 'Total da empresa');
+    for (const op of OPERACOES) for (const l of porOp[op.id].lojas) somarEm(emp, l);
+    const indE = derivar(emp, { loja: false, acessoValido });
+    const so = porOp.escritorio.soma, outras = OPERACOES.filter(o => o.id !== 'escritorio').map(o => porOp[o.id].soma);
+    indE.feedback_painel = cap1(div(outras.reduce((t, x) => t + x.fb_recebeu.size, 0) + so.devolutiva.size, emp.liderados));
+    const compE = Object.assign({}, indE.engajamento_componentes);
+    compE.feedbacks = cap1(div(outras.reduce((t, x) => t + x.fb_env, 0) + so.oo_n, emp.hc_fim));
+    const valsE = Object.values(compE).filter(v => v != null);
+    indE.engajamento_componentes = compE;
+    indE.engajamento_feedz = valsE.length ? valsE.reduce((t, v) => t + v, 0) / valsE.length : null;
+    indE.engajamento_completo = OPERACOES.every(o => porOp[o.id].lojas.filter(l => !l.apoio && l.hc_fim).every(l => l.acc_hc));
+    // Pesquisa de Satisfação: base = gestores aptos de todas as operações.
+    resultado.empresa = { id: 'empresa', op: { id: 'empresa', nome: 'Total da empresa' }, base: base(emp), ind: indE, lojas: [] };
+
     const esc = resultado.operacoes.escritorio;
     const indEmp = derivar(empresa, { loja: false, acessoValido });
     for (const k of ['satisfacao_respondentes', 'satisfacao_participacao', 'satisfacao_areas']) esc.ind[k] = indEmp[k];
@@ -722,6 +741,12 @@
       }
       r.fechado = fechamentoDe(mes, op.id);
     }
+    // Total da empresa: compara com a foto do mês anterior, se ele foi fechado.
+    const fechE = fechamentoDe(ant, 'empresa');
+    const prevE = fechE ? fechE.ind : anteriorCalc.empresa.ind;
+    atual.empresa.anterior = prevE;
+    atual.empresa.variacoes = {};
+    for (const id of Object.keys(INDICADORES)) atual.empresa.variacoes[id] = id === 'twygo_progresso' && !fechE ? null : variacao(id, atual.empresa.ind[id], prevE ? prevE[id] : null);
     atual.mesAnterior = ant;
     memo = { chave, valor: atual };
     return atual;
