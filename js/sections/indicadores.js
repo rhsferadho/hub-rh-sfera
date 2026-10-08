@@ -672,6 +672,15 @@
   // ==================================================================
   // 1:1
   // ==================================================================
+  // Tabela "Gestores que mais realizaram 1:1": Nome | Headcount liderado |
+  // Realizados | % de 1:1 realizados (Realizados ÷ Headcount liderado).
+  function gestoresOneOnOneTabela(lista) {
+    if (!lista.length) return empty('Sem registros.');
+    return `<div class="table-wrap"><table class="dt"><thead><tr><th>Nome</th><th>Headcount liderado</th><th>Realizados</th><th>% de 1:1 realizados</th></tr></thead><tbody>${lista.map(g =>
+      `<tr><td>${U.escapeHtml(g.label)}</td><td>${g.headcount ? U.fmtInt(g.headcount) : '—'}</td><td>${U.fmtInt(g.realizados)}</td><td>${g.pctRealizados === null ? '—' : U.fmtPct(g.pctRealizados, 0)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="sub" style="margin-top:8px;font-size:11px;color:var(--muted)">Headcount liderado = pessoas ativas e desativadas que respondem diretamente ao gestor na planilha de Colaboradores. % de 1:1 realizados = Realizados ÷ Headcount liderado; pode passar de 100% quando há mais de um 1:1 com a mesma pessoa no período filtrado.</p>`;
+  }
+
   function renderOneOnOne(el, f) {
     if (noDataGate(el, ['one_on_one'], canUpload())) return;
     const d = M.oneOnOneMetrics(f);
@@ -684,7 +693,7 @@
       <div class="grid2">
         ${card('Realizados por departamento', '&#128194;', d.porDepartamento.length ? '<div class="chart-h"><canvas id="c-oo-depto"></canvas></div>' : empty('Sem dados.'))}
         ${card('Evolução mensal', '&#128200;', d.serie.length ? '<div class="chart-h"><canvas id="c-oo-serie"></canvas></div>' : empty('Sem dados.'))}
-        ${card('Gestores que mais realizaram 1:1', '&#127942;', topRows(d.porGestor, 'Realizados'), { full: true })}
+        ${card('Gestores que mais realizaram 1:1', '&#127942;', gestoresOneOnOneTabela(d.porGestor), { full: true })}
       </div>`;
     if (d.porDepartamento.length) { const t = d.porDepartamento.slice(0, 12); barChart('c-oo-depto', t.map(x => x.label), t.map(x => x.value), { horizontal: true }); }
     if (d.serie.length) lineChart('c-oo-serie', d.serie.map(x => x.label), [{ label: '1:1 realizados', data: d.serie.map(x => x.value) }]);

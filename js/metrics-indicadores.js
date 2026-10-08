@@ -926,12 +926,29 @@
     }
     let rows = filterRows(base, map, f);
     const realizados = rows.filter(r => norm(r.status) === 'realizado');
+
+    // Headcount liderado por gestor: ativos + desativados (mesma regra do
+    // Headcount — sem desligados, sem nome duplicado) que respondem
+    // diretamente ao gestor na planilha de Colaboradores. Departamento e
+    // Unidade do filtro valem para o LIDERADO (o cadastro de Colaboradores
+    // tem os dois), igual ao recorte das linhas de 1:1 acima.
+    const headcountPorGestor = new Map();
+    for (const c of dedupeHeadcount(HUB_DATA.colaboradores || [])) {
+      if (!U.matchesAny(c.departamento, f.departamento) || !U.matchesAny(c.unidade, f.unidade)) continue;
+      const k = norm(c.gestor_direto);
+      if (k) headcountPorGestor.set(k, (headcountPorGestor.get(k) || 0) + 1);
+    }
+    const porGestor = countBy(realizados, 'lider').slice(0, 15).map(g => {
+      const headcount = headcountPorGestor.get(norm(g.label)) || 0;
+      return { label: g.label, value: g.value, realizados: g.value, headcount, pctRealizados: headcount ? g.value / headcount : null };
+    });
+
     return {
       total: rows.length,
       realizados: realizados.length,
       agendados: rows.filter(r => norm(r.status) === 'agendado').length,
       porDepartamento: countBy(realizados, 'departamento'),
-      porGestor: countBy(realizados, 'lider').slice(0, 15),
+      porGestor,
       serie: seriePorMes(realizados, 'data_realizada')
     };
   }
