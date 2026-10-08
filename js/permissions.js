@@ -57,7 +57,8 @@
       items: [
         { key: 'admin.upload', label: 'Upload de Planilhas (Indicadores)' },
         { key: 'admin.cadastros_recrutamento', label: 'Cadastros do Recrutamento' },
-        { key: 'admin.usuarios', label: 'Cadastro de Acessos' }
+        { key: 'admin.usuarios', label: 'Cadastro de Acessos' },
+        { key: 'admin.log_acessos', label: 'Log de Acessos — quem entrou no Hub, quando e quais módulos abriu (só Administrador)' }
       ]
     }
   ];
@@ -76,7 +77,8 @@
     // Clima também saem do preset RH (ajuste de 30/09/2026 — antes entravam).
     // Boletim da Liderança é só do Administrador (08/10/2026); os demais veem
     // os números publicados da própria operação no Dashboard.
-    rh: ALL_KEYS.filter(k => k !== 'admin.usuarios' && k !== 'indicadores.controle_desligamento' && k !== 'indicadores.boletim'
+    // Log de Acessos: só Administrador (fora do preset RH).
+    rh: ALL_KEYS.filter(k => k !== 'admin.usuarios' && k !== 'admin.log_acessos' &&k !== 'indicadores.controle_desligamento' && k !== 'indicadores.boletim'
       && k !== 'indicadores.desligamento' && k !== 'indicadores.pesquisa_clima' && k !== 'indicadores.engajamento'
       && k !== 'indicadores.satisfacao' && k !== 'indicadores.satisfacao_completo' && k !== 'indicadores.satisfacao_participacao'),
     // "Gerar link" da Entrevista de Desligamento e o Controle de Desligamento

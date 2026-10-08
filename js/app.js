@@ -20,8 +20,9 @@
     'rec-agenda': 'Agenda de Entrevistas', 'rec-banco-talentos': 'Banco de Talentos', 'rec-aprovacoes': 'Aprovações',
     'rec-historico': 'Histórico', 'rec-transferencia': 'Transferência de Vaga', 'rec-parecer-gestor': 'Parecer do Gestor',
     'tre-onboarding': 'Onboarding', 'tre-visita-loja': 'Visita em Loja',
-    'adm-upload': 'Upload de Planilhas', 'adm-cadastros': 'Cadastros do Recrutamento', 'adm-usuarios': 'Cadastro de Acessos'
+    'adm-upload': 'Upload de Planilhas', 'adm-cadastros': 'Cadastros do Recrutamento', 'adm-usuarios': 'Cadastro de Acessos', 'adm-log-acessos': 'Log de Acessos'
   };
+  window.HUB_NAV_TITLES = NAV_TITLES;
 
   // Cada item de menu (exceto "dashboard", sempre visível) exige a permissão
   // correspondente do catálogo (js/permissions.js) para aparecer na barra
@@ -36,7 +37,7 @@
     'rec-aprovacoes': 'recrutamento.aprovacoes', 'rec-historico': 'recrutamento.historico',
     'rec-transferencia': 'recrutamento.transferencia', 'rec-parecer-gestor': 'recrutamento.parecer_gestor',
     'tre-onboarding': 'treinamento_dev.onboarding', 'tre-visita-loja': 'treinamento_dev.visita_loja',
-    'adm-upload': 'admin.upload', 'adm-cadastros': 'admin.cadastros_recrutamento', 'adm-usuarios': 'admin.usuarios'
+    'adm-upload': 'admin.upload', 'adm-cadastros': 'admin.cadastros_recrutamento', 'adm-usuarios': 'admin.usuarios', 'adm-log-acessos': 'admin.log_acessos'
   };
 
   // Seções do módulo Recrutamento (e Treinamento e Desenvolvimento, que
@@ -79,6 +80,7 @@
       case 'adm-upload': return HUB_ADMIN_UPLOAD.render(el);
       case 'adm-cadastros': return HUB_ADMIN_CADASTROS.render(el);
       case 'adm-usuarios': return HUB_ADMIN_USUARIOS.render(el);
+      case 'adm-log-acessos': return HUB_ADMIN_LOG_ACESSOS.render(el);
     }
   }
 
@@ -130,8 +132,9 @@
     $('#fg-trilha').style.display = showTwygo ? 'flex' : 'none';
     $('#fg-conteudo').style.display = showTwygo ? 'flex' : 'none';
     $('#fg-experiencia').style.display = name === 'ind-headcount' ? 'flex' : 'none';
-    // O Boletim da Liderança e a Pesquisa de Satisfação têm seletores próprios.
-    $('#filter-bar').style.display = name === 'ind-boletim' || name === 'ind-satisfacao' ? 'none' : '';
+    // O Boletim da Liderança, a Pesquisa de Satisfação e o Log de Acessos têm seletores próprios.
+    $('#filter-bar').style.display = name === 'ind-boletim' || name === 'ind-satisfacao' || name === 'adm-log-acessos' ? 'none' : '';
+    HUB_LOG_ACESSO.registrar('modulo', name);
     renderCurrentSection();
   }
   // Exposto pra navegação entre módulos a partir de uma seção (ex.: botão
@@ -479,8 +482,11 @@
   }
   window.HUB_RELOAD_DATA = reloadData;
 
-  async function enterApp(profile) {
+  // evento: 'login' (acabou de entrar) ou 'sessao' (voltou com a sessão aberta)
+  // — vai para o Log de Acessos antes do primeiro módulo aberto.
+  async function enterApp(profile, evento) {
     window.HUB_USER = profile;
+    if (evento) await HUB_LOG_ACESSO.registrar(evento);
     $('#login-screen').hidden = true;
     $('#app-shell').hidden = false;
     $('#user-name').textContent = profile.nome || profile.email;
@@ -527,7 +533,7 @@
       const { data, error } = await withTimeout(sb.auth.signInWithPassword({ email, password }), 25000, TIMEOUT_MSG);
       if (error) throw error;
       const profile = await withTimeout(loadProfileOrFail(data.user), 20000, TIMEOUT_MSG);
-      await enterApp(profile);
+      await enterApp(profile, 'login');
     } catch (err) {
       if (err.message === 'NO_PROFILE') {
         msg.textContent = 'Este login existe no Supabase mas não tem um perfil de acesso cadastrado. Peça para um administrador cadastrá-lo em Administração → Cadastro de Acessos.';
@@ -550,6 +556,7 @@
   }
 
   async function doLogout() {
+    await HUB_LOG_ACESSO.registrar('logout');
     await sb.auth.signOut();
     window.location.reload();
   }
@@ -587,7 +594,7 @@
     if (data && data.session) {
       try {
         const profile = await loadProfileOrFail(data.session.user);
-        await enterApp(profile);
+        await enterApp(profile, 'sessao');
       } catch (err) {
         await sb.auth.signOut();
       }
