@@ -102,8 +102,10 @@
     // áreas que ela pode ver (profiles.satisfacao_areas). A participação de todas
     // as lojas e áreas (quem respondeu ou não) é confidencial: só o Administrador
     // (indicadores.satisfacao_participacao, fora de todos os presets).
+    // Pesquisa de Engajamento (participação): ENTRA no preset Gestor — cada gestor acompanha a
+    // participação das próprias unidades/departamentos (recorte de can_see). Fora do preset RH.
     gestor: CATALOG.find(g => g.group === 'indicadores').items.map(i => i.key)
-      .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.controle_desligamento' && k !== 'indicadores.oneonone' && k !== 'indicadores.organograma_completo' && k !== 'indicadores.headcount_completo' && k !== 'indicadores.engajamento' && k !== 'indicadores.boletim'
+      .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.controle_desligamento' && k !== 'indicadores.oneonone' && k !== 'indicadores.organograma_completo' && k !== 'indicadores.headcount_completo' && k !== 'indicadores.boletim'
         && k !== 'indicadores.satisfacao' && k !== 'indicadores.satisfacao_completo' && k !== 'indicadores.satisfacao_participacao')
       .concat(['recrutamento.parecer_gestor'])
   };
