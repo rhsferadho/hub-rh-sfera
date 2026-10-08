@@ -13,7 +13,7 @@
 
   const NAV_TITLES = {
     dashboard: 'Dashboard',
-    'ind-headcount': 'Headcount', 'ind-recrutamento': 'Recrutamento', 'ind-rotatividade': 'Rotatividade', 'ind-experiencia': 'Avaliação da Experiência', 'ind-pesquisa-clima': 'Pesquisa de Clima', 'ind-engajamento': 'Pesquisa de Engajamento', 'ind-boletim': 'Boletim da Liderança', 'ind-satisfacao': 'Pesquisa de Satisfação', 'ind-organograma': 'Organograma',
+    'ind-headcount': 'Headcount', 'ind-recrutamento': 'Recrutamento', 'ind-rotatividade': 'Rotatividade', 'ind-experiencia': 'Avaliação da Experiência', 'ind-pesquisa-clima': 'Pesquisa de Clima', 'ind-engajamento': 'Pesquisa de Engajamento', 'ind-boletim': 'Boletim da Liderança', 'ind-satisfacao': 'Pesquisa de Satisfação', 'ind-fechamento': 'Fechamento do Período', 'ind-organograma': 'Organograma',
     'ind-desligamento': 'Entrevista de Desligamento', 'ind-feedbacks': 'Feedbacks', 'ind-oneonone': '1:1',
     'ind-treinamentos': 'Treinamentos', 'ind-celebracoes': 'Celebrações',
     'rec-dashboard': 'Dashboard — Recrutamento', 'rec-vagas': 'Controle de Vagas', 'rec-candidatos': 'Candidatos',
@@ -29,7 +29,7 @@
   // lateral e para o conteúdo ser renderizado.
   const NAV_PERMISSIONS = {
     'ind-headcount': 'indicadores.headcount', 'ind-recrutamento': 'indicadores.recrutamento',
-    'ind-rotatividade': 'indicadores.rotatividade', 'ind-experiencia': 'indicadores.experiencia', 'ind-pesquisa-clima': 'indicadores.pesquisa_clima', 'ind-engajamento': 'indicadores.engajamento', 'ind-boletim': 'indicadores.boletim', 'ind-satisfacao': 'indicadores.satisfacao', 'ind-organograma': 'indicadores.organograma', 'ind-desligamento': 'indicadores.desligamento',
+    'ind-rotatividade': 'indicadores.rotatividade', 'ind-experiencia': 'indicadores.experiencia', 'ind-pesquisa-clima': 'indicadores.pesquisa_clima', 'ind-engajamento': 'indicadores.engajamento', 'ind-boletim': 'indicadores.boletim', 'ind-satisfacao': 'indicadores.satisfacao', 'ind-fechamento': 'indicadores.fechamento', 'ind-organograma': 'indicadores.organograma', 'ind-desligamento': 'indicadores.desligamento',
     'ind-feedbacks': 'indicadores.feedbacks', 'ind-oneonone': 'indicadores.oneonone',
     'ind-treinamentos': 'indicadores.treinamentos', 'ind-celebracoes': 'indicadores.celebracoes',
     'rec-dashboard': 'recrutamento.dashboard', 'rec-vagas': 'recrutamento.vagas', 'rec-candidatos': 'recrutamento.candidatos',
@@ -65,6 +65,7 @@
       case 'ind-engajamento': return HUB_SECTIONS.renderEngajamento(el, f);
       case 'ind-boletim': return HUB_SECTIONS.renderBoletim(el);
       case 'ind-satisfacao': return HUB_SECTIONS.renderSatisfacao(el);
+      case 'ind-fechamento': return HUB_SECTIONS.renderFechamento(el);
       case 'ind-organograma': return HUB_SECTIONS.renderOrganograma(el, f);
       case 'rec-dashboard': return HUB_SECTIONS.renderRecrutamentoDashboard(el, f);
       case 'rec-vagas': return HUB_SECTIONS.renderVagas(el, f);
@@ -132,8 +133,8 @@
     $('#fg-trilha').style.display = showTwygo ? 'flex' : 'none';
     $('#fg-conteudo').style.display = showTwygo ? 'flex' : 'none';
     $('#fg-experiencia').style.display = name === 'ind-headcount' ? 'flex' : 'none';
-    // O Boletim da Liderança, a Pesquisa de Satisfação e o Log de Acessos têm seletores próprios.
-    $('#filter-bar').style.display = name === 'ind-boletim' || name === 'ind-satisfacao' || name === 'adm-log-acessos' ? 'none' : '';
+    // O Boletim da Liderança, a Pesquisa de Satisfação, o Fechamento e o Log de Acessos têm seletores próprios.
+    $('#filter-bar').style.display = name === 'ind-boletim' || name === 'ind-satisfacao' || name === 'ind-fechamento' || name === 'adm-log-acessos' ? 'none' : '';
     HUB_LOG_ACESSO.registrar('modulo', name);
     renderCurrentSection();
   }
@@ -465,6 +466,7 @@
     if (window.HUB_ENGAJAMENTO) HUB_ENGAJAMENTO.invalidar();
     if (window.HUB_BOLETIM) HUB_BOLETIM.invalidar();
     if (window.HUB_SATISFACAO) HUB_SATISFACAO.invalidar();
+    if (window.HUB_FECHAMENTO) HUB_FECHAMENTO.invalidar();
     try {
       await HUB_DAL.loadAll((table, i, total, rowsSoFar) => {
         if (showStatus !== false) statusEl.textContent = `Carregando dados... (${i + 1}/${total}: ${table}, ${U.fmtInt(rowsSoFar)} linhas)`;

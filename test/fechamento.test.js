@@ -22,11 +22,12 @@ const ctx = { console, Intl, Date };
 ctx.window = ctx;
 ctx.XLSX = { utils: { sheet_to_json: ws => ws.rows } };   // SheetJS falso: a aba já é a lista de linhas
 vm.createContext(ctx);
-for (const f of ['js/utils.js', 'js/parsers.js', 'js/parsers-fechamento.js', 'js/metrics-fechamento.js']) {
+for (const f of ['js/utils.js', 'js/parsers.js', 'js/parsers-fechamento.js', 'js/metrics-fechamento.js', 'js/fechamento-slides.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f });
 }
 const PF = ctx.HUB_PARSERS_FECHAMENTO;
 const M = ctx.HUB_METRICS_FECHAMENTO;
+const SL = ctx.HUB_FECHAMENTO_SLIDES;
 
 const d = iso => { const [y, m, dd] = iso.split('-').map(Number); return new Date(y, m - 1, dd); };
 function vaga(o) {
@@ -115,6 +116,37 @@ run('periodo: julho/2026', () => {
   const mes = M.mensal(r.linhas, 2026);
   check('mensal: julho com 8 abertas e 5 fechadas', mes[6].abertas === 8 && mes[6].fechadas === 5, JSON.stringify(mes[6]));
   check('mensal: junho com 1 aberta', mes[5].abertas === 1, JSON.stringify(mes[5]));
+});
+
+run('slides: períodos', () => {
+  const m = SL.periodo('mensal', 2026, 9);
+  check('mensal setembro', m.de === '2026-09-01' && m.ate === '2026-09-30' && m.label === 'Setembro 2026', JSON.stringify(m));
+  const b = SL.periodo('bimestral', 2026, 4);
+  check('bimestre 4 = jul–ago', b.de === '2026-07-01' && b.ate === '2026-08-31' && b.label === 'Julho e Agosto 2026', JSON.stringify(b));
+  const s = SL.periodo('semestral', 2026, 2);
+  check('2º semestre', s.de === '2026-07-01' && s.ate === '2026-12-31', JSON.stringify(s));
+  const fev = SL.periodo('mensal', 2024, 2);
+  check('fevereiro bissexto', fev.ate === '2024-02-29', fev.ate);
+  check('mesmo período do ano anterior', SL.mesmoPeriodoAnoAnterior(b).de === '2025-07-01');
+});
+
+run('slides: deck de julho/2026', () => {
+  const r = PF.parse(wb(BASE));
+  const metas = [{ ano: 2026, mes: 7, meta_abertas: 10, meta_fechadas: 4 }];
+  const deck = SL.montar(SL.periodo('mensal', 2026, 7), { vagas: r.linhas, metas, atualizadoEm: '2026-10-08' });
+  check('6 slides', deck.length === 6, deck.map(d => d.id).join(','));
+  const texto = sd => sd.els.filter(e => e.t === 'text').map(e => e.paras.map(p => p.runs.map(x => x.text).join('')).join(' ')).join(' | ');
+  const fin = deck.find(d => d.id === 'rs-finalizadas');
+  check('resumo com 5 vagas e 60% no prazo', /Fechamos julho com 5 vagas.*60% dentro do prazo/.test(texto(fin)), texto(fin));
+  const nat = fin.els.find(e => e.t === 'chart' && e.title === 'NATUREZA DA VAGA');
+  check('natureza agrupa Substituição', nat.labels[0] === 'Substituição' && nat.series[0].values[0] === 4 && nat.series[1].values[0] === 1, JSON.stringify(nat));
+  const proj = deck.find(d => d.id === 'rs-projecao');
+  check('projeção compara com a meta', /abriram-se 8 vagas \(80% da meta de 10\) e fecharam-se 5 \(125% da meta de 4\)/.test(texto(proj)), texto(proj));
+  const ch = proj.els.find(e => e.t === 'chart');
+  check('realizado só até o mês do período', ch.series[1].values[6] === 8 && ch.series[1].values[7] === null, JSON.stringify(ch.series[1].values));
+  const at = deck.find(d => d.id === 'rs-ativas');
+  check('foto das ativas com a data do upload', /EM ANDAMENTO — 1 vagas.*Atualização – 08\/10\/2026/.test(texto(at)), texto(at).slice(0, 200));
+  check('todo elemento dentro do slide 960 × 540', deck.every(d => d.els.every(e => e.x >= 0 && e.y >= 0 && e.x + e.w <= 960 && e.y + e.h <= 540)));
 });
 
 console.log(`\n${pass} ok, ${fail} falha(s)`);

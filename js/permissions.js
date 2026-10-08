@@ -28,6 +28,7 @@
         { key: 'indicadores.boletim', label: 'Boletim da Liderança — indicadores mensais por operação, textos e fechamento do mês (só Administrador; sem ela, o Dashboard mostra os números publicados da operação da pessoa)' },
         { key: 'indicadores.satisfacao', label: 'Pesquisa de Satisfação — notas e comentários das áreas do Escritório (Dados Sigilosos: vê só as áreas marcadas em "Áreas da Pesquisa de Satisfação", e só o total de cada área)' },
         { key: 'indicadores.satisfacao_completo', label: 'Pesquisa de Satisfação — ver todas as áreas, com o recorte por operação e loja (RH/Diretoria)' },
+        { key: 'indicadores.fechamento', label: 'Fechamento do Período — apresentação mensal do RH à diretoria, com download em PowerPoint (só Administrador)' },
         { key: 'indicadores.satisfacao_participacao', label: 'Pesquisa de Satisfação — participação de todas as lojas e áreas (Dados Sigilosos: só Administrador)' }
       ]
     },
@@ -80,7 +81,8 @@
     // Log de Acessos: só Administrador (fora do preset RH).
     rh: ALL_KEYS.filter(k => k !== 'admin.usuarios' && k !== 'admin.log_acessos' &&k !== 'indicadores.controle_desligamento' && k !== 'indicadores.boletim'
       && k !== 'indicadores.desligamento' && k !== 'indicadores.pesquisa_clima' && k !== 'indicadores.engajamento'
-      && k !== 'indicadores.satisfacao' && k !== 'indicadores.satisfacao_completo' && k !== 'indicadores.satisfacao_participacao'),
+      && k !== 'indicadores.satisfacao' && k !== 'indicadores.satisfacao_completo' && k !== 'indicadores.satisfacao_participacao'
+      && k !== 'indicadores.fechamento'),
     // "Gerar link" da Entrevista de Desligamento e o Controle de Desligamento
     // ficam de fora do preset Gestor de propósito — envolvem dado sensível
     // (CPF/e-mail/celular de ex-colaborador) e devem ser ligados
@@ -106,7 +108,8 @@
     // participação das próprias unidades/departamentos (recorte de can_see). Fora do preset RH.
     gestor: CATALOG.find(g => g.group === 'indicadores').items.map(i => i.key)
       .filter(k => k !== 'indicadores.desligamento_gerar_link' && k !== 'indicadores.controle_desligamento' && k !== 'indicadores.oneonone' && k !== 'indicadores.organograma_completo' && k !== 'indicadores.headcount_completo' && k !== 'indicadores.boletim'
-        && k !== 'indicadores.satisfacao' && k !== 'indicadores.satisfacao_completo' && k !== 'indicadores.satisfacao_participacao')
+        && k !== 'indicadores.satisfacao' && k !== 'indicadores.satisfacao_completo' && k !== 'indicadores.satisfacao_participacao'
+        && k !== 'indicadores.fechamento')
       .concat(['recrutamento.parecer_gestor'])
   };
 
