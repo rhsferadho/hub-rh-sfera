@@ -26,6 +26,8 @@
     return n === null ? null : Math.round(n);
   }
   const p2 = n => String(n).padStart(2, '0');
+  // Dias de tolerância depois do fim do último pulso da aba Adesão (ver parseBase).
+  const GRACA_DIAS = 1;
 
   // Data e hora da resposta ("YYYY-MM-DDTHH:MM:SS"). A coluna vem como serial do
   // Excel (número) ou, com cellDates, como Date.
@@ -138,8 +140,12 @@
     const lista = Array.from(envios.values());
 
     // ---- Pulsos novos: respostas depois do último pulso da aba Adesão -----------
+    // Tolerância: o pulso costuma ser encerrado no Feedz um dia depois do fim cadastrado
+    // (ex.: fim 01/10, última resposta 02/10) — respostas até 1 dia depois do fim do último
+    // pulso da aba Adesão contam para ele, não viram um pulso novo.
     let ultimo = pulsos[pulsos.length - 1];
-    let alem = lista.filter(e => e.dia > ultimo.fim).sort((a, b) => a.dia.localeCompare(b.dia));
+    ultimo.fimContagem = somaDias(ultimo.fim, GRACA_DIAS);
+    let alem = lista.filter(e => e.dia > ultimo.fimContagem).sort((a, b) => a.dia.localeCompare(b.dia));
     while (alem.length) {
       const inicio = alem[0].dia; // início = dia da primeira resposta; fim = 6 dias depois
       const fim = somaDias(inicio, 6);
@@ -157,7 +163,7 @@
     const enviosPorPulso = new Map();
     let fora = 0;
     for (const e of lista) {
-      const p = pulsos.find(x => e.dia >= x.inicio && e.dia <= x.fim);
+      const p = pulsos.find(x => e.dia >= x.inicio && e.dia <= (x.fimContagem || x.fim));
       if (!p) { fora++; continue; }
       enviosPorPulso.set(p.inicio, (enviosPorPulso.get(p.inicio) || 0) + 1);
       if (e.ts && (!ultimaResp.has(p.inicio) || e.ts > ultimaResp.get(p.inicio))) ultimaResp.set(p.inicio, e.ts);
@@ -175,12 +181,25 @@
       if (!porPulso.has(c.pulso_inicio)) porPulso.set(c.pulso_inicio, []);
       porPulso.get(c.pulso_inicio).push(c);
     }
+    // Pulso em andamento: a aba Adesão costuma ficar atrás das respostas. Se há mais
+    // envios do que o total informado, estima-se o total pelas respostas, aplicando a
+    // proporção (total oficial ÷ envios) dos últimos pulsos encerrados (~0,95).
+    const razoes = pulsos.filter(p => !p.auto && p.fim < hoje && enviosPorPulso.get(p.inicio)).slice(-4)
+      .map(p => Math.min(1, p.respondentes / enviosPorPulso.get(p.inicio)));
+    const razao = razoes.length ? razoes.reduce((x, y) => x + y, 0) / razoes.length : 1;
     for (const p of pulsos) {
       const envs = enviosPorPulso.get(p.inicio) || 0;
-      if (!p.auto && envs > p.respondentes * 1.08 && envs - p.respondentes > 3) {
-        avisos.push(`${p.numero ? p.numero + 'º pulso' : 'Pulso de ' + p.inicio}: a aba Adesão informa ${p.respondentes} respondentes, mas há ${envs} envios nas Respostas — a aba Adesão parece desatualizada.`);
+      const nome = p.numero ? p.numero + 'º pulso' : 'Pulso de ' + p.inicio;
+      if (p.fim >= hoje) {
+        if (p.auto || envs > p.respondentes) {
+          const est = Math.round(envs * razao);
+          if (!p.auto) avisos.push(nome + ' em andamento: a aba Adesão informa ' + p.respondentes + ' respondentes e as Respostas têm ' + envs + ' envios — usei ' + est + ' (estimado pelas respostas).');
+          p.respondentes = est;
+        }
+      } else if (envs > p.respondentes * 1.08 && envs - p.respondentes > 3) {
+        avisos.push(nome + ': a aba Adesão informa ' + p.respondentes + ' respondentes, mas há ' + envs + ' envios nas Respostas — a aba Adesão parece desatualizada.');
       }
-      if (!p.auto && porPulso.has(p.inicio)) escalarAoTotal(porPulso.get(p.inicio), p.respondentes);
+      if (porPulso.has(p.inicio)) escalarAoTotal(porPulso.get(p.inicio), p.respondentes);
     }
 
     // ---- Pulsos e linhas de saída ------------------------------------------------------
