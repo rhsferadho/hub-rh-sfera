@@ -642,4 +642,6 @@
 
   window.HUB_SECTIONS = window.HUB_SECTIONS || {};
   window.HUB_SECTIONS.renderExperiencia = renderExperiencia;
+  // Usado pelo Dashboard: abrir a tela já no ciclo do cartão clicado.
+  window.HUB_EXPERIENCIA_ABRIR = c => { ciclo = c; aba = 'indicadores'; if (window.HUB_GOTO_SECTION) HUB_GOTO_SECTION('ind-experiencia'); };
 })();

@@ -25,7 +25,7 @@
         { key: 'indicadores.celebracoes', label: 'Celebrações' },
         { key: 'indicadores.pesquisa_clima', label: 'Pesquisa de Clima — resultados e comentários (Dados Sigilosos)' },
         { key: 'indicadores.engajamento', label: 'Pesquisa de Engajamento — índice de participação por unidade e departamento' },
-        { key: 'indicadores.boletim', label: 'Boletim da Liderança — indicadores mensais por operação, textos e fechamento do mês' },
+        { key: 'indicadores.boletim', label: 'Boletim da Liderança — indicadores mensais por operação, textos e fechamento do mês (só Administrador; sem ela, o Dashboard mostra os números publicados da operação da pessoa)' },
         { key: 'indicadores.satisfacao', label: 'Pesquisa de Satisfação — notas e comentários das áreas do Escritório (Dados Sigilosos: vê só as áreas marcadas em "Áreas da Pesquisa de Satisfação", e só o total de cada área)' },
         { key: 'indicadores.satisfacao_completo', label: 'Pesquisa de Satisfação — ver todas as áreas, com o recorte por operação e loja (RH/Diretoria)' },
         { key: 'indicadores.satisfacao_participacao', label: 'Pesquisa de Satisfação — participação de todas as lojas e áreas (Dados Sigilosos: só Administrador)' }
@@ -74,7 +74,9 @@
     // (celular) e dados pessoais de ex-colaboradores — só é ligado usuário a
     // usuário pelo administrador. Entrevistas de Desligamento e Pesquisa de
     // Clima também saem do preset RH (ajuste de 30/09/2026 — antes entravam).
-    rh: ALL_KEYS.filter(k => k !== 'admin.usuarios' && k !== 'indicadores.controle_desligamento'
+    // Boletim da Liderança é só do Administrador (08/10/2026); os demais veem
+    // os números publicados da própria operação no Dashboard.
+    rh: ALL_KEYS.filter(k => k !== 'admin.usuarios' && k !== 'indicadores.controle_desligamento' && k !== 'indicadores.boletim'
       && k !== 'indicadores.desligamento' && k !== 'indicadores.pesquisa_clima' && k !== 'indicadores.engajamento'
       && k !== 'indicadores.satisfacao' && k !== 'indicadores.satisfacao_completo' && k !== 'indicadores.satisfacao_participacao'),
     // "Gerar link" da Entrevista de Desligamento e o Controle de Desligamento

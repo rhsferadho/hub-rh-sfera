@@ -37,28 +37,220 @@
   // ==================================================================
   // DASHBOARD
   // ==================================================================
+  // Módulos que só buscam os dados na primeira abertura da tela deles
+  // (Avaliação da Experiência, Engajamento, Satisfação, Boletim): o Dashboard
+  // dispara a busca e se redesenha quando ela termina. Uma falha não é
+  // repetida a cada redesenho — o cartão mostra o erro até recarregar a página.
+  const DASH_CARGA = { andamento: {}, falhou: {} };
+  function dashCarga(chave, pronto, carregar) {
+    if (pronto()) return 'ok';
+    if (DASH_CARGA.falhou[chave]) return 'erro';
+    if (!DASH_CARGA.andamento[chave]) {
+      const fim = () => {
+        delete DASH_CARGA.andamento[chave];
+        const sec = document.getElementById('sec-dashboard');
+        if (sec && sec.classList.contains('active') && window.HUB_RENDER_CURRENT) HUB_RENDER_CURRENT();
+      };
+      DASH_CARGA.andamento[chave] = carregar().then(fim).catch(err => { DASH_CARGA.falhou[chave] = (err && err.message) || 'erro'; fim(); });
+    }
+    return 'carregando';
+  }
+
+  // Cartão clicável: data-goto = seção para abrir; data-ave = ciclo da AvE.
+  function kpiLink(html, attrs) {
+    return html.replace('<div class="kpi"', `<div class="kpi kpi-link" role="button" tabindex="0" title="Abrir o módulo" ${attrs}`);
+  }
+  const kpiCarregando = (rotulo, estado, chave) => kpi(rotulo, '…', estado === 'erro' ? 'não consegui carregar: ' + U.escapeHtml(DASH_CARGA.falhou[chave] || '') : 'carregando…', 'var(--muted)');
+  const CINZA = '#C9D0DA';
+  const corDoFiltro = (labels, sel, base) => {
+    if (!sel || sel.length !== 1) return undefined;
+    const alvo = U.normalizeText(sel[0]);
+    return labels.map((l, i) => U.normalizeText(l) === alvo ? (base ? base[i] : 'var(--p1)') : CINZA).map(c => c === 'var(--p1)' ? '#1C7CEC' : c);
+  };
+
   function renderDashboard(el, f) {
     if (noDataGate(el, null, canUpload())) return;
     f = comGalho(el, f);
     if (!f) return;
     const d = M.dashboardMetrics(f);
-    el.innerHTML = `${avisoGalho(f)}
-      <div class="kpi-grid">
-        ${kpi('Colaboradores ativos', U.fmtInt(d.colab.ativos), `${U.fmtInt(d.colab.total)} no total (ativos+desativados)`, 'var(--p1)')}
-        ${kpi('Turnover no período', U.fmtPct(d.rot.taxaTurnoverGeral), `${U.fmtInt(d.rot.totalDesligados)} desligamento(s)`, 'var(--critical)')}
-        ${kpi('eNPS desligados', d.entr.nps === null ? '—' : d.entr.nps, `${U.fmtInt(d.entr.totalRespostas)} resposta(s)`, 'var(--p2)')}
-        ${kpi('Celebrações', U.fmtInt(d.cel.total), 'no período', '#e87ba4')}
-        ${kpi('Feedbacks', U.fmtInt(d.fb.total), 'no período', '#1baf7a')}
-        ${kpi('1:1 realizados', U.fmtInt(d.oo.realizados), `de ${U.fmtInt(d.oo.total)} agendado(s)`, '#4a3aa7')}
-        ${kpi('Conclusão treinamentos', U.fmtPct(d.tr.taxaConclusao), `${U.fmtInt(d.tr.totalInscricoes)} inscrição(ões)`, '#eda100')}
-      </div>
-      <div class="grid2">
-        ${card('Colaboradores por unidade', '&#128101;', '<div class="chart-h"><canvas id="c-dash-unidade"></canvas></div>')}
-        ${card('Desligamentos por mês', '&#128260;', '<div class="chart-h"><canvas id="c-dash-turnover"></canvas></div>')}
-      </div>`;
-    const pu = d.colab.porUnidade.slice(0, 10);
-    barChart('c-dash-unidade', pu.map(x => x.label), pu.map(x => x.value));
-    lineChart('c-dash-turnover', d.rot.serie.map(x => x.label), [{ label: 'Desligamentos', data: d.rot.serie.map(x => x.desligamentos) }]);
+    // Cada cartão/gráfico só aparece pra quem tem permissão de abrir o módulo
+    // de onde ele vem — o Dashboard é a única tela sem permissão própria, e
+    // antes mostrava os números de todos os módulos pra qualquer usuário.
+    const pode = k => HUB_PERMISSIONS.hasPerm(HUB_USER, 'indicadores.' + k);
+    const equipe = f.galho ? ' da sua equipe' : '';
+    const semData = pode('rotatividade') && d.rot.semDataSaida
+      ? `<div class="insight info" style="margin-bottom:18px"><span class="ic">&#8505;&#65039;</span><span>${U.fmtInt(d.rot.semDataSaida)} desligado(s)${equipe} estão sem "Último dia trabalhado" na planilha de Colaboradores e ficam fora do turnover e do gráfico de desligamentos (não dá pra saber em que mês saíram). Corrija a data na planilha e reenvie para eles entrarem na conta.</span></div>`
+      : '';
+    const go = s => `data-goto="${s}"`;
+    const kpis = [
+      pode('headcount') && kpiLink(kpi('Colaboradores ativos', U.fmtInt(d.colab.ativos), `hoje · ${U.fmtInt(d.colab.total)} no total (ativos+desativados)${equipe}`, 'var(--p1)'), go('ind-headcount')),
+      pode('rotatividade') && kpiLink(kpi('Turnover no período', U.fmtPct(d.rot.taxaTurnoverGeral), `${U.fmtInt(d.rot.totalDesligados)} desligamento(s)${equipe}`, 'var(--critical)'), go('ind-rotatividade')),
+      pode('desligamento') && kpiLink(kpi('eNPS desligados', d.entr.nps === null ? '—' : d.entr.nps, `${U.fmtInt(d.entr.totalRespostas)} resposta(s) no período`, 'var(--p2)'), go('ind-desligamento')),
+      pode('celebracoes') && kpiLink(kpi('Celebrações', U.fmtInt(d.cel.total), 'no período', '#e87ba4'), go('ind-celebracoes')),
+      pode('feedbacks') && kpiLink(kpi('Feedbacks', U.fmtInt(d.fb.total), 'no período', '#1baf7a'), go('ind-feedbacks')),
+      pode('oneonone') && kpiLink(kpi('1:1 realizados', U.fmtInt(d.oo.realizados), 'no período', '#4a3aa7'), go('ind-oneonone')),
+      pode('treinamentos') && kpiLink(kpi('Conclusão treinamentos', U.fmtPct(d.tr.taxaConclusao), `${U.fmtInt(d.tr.totalInscricoes)} inscrição(ões) no período`, '#eda100'), go('ind-treinamentos'))
+    ].filter(Boolean).concat(kpisModulos(f, pode));
+
+    // ---- Gráficos (clique = filtro na barra do topo) ----
+    const desenhar = [];
+    const graficos = [];
+    if (pode('headcount')) {
+      const pu = d.colab.porUnidade.slice(0, 10);
+      const pd = d.colab.porDepartamento.slice(0, 12);
+      graficos.push(card(`Colaboradores por unidade${equipe}`, '&#128101;', '<div class="chart-h"><canvas id="c-dash-unidade"></canvas></div><p class="dash-dica">Clique numa barra para filtrar pela unidade; clique de novo para limpar.</p>'));
+      graficos.push(card(`Colaboradores por departamento${equipe}`, '&#128194;', `<div class="chart-h" style="height:${Math.max(260, pd.length * 28 + 60)}px"><canvas id="c-dash-depto"></canvas></div><p class="dash-dica">Os 12 maiores. Clique numa barra para filtrar pelo departamento.</p>`));
+      desenhar.push(() => barChart('c-dash-unidade', pu.map(x => x.label), pu.map(x => x.value), { colors: corDoFiltro(pu.map(x => x.label), f.unidade), onClick: l => HUB_FILTRAR_POR('unidade', l) }));
+      desenhar.push(() => barChart('c-dash-depto', pd.map(x => x.label), pd.map(x => x.value), { horizontal: true, colors: corDoFiltro(pd.map(x => x.label), f.departamento), onClick: l => HUB_FILTRAR_POR('departamento', l) }));
+    }
+    if (pode('rotatividade')) {
+      const s = d.rot.serie;
+      const mesSel = f.start && f.end && f.start.slice(0, 7) === f.end.slice(0, 7) && f.start.endsWith('-01') ? f.start.slice(0, 7) : null;
+      graficos.push(card(`Desligamentos por mês${equipe}`, '&#128260;', '<div class="chart-h"><canvas id="c-dash-turnover"></canvas></div><p class="dash-dica">Clique num mês para ver só aquele mês; clique de novo para voltar ao período padrão.</p>'));
+      desenhar.push(() => lineChart('c-dash-turnover', s.map(x => x.label), [{ label: 'Desligamentos', data: s.map(x => x.desligamentos) }], {
+        onClick: i => HUB_FILTRAR_POR('mes', s[i].mes),
+        pointColors: mesSel ? s.map(x => x.mes === mesSel ? '#d03b3b' : CINZA) : undefined
+      }));
+    }
+    const eng = engajamentoPorUnidade(f, pode);
+    if (eng) { graficos.push(eng.html); desenhar.push(eng.desenhar); }
+
+    const boletim = blocoBoletim(pode);
+    if (!kpis.length && !graficos.length && !boletim) {
+      el.innerHTML = empty('Nenhum indicador liberado para o seu acesso.', 'Os módulos que você pode abrir aparecem no menu ao lado.');
+      return;
+    }
+    el.innerHTML = `${avisoGalho(f)}${semData}
+      ${kpis.length ? `<div class="kpi-grid">${kpis.join('')}</div>` : ''}
+      ${graficos.length ? `<div class="grid2">${graficos.join('')}</div>` : ''}
+      ${boletim}`;
+    desenhar.forEach(fn => fn());
+
+    const abrir = k => {
+      if (k.dataset.ave) return HUB_EXPERIENCIA_ABRIR(Number(k.dataset.ave));
+      if (k.dataset.goto) HUB_GOTO_SECTION(k.dataset.goto);
+    };
+    el.querySelectorAll('.kpi-link').forEach(k => {
+      k.addEventListener('click', () => abrir(k));
+      k.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir(k); } });
+    });
+    el.querySelectorAll('.bl-mx tr[data-op]').forEach(tr => tr.addEventListener('click', () => HUB_BOLETIM_UI.abrir(tr.dataset.op)));
+  }
+
+  // Cartões dos módulos que carregam sob demanda (AvE, Engajamento, Satisfação).
+  function kpisModulos(f, pode) {
+    const out = [];
+    if (pode('experiencia') && window.HUB_EXPERIENCIA && window.HUB_EXP_METRICS) {
+      const XM = HUB_EXP_METRICS;
+      const st = dashCarga('ave', () => HUB_EXPERIENCIA_DATA[45] && HUB_EXPERIENCIA_DATA[90], () => Promise.all([HUB_EXPERIENCIA.carregar(45), HUB_EXPERIENCIA.carregar(90)]));
+      for (const c of [45, 90]) {
+        const rotulo = `AvE ${c} dias — avaliação do gestor`;
+        if (st !== 'ok') { out.push(kpiLink(kpiCarregando(rotulo, st, 'ave'), `data-ave="${c}"`)); continue; }
+        const rows = HUB_EXPERIENCIA_DATA[c] || [];
+        XM.preparar(rows, c);
+        const filtradas = XM.filtrar(rows, f);
+        if (!filtradas.length) { out.push(kpiLink(kpi(rotulo, '—', 'nenhuma avaliação no período', 'var(--muted)'), `data-ave="${c}"`)); continue; }
+        const r = XM.calcular(filtradas, c);
+        const taxa = r.gestor.taxa;
+        // Em aberto = pendentes + em rascunho (não concluídas), no período filtrado.
+        const sub = `${U.fmtInt(r.gestor.concluidas)} feita(s) · ${U.fmtInt(r.gestor.pendentes + r.gestor.rascunho)} em aberto no período`;
+        out.push(kpiLink(kpi(rotulo, taxa === null ? '—' : U.fmtPct(taxa, 0), sub, taxa !== null && taxa < 0.8 ? 'var(--critical)' : '#1baf7a'), `data-ave="${c}"`));
+      }
+    }
+    if (pode('engajamento') && window.HUB_ENGAJAMENTO && window.HUB_METRICS_ENGAJAMENTO) {
+      const rotulo = 'Pesquisa de Engajamento — adesão';
+      const st = dashCarga('eng', () => HUB_ENGAJAMENTO.jaCarregado(), () => HUB_ENGAJAMENTO.carregar());
+      if (st !== 'ok') out.push(kpiLink(kpiCarregando(rotulo, st, 'eng'), 'data-goto="ind-engajamento"'));
+      else {
+        const EM = HUB_METRICS_ENGAJAMENTO;
+        const e = EM.engajamentoMetrics(f);
+        if (!e.temDados || e.vazio) out.push(kpiLink(kpi(rotulo, '—', e.temDados ? 'nenhum pulso no período' : 'nenhum pulso importado', 'var(--muted)'), 'data-goto="ind-engajamento"'));
+        else {
+          const s = e.sel;
+          const prazo = !s.p.parcial ? 'encerrado' : e.diasRestantes === null ? 'período terminou' : e.diasRestantes === 0 ? 'encerra hoje' : `encerra em ${e.diasRestantes} dia(s)`;
+          const cor = { ok: '#1baf7a', atencao: '#e0a100', critico: 'var(--critical)' }[EM.statusDe(s.pct)] || 'var(--muted)';
+          out.push(kpiLink(kpi(rotulo, s.pct === null ? '—' : U.fmtPct(s.pct, 0), `${U.fmtInt(s.resp)} de ${U.fmtInt(s.conv)} · meta ${U.fmtPct(EM.META, 0)} · ${prazo}`, cor), 'data-goto="ind-engajamento"'));
+        }
+      }
+    }
+    const sat = cartaoSatisfacao(f);
+    if (sat) out.push(sat);
+    return out;
+  }
+
+  // Satisfação com o Escritório: só faz sentido no Escritório (as lojas não
+  // são avaliadas — elas avaliam). Aparece sem filtro de unidade ou com uma
+  // unidade do Escritório selecionada. Com um departamento selecionado que seja
+  // uma área avaliada, mostra a média dessa área; senão, a média de todas as
+  // áreas que o acesso da pessoa permite ver (mesmo sigilo do módulo).
+  function cartaoSatisfacao(f) {
+    const SM = window.HUB_METRICS_SATISFACAO;
+    if (!SM || !window.HUB_SATISFACAO) return null;
+    const acesso = SM.acessoDe(window.HUB_USER);
+    if (!acesso.modulo || (!acesso.completo && !acesso.areas.length)) return null;
+    const unid = f.unidade || [];
+    if (unid.length && !unid.some(u => U.normalizeText(u).startsWith('escritorio'))) return null;
+    const rotulo = 'Satisfação com o Escritório';
+    const st = dashCarga('sat', () => HUB_SATISFACAO.jaCarregado(), () => HUB_SATISFACAO.carregar());
+    if (st !== 'ok') return kpiLink(kpiCarregando(rotulo, st, 'sat'), 'data-goto="ind-satisfacao"');
+    const D = window.HUB_SATISFACAO_DATA;
+    const idx = SM.indexar(SM.recortar(D.respostas || [], acesso));
+    if (!idx.ciclos.length) return kpiLink(kpi(rotulo, '—', 'sem respostas para as áreas do seu acesso', 'var(--muted)'), 'data-goto="ind-satisfacao"');
+    const ciclo = idx.ciclos[idx.ciclos.length - 1];
+    const dep = (f.departamento || []).length === 1 ? U.normalizeText(f.departamento[0]) : null;
+    const area = dep ? idx.areas.find(a => U.normalizeText(a) === dep) : null;
+    const s = area ? (SM.resumoArea(idx, area, ciclo).atual) : SM.visaoGeral(idx, ciclo, D.ciclos || []).geral;
+    const media = s ? s.media : null;
+    const fx = SM.faixa(media);
+    const quem = area ? area : dep ? 'média de todas as áreas (o departamento filtrado não é avaliado)' : 'média de todas as áreas';
+    return kpiLink(kpi(area ? `${rotulo} — ${U.escapeHtml(area)}` : rotulo, SM.fmtNota(media), `${U.escapeHtml(quem)} · NPS ${SM.fmtNps(s ? s.nps : null)} · ${U.escapeHtml(SM.rotuloCiclo(ciclo))}`, fx ? fx.cor : 'var(--p1)'), 'data-goto="ind-satisfacao"');
+  }
+
+  // Adesão do pulso atual por unidade (clique = filtro de unidade).
+  function engajamentoPorUnidade(f, pode) {
+    if (!pode('engajamento') || !window.HUB_ENGAJAMENTO || !HUB_ENGAJAMENTO.jaCarregado()) return null;
+    const EM = HUB_METRICS_ENGAJAMENTO;
+    const e = EM.engajamentoMetrics(f);
+    if (!e.temDados || e.vazio || !e.unidades.length) return null;
+    const us = e.unidades.filter(u => u.pct !== null).sort((a, b) => a.pct - b.pct);
+    if (!us.length) return null;
+    const base = us.map(u => ({ ok: '#1baf7a', atencao: '#e0a100', critico: '#d03b3b' }[u.status] || '#8A8F98'));
+    return {
+      html: card(`Pesquisa de Engajamento — adesão por unidade (${U.escapeHtml(e.sel.rotuloLongo || e.sel.periodo || 'pulso atual')})`, '&#128200;', `<div class="chart-h" style="height:${Math.max(260, us.length * 26 + 60)}px"><canvas id="c-dash-eng"></canvas></div><p class="dash-dica">Meta ${U.fmtPct(EM.META, 0)}. Clique numa barra para filtrar pela unidade.</p>`),
+      desenhar: () => barChart('c-dash-eng', us.map(u => u.label), us.map(u => u.pct), { horizontal: true, pct: true, colors: corDoFiltro(us.map(u => u.label), f.unidade, base) || base, onClick: l => HUB_FILTRAR_POR('unidade', l) })
+    };
+  }
+
+  // Resumo do Boletim da Liderança: a mesma matriz "Todas as operações" do
+  // módulo, no mês selecionado lá (padrão: mês anterior). Usa o mês do Boletim,
+  // não os filtros do topo. Clique numa operação = abre o boletim dela.
+  // Quem NÃO tem o módulo (gestores): os números publicados do último mês
+  // fechado, só da(s) operação(ões) do acesso da pessoa — o banco faz o
+  // recorte (boletim_resumo_publicado, supabase-boletim-resumo.sql). Sem a
+  // função no banco ou sem mês fechado, o bloco simplesmente não aparece.
+  const BOLETIM_PUBLICADO = { linhas: null };
+  function blocoBoletimPublicado() {
+    if (!window.HUB_BOLETIM_UI) return '';
+    const st = dashCarga('boletimPublicado', () => BOLETIM_PUBLICADO.linhas !== null, async () => {
+      const { data, error } = await sb.rpc('boletim_resumo_publicado');
+      if (error) { console.warn('Resumo do Boletim (publicado):', error.message); BOLETIM_PUBLICADO.linhas = []; return; }
+      BOLETIM_PUBLICADO.linhas = data || [];
+    });
+    if (st !== 'ok') return '';
+    const html = HUB_BOLETIM_UI.resumoPublicadoHtml(BOLETIM_PUBLICADO.linhas);
+    return html ? `<div style="margin-top:18px" class="dash-boletim">${html}</div>` : '';
+  }
+
+  function blocoBoletim(pode) {
+    if (!pode('boletim')) return blocoBoletimPublicado();
+    if (!window.HUB_BOLETIM || !window.HUB_BOLETIM_UI) return '';
+    const st = dashCarga('boletim', () => HUB_BOLETIM.jaCarregado(), () => HUB_BOLETIM.carregar().then(() => HUB_METRICS_BOLETIM._invalidar()));
+    if (st !== 'ok') return `<div style="margin-top:18px">${card('Boletim da Liderança', '&#128202;', st === 'erro' ? empty('Não consegui carregar o Boletim da Liderança.', U.escapeHtml(DASH_CARGA.falhou.boletim || '')) : '<p class="dash-dica">Carregando o resumo do Boletim...</p>')}</div>`;
+    try {
+      return `<div style="margin-top:18px" class="dash-boletim"><p class="dash-dica" style="margin:0 0 8px">Resumo do Boletim da Liderança — usa o mês escolhido no módulo, não os filtros do topo.</p>${HUB_BOLETIM_UI.resumoHtml()}</div>`;
+    } catch (err) {
+      return `<div style="margin-top:18px">${card('Boletim da Liderança', '&#128202;', empty('Não consegui calcular o resumo do Boletim.', U.escapeHtml(err.message || '')))}</div>`;
+    }
   }
 
   // ==================================================================
@@ -114,6 +306,7 @@
     if (noDataGate(el, ['colaboradores'], canUpload())) return;
     const d = M.rotatividadeMetrics(f);
     el.innerHTML = `
+      ${d.semDataSaida ? `<div class="insight info" style="margin-bottom:18px"><span class="ic">&#8505;&#65039;</span><span>${U.fmtInt(d.semDataSaida)} desligado(s) estão sem "Último dia trabalhado" na planilha de Colaboradores e ficam fora do turnover, dos gráficos e da lista abaixo (não dá pra saber em que mês saíram). Corrija a data na planilha e reenvie para eles entrarem na conta.</span></div>` : ''}
       <div class="kpi-grid">
         ${kpi('Turnover geral', U.fmtPct(d.taxaTurnoverGeral), `${U.fmtInt(d.totalAdmitidos)} admissão(ões), ${U.fmtInt(d.totalDesligados)} desligamento(s)`, 'var(--critical)')}
         ${kpi('Turnover geral na experiência', U.fmtPct(d.taxaTurnoverExperiencia), `${U.fmtInt(d.totalDesligadosExperiencia)} de ${U.fmtInt(d.totalAdmitidos)} admitido(s) saíram em até 3 meses`, '#eb6834')}

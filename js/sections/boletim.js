@@ -94,21 +94,59 @@
   const COLUNAS_GERAL = ['feedback_adesao', 'celebracoes', 'humor_media', 'engajamento_feedz', 'turnover', 'ave45_gestor', 'ave90_gestor', 'satisfacao_participacao', 'pesquisa_nota', 'pesquisa_participacao', 'nps', 'twygo_progresso'];
   const CURTO = { feedback_adesao: 'Feedback', celebracoes: 'Celebrações', humor_media: 'Humor', engajamento_feedz: 'Engaj. Feedz', turnover: 'Turnover', ave45_gestor: 'AvE 45 gestor', ave90_gestor: 'AvE 90 gestor', satisfacao_participacao: 'Satisfação', pesquisa_nota: 'Nota pesquisa', pesquisa_participacao: 'Particip. pesquisa', nps: 'eNPS', twygo_progresso: 'Twygo' };
 
-  function visaoGeral(b) {
-    const linha = op => {
-      const r = op.id === 'empresa' ? b.empresa : b.operacoes[op.id];
-      const total = op.id === 'empresa';
-      return `<tr${total ? ' class="bl-total"' : ` data-op="${op.id}"`}><td>${esc(op.nome)}</td>${COLUNAS_GERAL.map(id => {
-        const idReal = id === 'feedback_adesao' ? (total ? 'feedback_painel' : op.id === 'escritorio' ? 'devolutiva_adesao' : id) : id;
-        const v = r.ind[idReal];
-        const st = M.statusMeta(id, v);
-        return `<td style="background:${st ? TINT[st] : 'transparent'}"><span class="v">${esc(M.fmtValor(idReal, v))}</span>${chip(idReal, r.variacoes[idReal])}</td>`;
-      }).join('')}</tr>`;
-    };
-    return `${card(`Todas as operações — ${esc(mesLabel(b.mes))}`, '&#128202;', `
+  // Uma linha da matriz: r = { ind, variacoes } da operação (ou do total).
+  function linhaMatriz(op, r, clicavel) {
+    const total = op.id === 'empresa';
+    const attrs = total ? ' class="bl-total"' : clicavel ? ` data-op="${op.id}"` : ' style="cursor:default"';
+    return `<tr${attrs}><td>${esc(op.nome)}</td>${COLUNAS_GERAL.map(id => {
+      const idReal = id === 'feedback_adesao' ? (total ? 'feedback_painel' : op.id === 'escritorio' ? 'devolutiva_adesao' : id) : id;
+      const v = r.ind[idReal];
+      const st = M.statusMeta(id, v);
+      return `<td style="background:${st ? TINT[st] : 'transparent'}"><span class="v">${esc(M.fmtValor(idReal, v))}</span>${chip(idReal, (r.variacoes || {})[idReal])}</td>`;
+    }).join('')}</tr>`;
+  }
+
+  const LEGENDA = 'Cor de fundo: verde = na meta, amarelo = atenção, vermelho = crítico.';
+  const NOTA_ESCRITORIO_TOTAL = 'No Escritório, a coluna Feedback considera feedback ou 1:1. Total da empresa: todas as lojas somadas e ponderadas pelo tamanho de cada uma (não é a média das operações).';
+
+  function tabelaMatriz(titulo, linhas, nota) {
+    return card(titulo, '&#128202;', `
       <div class="table-wrap" style="max-height:none"><table class="dt bl-mx"><thead><tr><th>Operação</th>${COLUNAS_GERAL.map(id => `<th>${CURTO[id]}</th>`).join('')}</tr></thead>
-      <tbody>${M.OPERACOES.map(linha).join('')}${linha({ id: 'empresa', nome: 'Total da empresa' })}</tbody></table></div>
-      <p class="bl-note">Clique numa operação para abrir o boletim dela. Cor de fundo: verde = na meta, amarelo = atenção, vermelho = crítico. Setas comparam com ${esc(M.nomeDoMes(b.mesAnterior))} (verde = melhorou, vermelho = piorou). No Escritório, a coluna Feedback considera feedback ou 1:1. Total da empresa: todas as lojas somadas e ponderadas pelo tamanho de cada uma (não é a média das operações).</p>`, { full: true })}`;
+      <tbody>${linhas.join('')}</tbody></table></div>
+      <p class="bl-note">${nota}</p>`, { full: true });
+  }
+
+  function visaoGeral(b) {
+    const linhas = M.OPERACOES.map(op => linhaMatriz(op, b.operacoes[op.id], true))
+      .concat(linhaMatriz({ id: 'empresa', nome: 'Total da empresa' }, b.empresa, false));
+    return tabelaMatriz(`Todas as operações — ${esc(mesLabel(b.mes))}`, linhas,
+      `Clique numa operação para abrir o boletim dela. ${LEGENDA} Setas comparam com ${esc(M.nomeDoMes(b.mesAnterior))} (verde = melhorou, vermelho = piorou). ${NOTA_ESCRITORIO_TOTAL}`);
+  }
+
+  // Números PUBLICADOS (mês fechado) para quem não tem o módulo — vêm da
+  // função boletim_resumo_publicado() do banco, já recortados pelas operações
+  // que a pessoa pode ver (supabase-boletim-resumo.sql). Setas só quando o mês
+  // anterior também foi fechado (é o que foi publicado).
+  function resumoPublicado(linhasBanco) {
+    const iso = d => String(d).slice(0, 7);
+    const meses = Array.from(new Set(linhasBanco.map(l => iso(l.mes)))).sort();
+    if (!meses.length) return '';
+    const mes = meses[meses.length - 1];
+    const ant = M.mesAnterior(mes);
+    const doMes = (m, op) => { const x = linhasBanco.find(l => iso(l.mes) === m && l.operacao === op); return x ? x.dados : null; };
+    const montar = op => {
+      const atual = doMes(mes, op.id);
+      if (!atual) return null;
+      const prev = doMes(ant, op.id);
+      const variacoes = {};
+      if (prev) for (const id of Object.keys(M.INDICADORES)) variacoes[id] = M.variacao(id, atual.ind[id], prev.ind[id]);
+      return linhaMatriz(op, { ind: atual.ind || {}, variacoes }, false);
+    };
+    const linhas = M.OPERACOES.map(montar).concat(montar({ id: 'empresa', nome: 'Total da empresa' })).filter(Boolean);
+    if (!linhas.length) return '';
+    const temAnt = M.OPERACOES.concat({ id: 'empresa' }).some(op => doMes(ant, op.id));
+    return tabelaMatriz(`Boletim da Liderança — ${esc(mesLabel(mes))}`, linhas,
+      `Números publicados do último boletim fechado, da(s) operação(ões) do seu acesso — os mesmos do boletim enviado por newsletter. ${LEGENDA} ${temAnt ? `Setas comparam com ${esc(M.nomeDoMes(ant))} (verde = melhorou, vermelho = piorou).` : 'Sem setas: o mês anterior não foi fechado.'} No Escritório, a coluna Feedback considera feedback ou 1:1.`);
   }
 
   // ---------------------------------------------------------------------------
@@ -696,4 +734,25 @@
 
   window.HUB_SECTIONS = window.HUB_SECTIONS || {};
   window.HUB_SECTIONS.renderBoletim = renderBoletim;
+
+  // Usado pelo Dashboard: a mesma matriz "Todas as operações" desta tela (mês
+  // selecionado aqui, ou o mês anterior ao atual) e abrir o boletim de uma
+  // operação ao clicar na linha. Os dados precisam estar carregados
+  // (HUB_BOLETIM.carregar()) — o Dashboard cuida disso.
+  window.HUB_BOLETIM_UI = {
+    resumoHtml() {
+      if (!state.mes) state.mes = M.mesAnterior(U.todayISO().slice(0, 7));
+      return STYLE + visaoGeral(M.boletim(state.mes));
+    },
+    // Para quem não tem o módulo: linhas de boletim_resumo_publicado().
+    resumoPublicadoHtml(linhas) {
+      const html = resumoPublicado(linhas || []);
+      return html ? STYLE + html : '';
+    },
+    abrir(op) {
+      state.op = op || 'geral';
+      state.aba = 'indicadores';
+      if (window.HUB_GOTO_SECTION) HUB_GOTO_SECTION('ind-boletim');
+    }
+  };
 })();

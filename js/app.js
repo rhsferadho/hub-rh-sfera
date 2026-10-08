@@ -219,6 +219,17 @@
         updateButton();
       },
       getSelected() { return Array.from(selected); },
+      // Seleção vinda de fora (clique num gráfico do Dashboard). Aceita o valor
+      // com outra grafia (caixa/acento) e usa a grafia da lista de opções.
+      setSelected(values) {
+        selected.clear();
+        for (const v of values) {
+          const achado = allValues.find(o => U.normalizeText(o) === U.normalizeText(v));
+          selected.add(achado || v);
+        }
+        renderOptions();
+        updateButton();
+      },
       clear() { selected.clear(); renderOptions(); updateButton(); },
       onChange(cb) { changeCb = cb; }
     };
@@ -350,6 +361,30 @@
       renderCurrentSection();
     });
   }
+
+  // Filtro "estilo BI": um clique num gráfico do Dashboard aplica a unidade, o
+  // departamento ou o mês clicado na barra de filtros do topo (a mesma do Hub
+  // inteiro, então ela continua valendo ao abrir outro módulo). Clicar de novo
+  // no mesmo item desfaz: volta para "Todas"/"Todos" ou para o período padrão.
+  function aplicarFiltroDoGrafico(tipo, valor) {
+    const igual = (a, b) => U.normalizeText(a) === U.normalizeText(b);
+    if (tipo === 'unidade' || tipo === 'departamento') {
+      const ms = tipo === 'unidade' ? unidadeMS : departamentoMS;
+      const atual = ms.getSelected();
+      if (atual.length === 1 && igual(atual[0], valor)) ms.clear(); else ms.setSelected([valor]);
+      // Trocar de unidade pode tirar o departamento escolhido das opções.
+      updateDependentFilters();
+    } else if (tipo === 'mes') {
+      const [a, m] = valor.split('-').map(Number);
+      const ini = `${valor}-01`;
+      const fim = new Date(Date.UTC(a, m, 0)).toISOString().slice(0, 10);
+      if ($('#f-start').value === ini && $('#f-end').value === fim) setDefaultDates();
+      else { $('#f-start').value = ini; $('#f-end').value = fim; }
+    }
+    renderCurrentSection();
+  }
+  window.HUB_FILTRAR_POR = aplicarFiltroDoGrafico;
+  window.HUB_GET_FILTERS = () => getFilters();
 
   // Botão global no topo (visível em todos os menus) — busca os dados mais
   // recentes do Supabase sem precisar recarregar a página. Reaproveita

@@ -188,6 +188,14 @@
     return Math.round((e - s) / 86400000);
   }
 
+  // Data de saída de um desligado: só o "Último dia trabalhado" da planilha.
+  // Antes, quando faltava, usava a data de admissão no lugar — o desligamento
+  // caía no mês da admissão (mês errado, às vezes fora do período filtrado) e,
+  // no turnover na experiência, contava como "saiu com 0 dias de casa". Sem a
+  // data, o desligamento fica fora das contas por período e é reportado à
+  // parte (semDataSaida), pra quem corrige a planilha saber que ele existe.
+  function dataSaida(r) { return r.ultimo_dia_trabalhado || null; }
+
   function headcountAt(rows, dateISO) {
     return rows.filter(r => {
       if (!r.data_admissao || r.data_admissao > dateISO) return false;
@@ -199,6 +207,11 @@
 
   function rotatividadeMetrics(f) {
     let rows = HUB_DATA.colaboradores || [];
+    // f.galho só vem preenchido no Dashboard (ver comGalho em
+    // sections/indicadores.js): quem vê o headcount só da própria equipe tem
+    // o turnover calculado sobre a mesma equipe — senão o cartão de
+    // colaboradores e o de turnover usam bases diferentes, lado a lado.
+    if (f.galho) rows = rows.filter(r => f.galho.has(HUB_GALHO.chave(r)));
     rows = rows.filter(r => U.matchesAny(r.unidade, f.unidade));
     rows = rows.filter(r => U.matchesAny(r.departamento, f.departamento));
     if (f.gestor) rows = rows.filter(r => U.normIncludes(r.gestor_direto, f.gestor));
@@ -206,8 +219,10 @@
     const start = f.start || '2020-01-01';
     const end = f.end || U.todayISO();
 
-    const desligados = rows.filter(r => norm(r.situacao) === 'desligado');
-    const desligadosPeriodo = desligados.filter(r => U.inRange(r.ultimo_dia_trabalhado || r.data_admissao, start, end));
+    const todosDesligados = rows.filter(r => norm(r.situacao) === 'desligado');
+    const semDataSaida = todosDesligados.filter(r => !dataSaida(r)).length;
+    const desligados = todosDesligados.filter(r => dataSaida(r));
+    const desligadosPeriodo = desligados.filter(r => U.inRange(dataSaida(r), start, end));
     const voluntarios = desligadosPeriodo.filter(r => tipoDesligamento(r) === 'Voluntário');
     const involuntarios = desligadosPeriodo.filter(r => tipoDesligamento(r) === 'Involuntário');
     // Turnover (rotatividade) considera admissões E desligamentos — mede a
@@ -219,8 +234,8 @@
     // do CLT, ~3 meses) — mede quem "entrou e saiu" antes de passar pela
     // experiência, independente de a saída em si cair dentro do período.
     const desligadosExperiencia = admitidosPeriodo.filter(r => {
-      if (norm(r.situacao) !== 'desligado') return false;
-      const dias = daysBetween(r.data_admissao, r.ultimo_dia_trabalhado || r.data_admissao);
+      if (norm(r.situacao) !== 'desligado' || !dataSaida(r)) return false;
+      const dias = daysBetween(r.data_admissao, dataSaida(r));
       return dias !== null && dias >= 0 && dias <= 90;
     });
     const taxaTurnoverExperiencia = admitidosPeriodo.length > 0 ? desligadosExperiencia.length / admitidosPeriodo.length : 0;
@@ -231,7 +246,7 @@
     // entrada, separado do desligamento "normal" do resto da série.
     const mesesExperiencia = U.monthsBetween(start.slice(0, 7), end.slice(0, 7));
     const serieExperiencia = mesesExperiencia.map(mk => {
-      const desMes = desligadosExperiencia.filter(r => U.monthKey(r.ultimo_dia_trabalhado || r.data_admissao) === mk);
+      const desMes = desligadosExperiencia.filter(r => U.monthKey(dataSaida(r)) === mk);
       return {
         mes: mk, label: U.monthLabel(mk),
         voluntarios: desMes.filter(r => tipoDesligamento(r) === 'Voluntário').length,
@@ -245,7 +260,7 @@
     const serie = meses.map(mk => {
       const monthStart = mk + '-01';
       const hcInicio = headcountAt(rows, monthStart);
-      const desMes = desligados.filter(r => U.monthKey(r.ultimo_dia_trabalhado || r.data_admissao) === mk);
+      const desMes = desligados.filter(r => U.monthKey(dataSaida(r)) === mk);
       const admMes = rows.filter(r => U.monthKey(r.data_admissao) === mk);
       const vol = desMes.filter(r => tipoDesligamento(r) === 'Voluntário').length;
       const invol = desMes.filter(r => tipoDesligamento(r) === 'Involuntário').length;
@@ -271,7 +286,7 @@
     const listaDesligados = desligadosPeriodo
       .map(r => ({
         nome: r.nome_completo || r.nome, cargo: r.cargo, unidade: r.unidade, departamento: r.departamento,
-        data: r.ultimo_dia_trabalhado || r.data_admissao, tipo: tipoDesligamento(r), motivo: r.desligamento_motivo
+        data: dataSaida(r), tipo: tipoDesligamento(r), motivo: r.desligamento_motivo
       }))
       .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
 
@@ -295,6 +310,7 @@
     }
 
     return {
+      semDataSaida,
       totalDesligados: desligadosPeriodo.length,
       totalAdmitidos: admitidosPeriodo.length,
       voluntarios: voluntarios.length,
@@ -881,9 +897,34 @@
     };
   }
 
+  // A planilha de 1:1 do Feedz não traz unidade (o parser grava null), então
+  // o filtro de Unidade não tinha efeito nenhum aqui. Busca a unidade do
+  // liderado no cadastro de Colaboradores — pelo e-mail (mais confiável) e,
+  // sem e-mail, pelo nome. Quem não for encontrado fica sem unidade e só sai
+  // da conta quando há unidade selecionada no filtro.
+  function unidadeDoLiderado() {
+    const porEmail = new Map(), porNome = new Map();
+    for (const c of (HUB_DATA.colaboradores || [])) {
+      if (!c.unidade) continue;
+      const ativo = norm(c.situacao) === 'ativo';
+      const e = norm(c.email);
+      if (e && (ativo || !porEmail.has(e))) porEmail.set(e, c.unidade);
+      for (const n of [c.nome_completo, c.nome]) {
+        const k = norm(n);
+        if (k && (ativo || !porNome.has(k))) porNome.set(k, c.unidade);
+      }
+    }
+    return r => porEmail.get(norm(r.liderado_email)) || porNome.get(norm(r.liderado)) || null;
+  }
+
   function oneOnOneMetrics(f) {
-    const map = { date: 'data_realizada', unidade: null, departamento: 'departamento', pessoa: ['lider', 'liderado'], gestor: 'lider' };
-    let rows = filterRows(HUB_DATA.one_on_one || [], map, f);
+    const map = { date: 'data_realizada', unidade: 'unidade', departamento: 'departamento', pessoa: ['lider', 'liderado'], gestor: 'lider' };
+    let base = HUB_DATA.one_on_one || [];
+    if (f.unidade && f.unidade.length) {
+      const achar = unidadeDoLiderado();
+      base = base.map(r => r.unidade ? r : Object.assign({}, r, { unidade: achar(r) }));
+    }
+    let rows = filterRows(base, map, f);
     const realizados = rows.filter(r => norm(r.status) === 'realizado');
     return {
       total: rows.length,

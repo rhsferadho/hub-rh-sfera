@@ -158,7 +158,7 @@
     opts = opts || {};
     const cfg = {
       type: 'bar',
-      data: { labels, datasets: [{ data: values, backgroundColor: labels.map((_, i) => opts.singleColor || U.color(i)), borderRadius: 5, maxBarThickness: 34 }] },
+      data: { labels, datasets: [{ data: values, backgroundColor: opts.colors || labels.map((_, i) => opts.singleColor || U.color(i)), borderRadius: 5, maxBarThickness: 34 }] },
       options: {
         indexAxis: opts.horizontal ? 'y' : 'x',
         plugins: {
@@ -187,16 +187,25 @@
     // gráfico de barras, não só nos de %.
     cfg.options.layout = { padding: opts.horizontal ? { right: 40 } : { top: 22 } };
     if (opts.onClick) {
-      cfg.options.onClick = (evt, els) => { if (els.length) opts.onClick(labels[els[0].index]); };
+      // setTimeout: o clique costuma redesenhar a tela (e destruir este gráfico); fazer isso
+      // ainda dentro do evento do Chart.js quebra o resto do tratamento do clique.
+      cfg.options.onClick = (evt, els) => { if (els.length) { const v = labels[els[0].index]; setTimeout(() => opts.onClick(v), 0); } };
       cfg.options.onHover = (evt, els) => { evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; };
     }
     return HUB_CHART(id, cfg);
   }
 
-  function lineChart(id, labels, series) {
-    HUB_CHART(id, {
+  // opts.onClick(índice do ponto) e opts.pointColors (cor por ponto) são
+  // opcionais — usados no Dashboard para filtrar pelo mês clicado.
+  function lineChart(id, labels, series, opts) {
+    opts = opts || {};
+    const cfg = {
       type: 'line',
-      data: { labels, datasets: series.map((s, i) => ({ label: s.label, data: s.data, borderColor: U.color(i), backgroundColor: U.color(i) + '33', tension: .3, fill: series.length === 1, pointRadius: 3 })) },
+      data: { labels, datasets: series.map((s, i) => Object.assign(
+        { label: s.label, data: s.data, borderColor: U.color(i), backgroundColor: U.color(i) + '33', tension: .3, fill: series.length === 1, pointRadius: 3 },
+        opts.onClick ? { pointRadius: 5, pointHoverRadius: 7 } : {},
+        opts.pointColors ? { pointBackgroundColor: opts.pointColors, pointBorderColor: opts.pointColors } : {}
+      )) },
       options: {
         // respiro para o rótulo acima do ponto mais alto (e nas pontas) não ser cortado
         layout: { padding: { top: 20, left: 8, right: 12 } },
@@ -208,7 +217,14 @@
           }
         }
       }
-    });
+    };
+    if (opts.onClick) {
+      // Clicar em qualquer ponto da coluna do mês (não só exatamente no ponto).
+      cfg.options.interaction = { mode: 'index', intersect: false };
+      cfg.options.onClick = (evt, els) => { if (els.length) { const i = els[0].index; setTimeout(() => opts.onClick(i), 0); } };
+      cfg.options.onHover = (evt, els) => { evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; };
+    }
+    HUB_CHART(id, cfg);
   }
 
   function doughnutChart(id, labels, values) {
