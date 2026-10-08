@@ -51,12 +51,12 @@
     return Math.max(0, Math.ceil(META * conv - 1e-9) - resp);
   }
 
-  // Quem vê a empresa inteira (RLS sem recorte): admin/RH, ou gestor sem
+  // Quem vê a empresa inteira (RLS sem recorte): admin, ou RH/gestor sem
   // unidade/departamento restritos. Só nesse caso o total oficial do pulso
   // (tabela engajamento_pulso) representa o que a pessoa enxerga.
   function escopoTotal() {
     const u = window.HUB_USER || {};
-    if (u.perfil === 'admin' || u.perfil === 'rh') return true;
+    if (u.perfil === 'admin') return true;
     return !(u.unidades || []).length && !(u.departamentos || []).length;
   }
   const semFiltro = f => !(f.unidade && f.unidade.length) && !(f.departamento && f.departamento.length) && !f.gestor;

@@ -62,8 +62,8 @@
   // nenhum recorte extrapole a unidade/departamento liberados no perfil.
   function dentroDoEscopo(r) {
     const u = window.HUB_USER;
-    if (!u || u.perfil === 'admin' || u.perfil === 'rh') return true;
-    if (u.perfil !== 'gestor') return false;
+    if (!u || u.perfil === 'admin') return true;
+    if (u.perfil !== 'gestor' && u.perfil !== 'rh') return false;
     const un = (u.unidades || []).map(U.normalizeText), dp = (u.departamentos || []).map(U.normalizeText);
     if (un.length && r.unidade && !un.includes(U.normalizeText(r.unidade))) return false;
     if (dp.length && !(r.departamento && dp.includes(U.normalizeText(r.departamento)))) return false;

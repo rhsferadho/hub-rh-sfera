@@ -78,13 +78,23 @@
     pareceresGestor: 'pareceres_gestor', entrevistasDesligamento: 'entrevistas_desligamento', visitasLoja: 'visitas_loja'
   };
 
-  // Mesma regra de public.can_see() do banco: admin/rh sempre veem tudo;
-  // gestor só vê linhas cuja unidade/departamento estejam liberados (lista
+  // Tabelas cuja policy de leitura, além do recorte, exige a permissão do
+  // módulo (supabase-recorte-rh-permissoes.sql e supabase-entrevista-privacidade.sql).
+  // Sem a permissão, o banco devolve vazio para a pessoa de verdade.
+  const INDICADORES_PERM = {
+    feedbacks: 'indicadores.feedbacks', one_on_one: 'indicadores.oneonone', celebracoes: 'indicadores.celebracoes',
+    twygo_participantes: 'indicadores.treinamentos', twygo_usuarios: 'indicadores.treinamentos',
+    entrevista_pesquisa: 'indicadores.desligamento', entrevista_solicitacao: 'indicadores.desligamento',
+    pesquisa_clima: 'indicadores.pesquisa_clima', pesquisa_clima_hc: 'indicadores.pesquisa_clima'
+  };
+
+  // Mesma regra de public.can_see() do banco: só o admin vê tudo; RH e
+  // gestor só veem linhas cuja unidade/departamento estejam liberados (lista
   // vazia = sem restrição naquele eixo); unidade nula sempre passa,
   // departamento nulo só passa se não há departamento restrito.
   function canSeeRow(rowUnidade, rowDepartamento, target) {
-    if (target.perfil === 'admin' || target.perfil === 'rh') return true;
-    if (target.perfil !== 'gestor') return false;
+    if (target.perfil === 'admin') return true;
+    if (target.perfil !== 'gestor' && target.perfil !== 'rh') return false;
     const un = (target.unidades || []).map(U.normalizeText);
     const dp = (target.departamentos || []).map(U.normalizeText);
     const okU = !un.length || rowUnidade == null || un.includes(U.normalizeText(rowUnidade));
@@ -105,7 +115,9 @@
     for (const [tabela, [u, d]] of Object.entries(INDICADORES_SCOPE)) {
       if (!window.HUB_DATA || !Array.isArray(window.HUB_DATA[tabela])) continue;
       savedHubData[tabela] = window.HUB_DATA[tabela];
-      window.HUB_DATA[tabela] = scopeArray(window.HUB_DATA[tabela], u, d);
+      const perm = INDICADORES_PERM[tabela];
+      const temPerm = !perm || simUser.perfil === 'admin' || !!(simUser.permissoes && simUser.permissoes[perm] === true);
+      window.HUB_DATA[tabela] = temPerm ? scopeArray(window.HUB_DATA[tabela], u, d) : [];
     }
   }
   function restoreHubData() {
