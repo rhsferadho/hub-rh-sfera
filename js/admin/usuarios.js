@@ -428,6 +428,17 @@
       box.innerHTML = satAreasChecks(marcadas, extras);
     }).catch(() => {});
 
+    // Sub-opção ("ver todos", Controle de Desligamento) só amplia a permissão
+    // de cima: marcar a sub marca a principal, desmarcar a principal desmarca
+    // as subs. Sem isso ficavam cadastros com "ver todos" e sem a tela (15
+    // contas em 08/10/2026 — ver supabase-permissoes-corrige-completo.sql).
+    document.querySelectorAll('#acc-perm-groups .perm-cluster').forEach(cl => {
+      const [pai, ...subs] = Array.from(cl.querySelectorAll('input[data-perm]'));
+      if (!pai) return;
+      subs.forEach(s => s.addEventListener('change', () => { if (s.checked) pai.checked = true; }));
+      pai.addEventListener('change', () => { if (!pai.checked) subs.forEach(s => { s.checked = false; }); });
+    });
+
     if (isEdit) document.getElementById('acc-cancel').addEventListener('click', () => { editingProfile = null; renderAccessForm(el); });
     document.getElementById('acc-form').addEventListener('submit', e => submitAccessForm(e, isEdit, () => perfilAtual, colabOpts));
   }
