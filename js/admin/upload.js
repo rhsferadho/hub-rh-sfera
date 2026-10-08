@@ -1,6 +1,6 @@
 // Administração → Upload de Planilhas: alimenta as tabelas do módulo
-// Indicadores (tudo, exceto Recrutamento — que vem ao vivo do módulo
-// Recrutamento, sem upload). Gate de acesso: permissão admin.upload.
+// Indicadores (exceto Recrutamento — que vem ao vivo do módulo Recrutamento) e
+// a base de vagas do Fechamento (planilha 18). Gate de acesso: permissão admin.upload.
 (function () {
   const U = HUB_UTILS;
   const P = HUB_PARSERS;
@@ -26,7 +26,10 @@
     // Pesquisa de Satisfação: a fonte oficial é a 16 (export do Feedz). Alimenta o
     // Boletim e o módulo Pesquisa de Satisfação (respostas por área, sem nomes —
     // ver parsers-satisfacao.js e supabase-satisfacao.sql).
-    { key: 'satisfacao', table: 'satisfacao_suporte', label: '16. Pesquisa de Satisfação (Suporte do Escritório)', file: '16. Base Pesquisa Feedz.xlsx', icon: '&#127970;', custom: importarSatisfacao }
+    { key: 'satisfacao', table: 'satisfacao_suporte', label: '16. Pesquisa de Satisfação (Suporte do Escritório)', file: '16. Base Pesquisa Feedz.xlsx', icon: '&#127970;', custom: importarSatisfacao },
+    // Fechamento do Período: a planilha do R&S é a fonte oficial das vagas enquanto
+    // o módulo Recrutamento não é homologado (ver supabase-fechamento-vagas.sql).
+    { key: 'vagas', table: 'controle_vagas', label: '18. Controle Geral de Vagas (Fechamento)', file: '18. Controle Geral de Vagas.xlsx', icon: '&#128188;', custom: importarControleVagas }
   ];
 
   const dm = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7);
@@ -117,6 +120,27 @@
     }
   }
 
+  // 18. Controle Geral de Vagas: substitui a base inteira e já mostra os números
+  // do último mês completo, para conferir com o que o R&S tem na planilha.
+  async function importarControleVagas(wb, setStatus) {
+    const r = HUB_PARSERS_FECHAMENTO.parse(wb);
+    const M = HUB_METRICS_FECHAMENTO;
+    setStatus(`Gravando ${U.fmtInt(r.linhas.length)} vagas...`);
+    await HUB_FECHAMENTO.salvarVagas(r.linhas, (feito, total) => setStatus(`Gravando vagas... ${U.fmtInt(feito)} de ${U.fmtInt(total)}`));
+    const hoje = hojeLocal();
+    const ref = new Date(Date.UTC(+hoje.slice(0, 4), +hoje.slice(5, 7) - 2, 1));
+    const de = ref.toISOString().slice(0, 10);
+    const ate = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+    const p = M.periodo(r.linhas, de, ate);
+    const at = M.ativas(r.linhas);
+    const pct = x => (x == null ? '—' : Math.round(x * 100) + '%');
+    const dia = x => (x == null ? '—' : Math.round(x) + ' dias');
+    return {
+      linhas: r.linhas.length, avisos: r.avisos,
+      resumo: `${U.fmtInt(r.linhas.length)} vagas importadas (aba ${r.aba}). ${de.slice(5, 7)}/${de.slice(0, 4)}: ${p.abertas} abertas, ${p.fechadas} fechadas, ${pct(p.noPrazo)} no prazo do SLA pela regra oficial (pela coluna Status SLA da planilha, ${pct(p.noPrazoPlanilha)}); média de ${dia(p.diasMedio)}, Operacional ${dia(p.operacional.diasMedio)} e Estratégica ${dia(p.estrategica.diasMedio)}. Hoje: ${at.aberta.total} em aberto, ${at.andamento.total} em andamento, ${at.congelada.total} congeladas.`
+    };
+  }
+
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const fmtDT = iso => {
     const d = new Date(iso);
@@ -198,7 +222,7 @@
         <div class="progress" id="pg-${u.key}" style="display:none"><div></div></div>
         <div class="status" id="st-${u.key}"></div>
       </div>`).join('')}</div>
-      <p class="sub" style="color:var(--muted);font-size:11.5px">Cada upload substitui completamente os dados daquela planilha — pode reenviar quantas vezes precisar, sempre com o mesmo modelo de colunas. Na Pesquisa de Engajamento (33), as notas também são guardadas (só médias por loja e pilar, sem respostas individuais) para o Boletim da Liderança. Humor (36) e Pesquisa de Satisfação (16) substituem os meses presentes no arquivo e são guardados já agregados, sem nomes. A 16 também guarda as notas, o "O que melhorar?" e os comentários de cada área (sem nome, CPF, e-mail nem líder direto) para o módulo Pesquisa de Satisfação, que só mostra cada área a quem a tem liberada no cadastro. Os indicadores de Recrutamento não aparecem aqui: eles são lidos automaticamente das telas do módulo Recrutamento.</p>`;
+      <p class="sub" style="color:var(--muted);font-size:11.5px">Cada upload substitui completamente os dados daquela planilha — pode reenviar quantas vezes precisar, sempre com o mesmo modelo de colunas. Na Pesquisa de Engajamento (33), as notas também são guardadas (só médias por loja e pilar, sem respostas individuais) para o Boletim da Liderança. Humor (36) e Pesquisa de Satisfação (16) substituem os meses presentes no arquivo e são guardados já agregados, sem nomes. A 16 também guarda as notas, o "O que melhorar?" e os comentários de cada área (sem nome, CPF, e-mail nem líder direto) para o módulo Pesquisa de Satisfação, que só mostra cada área a quem a tem liberada no cadastro. A 18 (Controle Geral de Vagas) substitui a base inteira de vagas do Fechamento do Período, sem nomes de candidatos, contratados ou substituídos e sem as observações; os indicadores do módulo Recrutamento continuam vindo das telas do próprio módulo.</p>`;
     el.querySelectorAll('input[type=file]').forEach(inp => inp.addEventListener('change', e => handleUpload(e.target.dataset.key, e.target.files[0])));
     el.querySelector('#btn-upload-history').addEventListener('click', openHistory);
     Object.keys(resumos).forEach(k => mostrarResumo(k, resumos[k]));

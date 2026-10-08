@@ -412,54 +412,6 @@
   }
 
   // ---------------------------------------------------------------------
-  // 18. Controle Geral de Vagas.xlsx (aba "CTRL GERAL" — todos os status;
-  // as outras abas do arquivo, tipo "CTRL_VAGAS_ABERTAS", são só recortes
-  // filtrados dessa mesma base, então nem precisam ser lidas).
-  // ---------------------------------------------------------------------
-  function parseVagas(wb) {
-    const sig = ['DATA DE ABERTURA', 'STATUS DA VAGA', 'CARGO', 'RESPONSÁVEL', 'FONTE', 'SLA'];
-    const picked = pickSheet(wb, sig, { preferName: 'CTRL GERAL' });
-    if (!picked) throw new Error('Não encontrei dados na planilha de Controle Geral de Vagas.');
-    requireSignature(picked.rows, sig, 4, 'Controle Geral de Vagas');
-    return picked.rows.map(row => {
-      const idx = buildIndex(row);
-      const g = (...c) => pick(row, idx, c);
-      return {
-        data_abertura: toISODate(g('DATA DE ABERTURA')),
-        sla_dias: num(g('SLA')),
-        sla_previsto_dias: num(g('SLA PREVISTO')),
-        status_sla: str(g('Status SLA')),
-        motivo_sla: str(g('Motivo SLA')),
-        unidade: str(g('MARCA')),
-        departamento: str(g('DEPARTAMENTO')),
-        solicitante: str(g('SOLICITANTE')),
-        cargo: str(g('CARGO')),
-        sigilosa: str(g('VAGA SIGILOSA?')),
-        tipo_vaga: str(g('TIPO DA VAGA')),
-        responsavel: str(g('RESPONSÁVEL')),
-        status_vaga: str(g('STATUS DA VAGA')),
-        natureza_vaga: str(g('TIPO DA VAGA_1')),
-        motivo_aumento_quadro: str(g('MOTIVO AUMENTO DE QUADRO')),
-        pessoa_substituida: str(g('PESSOA SUBS.')),
-        tipo_recrutamento: str(g('TIPO DE RECRUTAMENTO')),
-        etapa_vaga: str(g('ETAPA DA VAGA')),
-        dias_congelada: num(g('DIAS CONGELADA')),
-        data_congelamento: toISODate(g('DATA DO CONGELAMENTO')),
-        data_retorno: toISODate(g('DATA DO RETORNO')),
-        data_cancelamento: toISODate(g('DATA DO CANCELAMENTO')),
-        finalistas: str(g('FINALISTAS')),
-        fit: num(g('%FIT')),
-        contratado: str(g('CONTRATADO(A)')),
-        data_fechamento: toISODate(g('DATA DE FECHAMENTO')),
-        data_inicio: toISODate(g('DATA DE INÍCIO')),
-        ultima_divulgacao: toISODate(g('ÚLTIMA DIVULGAÇÃO')),
-        fonte: str(g('FONTE')),
-        quem_indicou: str(g('QUEM INDICOU'))
-      };
-    }).filter(r => r.cargo || r.status_vaga);
-  }
-
-  // ---------------------------------------------------------------------
   // 28. Avaliação da Experiência (AVE 45 DIAS.xlsx / AVE 90 DIAS.xlsx)
   // ---------------------------------------------------------------------
   // Cada planilha tem 2 abas: "Respostas da avaliação" (formato LONGO — uma
@@ -654,7 +606,6 @@
     parseTwygoParticipantes,
     parseTwygoUsuarios,
     parseTwygoConteudos,
-    parseVagas,
     parseAveExperiencia,
     _internal: { normHeader, toISODate, num, str, intOrNull, parseDuracaoTexto }
   };
