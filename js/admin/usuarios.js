@@ -261,10 +261,11 @@
     }));
   }
 
-  // "..._completo" (Headcount/Organograma) e o Controle de Desligamento são
-  // extensão da permissão logo acima na lista — não itens independentes.
+  // "..._completo" (Headcount/Organograma/Satisfação), o Controle de
+  // Desligamento e a participação da Pesquisa de Satisfação são extensão da
+  // permissão principal acima na lista — não itens independentes.
   function isSubPerm(key) {
-    return /_completo$/.test(key) || key === 'indicadores.controle_desligamento';
+    return /_completo$/.test(key) || key === 'indicadores.controle_desligamento' || key === 'indicadores.satisfacao_participacao';
   }
 
   // Nota entre parênteses no rótulo (ex.: "(Dados Sigilosos)") sempre vira
