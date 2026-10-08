@@ -324,7 +324,10 @@
     'controle_desligamento_respostas_forms_resumo', 'controle_desligamento_respostas_forms',
     // Pesquisa de Satisfação: o recorte por área da conta simulada é refeito na
     // tela (HUB_METRICS_SATISFACAO.recortar com o HUB_USER simulado).
-    'satisfacao_dados']);
+    'satisfacao_dados',
+    // Resumo do Boletim no Dashboard: recebe o id da conta simulada e o banco
+    // devolve o recorte dela (só para quem tem admin.usuarios).
+    'boletim_resumo_publicado']);
   function unblockWrites() {
     if (!sbOriginal) return;
     sb.from = sbOriginal.from;

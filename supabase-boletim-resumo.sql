@@ -1,3 +1,7 @@
+-- SUBSTITUÍDO por supabase-boletim-resumo-departamento.sql (08/10/2026): o gestor
+-- passou a ver só as lojas/departamentos liberados, não a operação inteira.
+-- Não rode este arquivo de novo (voltaria à regra antiga).
+
 -- ============================================================================
 -- Boletim da Liderança — resumo no Dashboard para quem NÃO tem o módulo
 -- ----------------------------------------------------------------------------

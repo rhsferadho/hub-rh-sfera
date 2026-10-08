@@ -109,9 +109,9 @@
   const LEGENDA = 'Cor de fundo: verde = na meta, amarelo = atenção, vermelho = crítico.';
   const NOTA_ESCRITORIO_TOTAL = 'No Escritório, a coluna Feedback considera feedback ou 1:1. Total da empresa: todas as lojas somadas e ponderadas pelo tamanho de cada uma (não é a média das operações).';
 
-  function tabelaMatriz(titulo, linhas, nota) {
+  function tabelaMatriz(titulo, linhas, nota, rotuloLinha) {
     return card(titulo, '&#128202;', `
-      <div class="table-wrap" style="max-height:none"><table class="dt bl-mx"><thead><tr><th>Operação</th>${COLUNAS_GERAL.map(id => `<th>${CURTO[id]}</th>`).join('')}</tr></thead>
+      <div class="table-wrap" style="max-height:none"><table class="dt bl-mx"><thead><tr><th>${rotuloLinha || 'Operação'}</th>${COLUNAS_GERAL.map(id => `<th>${CURTO[id]}</th>`).join('')}</tr></thead>
       <tbody>${linhas.join('')}</tbody></table></div>
       <p class="bl-note">${nota}</p>`, { full: true });
   }
@@ -124,9 +124,11 @@
   }
 
   // Números PUBLICADOS (mês fechado) para quem não tem o módulo — vêm da
-  // função boletim_resumo_publicado() do banco, já recortados pelas operações
-  // que a pessoa pode ver (supabase-boletim-resumo.sql). Setas só quando o mês
-  // anterior também foi fechado (é o que foi publicado).
+  // função boletim_resumo_publicado() do banco, já recortados pelo acesso da
+  // pessoa (supabase-boletim-resumo-departamento.sql): operação inteira quando
+  // todas as lojas dela estão liberadas; senão só as lojas/departamentos
+  // liberados (dados.parcial + dados.lojas), sem o total da operação. Setas só
+  // quando o mês anterior também foi fechado (é o que foi publicado).
   function resumoPublicado(linhasBanco) {
     const iso = d => String(d).slice(0, 7);
     const meses = Array.from(new Set(linhasBanco.map(l => iso(l.mes)))).sort();
@@ -134,19 +136,34 @@
     const mes = meses[meses.length - 1];
     const ant = M.mesAnterior(mes);
     const doMes = (m, op) => { const x = linhasBanco.find(l => iso(l.mes) === m && l.operacao === op); return x ? x.dados : null; };
+    const variacoesDe = (atual, prev) => {
+      const v = {};
+      if (prev) for (const id of Object.keys(M.INDICADORES)) v[id] = M.variacao(id, (atual || {})[id], (prev || {})[id]);
+      return v;
+    };
+    const lojaDe = (dados, dep) => ((dados && dados.lojas) || []).find(l => l.departamento === dep);
+    let porLoja = false;
     const montar = op => {
       const atual = doMes(mes, op.id);
-      if (!atual) return null;
+      if (!atual) return [];
       const prev = doMes(ant, op.id);
-      const variacoes = {};
-      if (prev) for (const id of Object.keys(M.INDICADORES)) variacoes[id] = M.variacao(id, atual.ind[id], prev.ind[id]);
-      return linhaMatriz(op, { ind: atual.ind || {}, variacoes }, false);
+      if (!atual.parcial) {
+        const prevInd = prev && !prev.parcial ? prev.ind : null;
+        return [linhaMatriz(op, { ind: atual.ind || {}, variacoes: variacoesDe(atual.ind, prevInd) }, false)];
+      }
+      porLoja = true;
+      return (atual.lojas || []).map(l => {
+        const p = lojaDe(prev, l.departamento);
+        return linhaMatriz({ id: op.id, nome: `${l.nome || l.departamento} · ${op.nome}` }, { ind: l.ind || {}, variacoes: variacoesDe(l.ind, p && p.ind) }, false);
+      });
     };
-    const linhas = M.OPERACOES.map(montar).concat(montar({ id: 'empresa', nome: 'Total da empresa' })).filter(Boolean);
+    const linhas = M.OPERACOES.concat({ id: 'empresa', nome: 'Total da empresa' }).flatMap(montar);
     if (!linhas.length) return '';
     const temAnt = M.OPERACOES.concat({ id: 'empresa' }).some(op => doMes(ant, op.id));
+    const escopo = porLoja ? 'das lojas e departamentos do seu acesso' : 'da(s) operação(ões) do seu acesso';
     return tabelaMatriz(`Boletim da Liderança — ${esc(mesLabel(mes))}`, linhas,
-      `Números publicados do último boletim fechado, da(s) operação(ões) do seu acesso — os mesmos do boletim enviado por newsletter. ${LEGENDA} ${temAnt ? `Setas comparam com ${esc(M.nomeDoMes(ant))} (verde = melhorou, vermelho = piorou).` : 'Sem setas: o mês anterior não foi fechado.'} No Escritório, a coluna Feedback considera feedback ou 1:1.`);
+      `Números publicados do último boletim fechado, ${escopo} — os mesmos do boletim enviado por newsletter. ${LEGENDA} ${temAnt ? `Setas comparam com ${esc(M.nomeDoMes(ant))} (verde = melhorou, vermelho = piorou).` : 'Sem setas: o mês anterior não foi fechado.'} No Escritório, a coluna Feedback considera feedback ou 1:1.`,
+      porLoja ? 'Loja / departamento' : 'Operação');
   }
 
   // ---------------------------------------------------------------------------
