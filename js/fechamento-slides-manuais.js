@@ -11,7 +11,7 @@
   // Slides manuais do deck, na ordem em que aparecem (depois = id do slide que vem antes).
   const MANUAIS = [
     { id: 'man-rs-projetos', depois: 'rs-projecao', titulo: 'PROJETOS EM ANDAMENTO — R&S', dica: 'Um card por projeto: objetivo, status e o que foi feito.' },
-    { id: 'man-dho-boletim', depois: 'cult-engajamento', titulo: 'BOLETIM DA LIDERANÇA', dica: 'Aderência da liderança ao último boletim, por operação.' },
+    { id: 'man-dho-boletim', depois: 'cult-satisfacao', alt: 'cult-engajamento', titulo: 'BOLETIM DA LIDERANÇA', dica: 'Aderência da liderança ao último boletim, por operação.' },
     { id: 'man-dho-projetos', depois: 'man-dho-boletim', titulo: 'PROJETOS EM ANDAMENTO — DHO', dica: 'Um card por projeto: objetivo, status e o que foi feito.' },
     { id: 'man-dho-proximos', depois: 'man-dho-projetos', titulo: 'PRÓXIMOS PASSOS', dica: 'Avaliação de Desempenho, calendário de ciclos, política de carreiras...' },
     { id: 'man-dho-endomarketing', depois: 'man-dho-proximos', titulo: 'AÇÕES DE ENDOMARKETING', dica: 'Ações realizadas no período e próximas datas.' },

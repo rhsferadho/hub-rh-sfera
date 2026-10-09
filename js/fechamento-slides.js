@@ -128,28 +128,38 @@
     return { labels: top.map(f => f.nome), values: top.map(f => (total ? f.qtd / total : 0)), total };
   }
 
-  function slideVagasFinalizadas(vagas, p, M) {
+  const corta = (t, n) => (String(t).length > n ? String(t).slice(0, n - 1).trim() + '…' : String(t));
+  // Período anterior do mesmo tipo (setembro → agosto; jul–ago → mai–jun).
+  function periodoAnterior(p) {
+    if (p.tipo === 'anual') return periodo('anual', p.ano - 1, 1);
+    return p.n > 1 ? periodo(p.tipo, p.ano, p.n - 1) : periodo(p.tipo, p.ano - 1, TIPOS[p.tipo].qtd);
+  }
+  // "Boticário VD - Rio de Janeiro" → "Bot. VD Rio de Janeiro" (eixos e listas).
+  const uniCurta = u => String(u || 'Não informado').replace(/^Botic[aá]rio VD - /, 'Bot. VD ').replace(/^Botic[aá]rio - /, 'Bot. ');
+  const somaMetas = (metas, p, campo) => { let s = 0, ok = false; for (let m = p.m1; m <= p.m2; m++) { const x = metas.find(y => y.ano === p.ano && y.mes === m); if (x && x[campo] != null) { s += x[campo]; ok = true; } } return ok ? s : null; };
+
+  function slideVagasFinalizadas(vagas, p, M, metas) {
     const r = M.periodo(vagas, p.de, p.ate);
-    const a = M.periodo(vagas, mesmoPeriodoAnoAnterior(p).de, mesmoPeriodoAnoAnterior(p).ate);
-    const pa = mesmoPeriodoAnoAnterior(p);
+    const pa = mesmoPeriodoAnoAnterior(p), pAnt = periodoAnterior(p);
+    const a = M.periodo(vagas, pa.de, pa.ate), ant = M.periodo(vagas, pAnt.de, pAnt.ate);
     const pOp = r.fechadas ? r.operacional.fechadas / r.fechadas : null;
     const texto = r.fechadas
-      ? `Fechamos ${p.nome} com **${fmtInt(r.fechadas)} vagas**, sendo ${fmtPct(pOp)} operacionais e ${fmtPct(1 - pOp)} estratégicas, com **${fmtPct(r.noPrazo)} dentro do prazo** de SLA e média de **${fmtDias(r.diasMedio)}**.`
-      : `Nenhuma vaga finalizada ${emPeriodo(p)}.`;
+      ? `Fechamos ${p.nome} com **${fmtInt(r.fechadas)} vagas**, sendo ${fmtPct(pOp)} operacionais e ${fmtPct(1 - pOp)} estratégicas, com **${fmtPct(r.noPrazo)} dentro do prazo** de SLA (${fmtPct(ant.noPrazo)} em ${pAnt.curto}) e média de **${fmtDias(r.diasMedio)}**.`
+      : `Nenhuma vaga fechada ${emPeriodo(p)}.`;
 
     // Natureza (principal) × tipo das vagas fechadas no período.
-    const fechadas = vagas.filter(v => v.status_vaga === 'Finalizada' && v.data_fechamento && v.data_fechamento >= p.de && v.data_fechamento <= p.ate);
     const nat = {};
-    fechadas.forEach(v => { const k = naturezaPrincipal(v); nat[k] = nat[k] || { op: 0, es: 0 }; nat[k][v.tipo_vaga === 'Estratégica' ? 'es' : 'op']++; });
+    r.lista.forEach(v => { const k = naturezaPrincipal(v); nat[k] = nat[k] || { op: 0, es: 0 }; nat[k][v.tipo_vaga === 'Estratégica' ? 'es' : 'op']++; });
     const naturezas = Object.keys(nat).sort((x, y) => (nat[y].op + nat[y].es) - (nat[x].op + nat[x].es)).slice(0, 5);
     const fOp = topFontes(r.fontesOperacional), fEs = topFontes(r.fontesEstrategica);
+    const meta = somaMetas(metas || [], p, 'meta_fechadas');
+    const subFechadas = [meta ? `${fmtPct(r.fechadas / meta)} da meta (${fmtInt(meta)})` : null, `${fmtInt(a.fechadas)} em ${pa.curto}`].filter(Boolean).join(' · ');
 
-    const subFechadas = p.meses > 1 ? `≈ ${fmtInt(r.fechadas / p.meses)} vagas/mês · ${fmtInt(a.fechadas)} em ${pa.curto}` : `${fmtInt(a.fechadas)} em ${pa.curto}`;
     const els = [].concat(
       titulo(`VAGAS FINALIZADAS — ${p.label.toUpperCase()}`),
       resumo(texto),
       kpi(25, 120, 190, 100, `VAGAS FECHADAS (${p.curto})`, fmtInt(r.fechadas), subFechadas),
-      kpi(230, 120, 190, 100, 'DENTRO DO PRAZO (SLA)', fmtPct(r.noPrazo), `${fmtPct(a.noPrazo)} em ${pa.curto}` + (pp(r.noPrazo, a.noPrazo) ? ` (${pp(r.noPrazo, a.noPrazo)})` : ''), r.noPrazo != null && r.noPrazo < 0.7 ? COR.amarelo : COR.valor),
+      kpi(230, 120, 190, 100, 'DENTRO DO PRAZO (SLA)', `${fmtPct(r.noPrazo)}`, `${fmtInt(r.dentro)} de ${fmtInt(r.fechadas)} · ${fmtPct(a.noPrazo)} em ${pa.curto}`, r.noPrazo != null && r.noPrazo < 0.7 ? COR.amarelo : COR.valor),
       [card(435, 120, 330, 100),
         { t: 'text', x: 447, y: 128, w: 306, h: 18, size: 10.5, bold: true, color: COR.claro, align: 'center', paras: [para('SLA MÉDIO DE FECHAMENTO')] },
         { t: 'rect', x: 447, y: 150, w: 147, h: 60, fill: '1C3D7A', transp: 30, line: '3A6BC4', r: 6 },
@@ -164,7 +174,13 @@
           { runs: [{ text: r.estrategica.diasMedio == null ? '—' : String(Math.round(r.estrategica.diasMedio)), bold: true, size: 16, color: COR.amarelo }, { text: ' dias', size: 9, color: COR.amarelo }] },
           para(`${fmtInt(r.estrategica.fechadas)} vagas · ${fmtPct(r.estrategica.noPrazo)} no prazo`, { run: { size: 8.5, color: COR.suave } })
         ] }],
-      kpi(780, 120, 155, 100, 'CANCELADAS', fmtInt(r.canceladas), 'com data no período', COR.claro),
+      [card(780, 120, 155, 100),
+        { t: 'text', x: 790, y: 128, w: 135, h: 90, size: 9, color: COR.claro, paras: [
+          { runs: [{ text: r.timeToHire == null ? '—' : `${Math.round(r.timeToHire)}d`, bold: true, size: 15, color: COR.branco }, { text: '  Time to Hire', size: 9 }] },
+          para('abertura → início', { run: { size: 7.5, color: COR.suave }, spaceAfter: 6 }),
+          { runs: [{ text: r.timeToFill == null ? '—' : `${Math.round(r.timeToFill)}d`, bold: true, size: 15, color: COR.branco }, { text: '  Time to Fill', size: 9 }] },
+          para('abertura → fechamento', { run: { size: 7.5, color: COR.suave } })
+        ] }],
       [
         { t: 'chart', x: 25, y: 238, w: 300, h: 232, kind: 'col', title: 'NATUREZA DA VAGA', legend: true, labels: naturezas,
           series: [{ name: 'Operacional', values: naturezas.map(k => nat[k].op), color: COR.azul }, { name: 'Estratégica', values: naturezas.map(k => nat[k].es), color: COR.estr }] },
@@ -173,22 +189,56 @@
       ]
     );
     const notas = [
-      `Fonte: planilha 18 (Controle Geral de Vagas). Vagas com status Finalizada e DATA DE FECHAMENTO entre ${fmtData(p.de)} e ${fmtData(p.ate)}.`,
-      'SLA pela regra oficial do R&S (dias corridos da abertura ao fechamento): Operacional Loja RJ 20, VD RJ/SG 25, Loja MG 34, VD MG 34; Estratégica 35.',
-      `Pela coluna "Status SLA" da planilha, ${fmtPct(r.noPrazoPlanilha)} no prazo.`,
-      `Fontes: % entre as vagas com FONTE preenchida (Operacional ${fOp.total}, Estratégica ${fEs.total}).`
+      `Fonte: planilha 18 (Controle Geral de Vagas), aba CTRL GERAL. Vagas com DATA DE FECHAMENTO entre ${fmtData(p.de)} e ${fmtData(p.ate)}, qualquer que seja o status: ${fmtInt(r.fechadas)} vagas, das quais ${fmtInt(r.aguardandoAdmissao)} ainda em "Andamento" (fechadas, aguardando admissão/início).`,
+      `Dentro do prazo = vagas sem a marcação "Expirou SLA" na coluna Status SLA (${fmtInt(r.dentro)} de ${fmtInt(r.fechadas)}). Operacionais ${fmtPct(r.operacional.noPrazo)} · Estratégicas ${fmtPct(r.estrategica.noPrazo)}.`,
+      'SLA médio = média da coluna SLA. Time to Fill = dias da abertura ao fechamento. Time to Hire = dias da abertura à DATA DE INÍCIO (só vagas com início preenchido).',
+      `Fontes: % entre as vagas com FONTE preenchida (Operacional ${fOp.total}, Estratégica ${fEs.total}); ${fmtInt(r.semFonte)} vaga(s) sem fonte. Canceladas com data no período: ${fmtInt(r.canceladas)}.`
     ].join('\n');
     return { id: 'rs-finalizadas', nome: 'Vagas Finalizadas', fundo: 'conteudo', els, notas };
+  }
+
+  // Vagas fechadas por unidade, com as maiores e menores durações de SLA.
+  function slidePorUnidade(vagas, p, M) {
+    const r = M.periodo(vagas, p.de, p.ate);
+    const grupo = v => { const n = naturezaPrincipal(v); return n === 'Substituição' ? 'sub' : n === 'Aumento de Quadro' ? 'aq' : /^Extra/.test(n) ? 'extra' : 'outra'; };
+    const porUni = {};
+    r.lista.forEach(v => { const k = v.unidade || 'Não informado'; const o = porUni[k] = porUni[k] || { sub: 0, aq: 0, extra: 0, outra: 0, total: 0 }; o[grupo(v)]++; o.total++; });
+    const uniSub = Object.entries(porUni).filter(([, o]) => o.sub).sort((a, b) => b[1].sub - a[1].sub);
+    const uniAq = Object.entries(porUni).filter(([, o]) => o.aq || o.extra).sort((a, b) => (b[1].aq + b[1].extra) - (a[1].aq + a[1].extra));
+    const totSub = uniSub.reduce((s, [, o]) => s + o.sub, 0), totExtra = Object.values(porUni).reduce((s, o) => s + o.extra, 0);
+    const top2 = Object.entries(porUni).sort((a, b) => b[1].total - a[1].total).slice(0, 2);
+    const conc = r.fechadas ? top2.reduce((s, [, o]) => s + o.total, 0) / r.fechadas : null;
+    const texto = r.fechadas
+      ? `${cap(emPeriodo(p))}, **${fmtInt(totSub)} das ${fmtInt(r.fechadas)} vagas** fechadas foram de substituição (${fmtPct(totSub / r.fechadas)})${totExtra ? ` e ${fmtInt(totExtra)} de Extra Natal/Mães` : ''}; ${top2.map(([u, o]) => `**${uniCurta(u)} (${o.total})**`).join(' e ')} concentraram ${fmtPct(conc)} dos fechamentos.`
+      : `Nenhuma vaga fechada ${emPeriodo(p)}.`;
+    const linhaSla = (x, lista, campo, cor) => lista.map((it, i) => ({ t: 'text', x: x + 14, y: 372 + i * 20, w: 420, h: 18, size: 9, color: COR.branco, valign: 'middle', paras: [{ runs: [
+      { text: `${it.dias}d  `, bold: true, color: cor }, { text: corta(it.cargo, 30), bold: true }, { text: ` · ${corta(it.local, 26)}`, color: COR.claro }, { text: `   ${corta(it[campo] || '—', 26)}`, color: COR.suave, size: 8 }] }] }));
+    const fontesTxt = r.slaPorFonte.filter(f => f.qtd >= 2).slice(0, 5).map(f => `${f.fonte} ${Math.round(f.dias)}d`).join(' · ');
+    const els = [].concat(
+      titulo(`VAGAS FINALIZADAS POR UNIDADE — ${p.label.toUpperCase()}`),
+      resumo(texto),
+      { t: 'chart', x: 25, y: 115, w: 445, h: 225, kind: 'bar', catSize: 8.5, labelSize: 8.5, title: 'SUBSTITUIÇÃO (INCLUI COTA)', labels: uniSub.map(([u]) => uniCurta(u)), series: [{ name: 'Substituição', values: uniSub.map(([, o]) => o.sub), color: '8FA8DC' }] },
+      { t: 'chart', x: 490, y: 115, w: 445, h: 225, kind: 'bar', stacked: true, legend: true, catSize: 8.5, labelSize: 8.5, title: 'AUMENTO DE QUADRO E EXTRA NATAL', labels: uniAq.map(([u]) => uniCurta(u)),
+        series: [{ name: 'Aumento de Quadro', values: uniAq.map(([, o]) => o.aq || null), color: '8FA8DC' }, { name: 'Extra Natal/Mães', values: uniAq.map(([, o]) => o.extra || null), color: '3A63B8' }] },
+      card(25, 345, 445, 145), card(490, 345, 445, 145),
+      { t: 'text', x: 39, y: 351, w: 420, h: 18, size: 10.5, bold: true, color: COR.amarelo, paras: [para('▲ MAIORES SLAs — MOTIVO')] },
+      linhaSla(25, r.maioresSla, 'motivo', COR.amarelo),
+      { t: 'text', x: 504, y: 351, w: 420, h: 18, size: 10.5, bold: true, color: '3CCB8B', paras: [para('▼ MENORES SLAs — FONTE DE CAPTAÇÃO')] },
+      linhaSla(490, r.menoresSla, 'fonte', '3CCB8B'),
+      fontesTxt ? { t: 'text', x: 504, y: 472, w: 420, h: 14, size: 8, color: COR.suave, paras: [para(`**SLA médio por fonte:** ${fontesTxt}`)] } : []
+    );
+    const notas = `Vagas com DATA DE FECHAMENTO ${emPeriodo(p)} (${fmtInt(r.fechadas)}, incluindo ${fmtInt(r.aguardandoAdmissao)} ainda em Andamento aguardando admissão). Substituição inclui "Substituição – Cota"; Extra inclui Extra Natal e Extra Mães. SLA = coluna SLA da planilha; motivo = coluna Motivo SLA. SLA médio por fonte só para fontes com 2 ou mais vagas.`;
+    return { id: 'rs-unidades', nome: 'Vagas Finalizadas por Unidade', fundo: 'conteudo', els, notas };
   }
 
   function slideComparativo(vagas, p) {
     const pa = mesmoPeriodoAnoAnterior(p);
     const abertasEm = q => vagas.filter(v => v.data_abertura >= q.de && v.data_abertura <= q.ate);
     const atual = abertasEm(p), ant = abertasEm(pa);
-    const conta = (lista, nat, tipo) => lista.filter(v => naturezaPrincipal(v) === nat && (v.tipo_vaga === 'Estratégica') === (tipo === 'Estratégica')).length;
-    const fechadasNoPeriodo = (lista, q) => (lista.length ? lista.filter(v => v.status_vaga === 'Finalizada' && v.data_fechamento && v.data_fechamento <= q.ate).length / lista.length : null);
+    const conta = (lista, nat, tipo) => lista.filter(v => naturezaPrincipal(v) === nat && (tipo == null || (v.tipo_vaga === 'Estratégica') === (tipo === 'Estratégica'))).length;
+    // Das abertas no período, quantas têm DATA DE FECHAMENTO até o último dia dele (qualquer status).
+    const fechadasNoPeriodo = (lista, q) => (lista.length ? lista.filter(v => v.data_fechamento && v.data_fechamento <= q.ate).length / lista.length : null);
     const yy = String(p.ano).slice(2), yyA = String(pa.ano).slice(2);
-    const grupos = ['Aumento de Quadro', 'Substituição'];
 
     // Maior variação entre natureza × tipo, para o texto.
     const linhas = [];
@@ -205,11 +255,9 @@
       texto += ` A maior variação foi em **${maior.n} ${maior.t}**, de ${fmtInt(maior.a)} para ${fmtInt(maior.b)}${vm != null ? ` (${vm > 0 ? '+' : '−'}${fmtPct(Math.abs(vm))})` : ''}.`;
     }
 
-    const grafico = (x, nat) => ({
-      t: 'chart', x, y: 150, w: 300, h: 300, kind: 'col', title: nat.toUpperCase(), legend: true, labels: ['Operacional', 'Estratégica'],
-      series: [{ name: String(pa.ano), values: ['Operacional', 'Estratégica'].map(t => conta(ant, nat, t)), color: COR.estr },
-        { name: String(p.ano), values: ['Operacional', 'Estratégica'].map(t => conta(atual, nat, t)), color: COR.azul }]
-    });
+    const serie = (rotulos, fn) => [{ name: String(pa.ano), values: rotulos.map(r => fn(ant, r)), color: COR.estr }, { name: String(p.ano), values: rotulos.map(r => fn(atual, r)), color: COR.azul }];
+    const aq = ['Operacional', 'Estratégica'];
+    const sx = [['Substituição', 'Operacional', 'Subst. Operacional'], ['Substituição', 'Estratégica', 'Subst. Estratégica'], ['Extra Natal', null, 'Extra Natal']];
     const caixa = (y, rotulo, total, pct, cor) => [
       card(650, y, 285, 135),
       { t: 'text', x: 665, y: y + 12, w: 255, h: 20, size: 12, bold: true, color: COR.claro, paras: [para(rotulo)] },
@@ -219,37 +267,43 @@
     const els = [].concat(
       titulo(`COMPARATIVO DE VAGAS ABERTAS — ${pa.curto.toUpperCase()} × ${p.curto.toUpperCase()}`),
       { t: 'text', x: 40, y: 76, w: 830, h: 54, size: 11, color: COR.branco, paras: [para(texto)] },
-      grafico(25, grupos[0]), grafico(335, grupos[1]),
+      { t: 'chart', x: 25, y: 150, w: 300, h: 300, kind: 'col', title: 'AUMENTO DE QUADRO', legend: true, labels: aq, series: serie(aq, (l, t) => conta(l, 'Aumento de Quadro', t)) },
+      { t: 'chart', x: 335, y: 150, w: 300, h: 300, kind: 'col', title: 'SUBSTITUIÇÃO E EXTRA NATAL', legend: true, catSize: 8.5, labels: sx.map(x => x[2]), series: serie(sx, (l, x) => conta(l, x[0], x[1])) },
       caixa(150, `Abertas/${yyA}`, ant.length, fechadasNoPeriodo(ant, pa), COR.estr),
       caixa(300, `Abertas/${yy}`, atual.length, fechadasNoPeriodo(atual, p), COR.valor)
     );
-    const outras = nats.filter(n => !grupos.includes(n)).map(n => `${n}: ${conta(ant, n, 'Operacional') + conta(ant, n, 'Estratégica')} → ${conta(atual, n, 'Operacional') + conta(atual, n, 'Estratégica')}`);
+    const outras = nats.filter(n => !['Aumento de Quadro', 'Substituição', 'Extra Natal'].includes(n)).map(n => `${n}: ${conta(ant, n)} → ${conta(atual, n)}`);
     const notas = [
-      `Vagas pela DATA DE ABERTURA: ${fmtData(pa.de)} a ${fmtData(pa.ate)} contra ${fmtData(p.de)} a ${fmtData(p.ate)}. Inclui canceladas e congeladas.`,
-      '"Fechadas no período" = das vagas abertas no período, quantas foram finalizadas até o último dia dele.',
+      `Vagas pela DATA DE ABERTURA: ${fmtData(pa.de)} a ${fmtData(pa.ate)} contra ${fmtData(p.de)} a ${fmtData(p.ate)}. Inclui canceladas e congeladas. Substituição inclui "Substituição – Cota".`,
+      '"Fechadas no período" = das vagas abertas no período, quantas têm DATA DE FECHAMENTO até o último dia dele (qualquer status).',
       outras.length ? 'Outras naturezas (ano anterior → atual): ' + outras.join('; ') + '.' : ''
     ].filter(Boolean).join('\n');
     return { id: 'rs-comparativo', nome: 'Comparativo de Vagas Abertas', fundo: 'conteudo', els, notas };
   }
 
-  function slideAtivas(vagas, M, atualizadoEm) {
-    const at = M.ativas(vagas);
-    const coluna = (x, rotulo, g) => {
+  function slideAtivas(vagas, M, atualizadoEm, p) {
+    const at = M.ativas(vagas, p.ate);
+    const coluna = (x, rotulo, g, extra) => {
       const op = (g.porTipo.find(t => t.nome === 'Operacional') || { qtd: 0 }).qtd;
       const es = (g.porTipo.find(t => t.nome === 'Estratégica') || { qtd: 0 }).qtd;
-      const nats = {};
-      vagas.filter(v => v.status_vaga === (rotulo === 'EM ANDAMENTO' ? 'Andamento' : 'Aberta')).forEach(v => { const k = v.natureza || '(não informado)'; nats[k] = (nats[k] || 0) + 1; });
       const paras = [
         para(`${rotulo} — ${fmtInt(g.total)} vagas`, { run: { size: 16, bold: true, color: COR.azul }, spaceAfter: 4 }),
-        para(`Atualmente estamos com **${fmtInt(g.total)} vagas ${rotulo === 'EM ANDAMENTO' ? 'em andamento' : 'em aberto'}**, sendo ${fmtInt(op)} Operacionais (${fmtPct(g.total ? op / g.total : null)}) e ${fmtInt(es)} Estratégicas (${fmtPct(g.total ? es / g.total : null)}).`, { spaceAfter: 8 })
+        para(`Atualmente estamos com **${fmtInt(g.total)} vagas ${rotulo === 'EM ANDAMENTO' ? 'em andamento' : 'em aberto'}**, sendo ${fmtInt(op)} Operacionais (${fmtPct(g.total ? op / g.total : null)}) e ${fmtInt(es)} Estratégicas (${fmtPct(g.total ? es / g.total : null)}).`, { spaceAfter: 6 })
       ];
-      Object.entries(nats).sort((a, b) => b[1] - a[1]).forEach(([n, q]) => paras.push(para(`**${n}:** ${fmtInt(q)} ${q === 1 ? 'vaga' : 'vagas'}`, { bullet: true })));
-      paras.push(para(g.porUnidade.map(u => `${u.nome} (${u.qtd})`).join(', ') + '.', { run: { italic: true, color: COR.suave, size: 10 }, spaceBefore: 8 }));
-      paras.push(para(`Atualização – ${fmtData(atualizadoEm)}`, { run: { italic: true, color: COR.suave, size: 10 }, spaceBefore: 8 }));
-      return [card(x, 100, 435, 390), { t: 'text', x: x + 18, y: 114, w: 400, h: 365, size: 12, color: COR.branco, paras }];
+      g.porNatureza.forEach(n => paras.push(para(`**${n.nome}:** ${fmtInt(n.qtd)} ${n.qtd === 1 ? 'vaga' : 'vagas'}`, { bullet: true })));
+      if (extra) paras.push(para(extra, { spaceBefore: 6, run: { size: 10.5 } }));
+      paras.push(para(g.porUnidade.map(u => `${u.nome} (${u.qtd})`).join(', ') + '.', { run: { italic: true, color: COR.suave, size: 9.5 }, spaceBefore: 6 }));
+      return [card(x, 100, 435, 390), { t: 'text', x: x + 18, y: 114, w: 400, h: 365, size: 11.5, color: COR.branco, paras }];
     };
-    const els = [].concat(titulo('VAGAS EM ANDAMENTO E EM ABERTO'), coluna(25, 'EM ANDAMENTO', at.andamento), coluna(475, 'EM ABERTO', at.aberta));
-    const notas = `Foto da planilha 18 no último upload (${fmtData(atualizadoEm)}), não do período escolhido. Congeladas hoje: ${fmtInt(at.congelada.total)}.`;
+    const etapas = at.andamento.porEtapa.map(e => `${e.nome} (${e.qtd})`).join(', ');
+    const triagem = at.aberta.lista.filter(v => /triagem/i.test(v.etapa_vaga || '')).length;
+    const els = [].concat(
+      titulo(`VAGAS EM ANDAMENTO E EM ABERTO — ${fmtData(p.ate)}`),
+      coluna(25, 'EM ANDAMENTO', at.andamento, etapas ? `**Etapas:** ${etapas}.` : null),
+      coluna(475, 'EM ABERTO', at.aberta, at.aberta.total ? `**Atenção:** ${fmtInt(triagem)} ainda em triagem e ${fmtInt(at.aberta.expiradas)} com SLA expirado.` : null),
+      { t: 'text', x: 40, y: 494, w: 600, h: 14, size: 8.5, italic: true, color: COR.suave, paras: [para(`Atualização – base de ${fmtData(atualizadoEm)} · vagas abertas até ${fmtData(p.ate)} · não inclui as ${fmtInt(at.aguardandoAdmissao.total)} vagas já fechadas que aguardam admissão (estão nas finalizadas).`, { run: { italic: true } })] }
+    );
+    const notas = `Posição na virada do período: vagas abertas até ${fmtData(p.ate)}, com o status da planilha 18 no último upload (${fmtData(atualizadoEm)}). Em andamento = status Andamento sem data de fechamento até ${fmtData(p.ate)}; em aberto = status Aberta. As ${fmtInt(at.aguardandoAdmissao.total)} em Andamento com data de fechamento no período já contam nas finalizadas. Vagas ativas na virada: ${fmtInt(at.andamento.total + at.aberta.total)}. Congeladas: ${fmtInt(at.congelada.total)}.`;
     return { id: 'rs-ativas', nome: 'Vagas em Andamento e em Aberto', fundo: 'conteudo', els, notas };
   }
 
@@ -339,9 +393,10 @@
       slideCapa(p),
       D ? D.demografia(p, dados.dho) : [],
       slideDivisor('rs-divisor', 'RECRUTAMENTO E', 'SELEÇÃO'),
-      slideVagasFinalizadas(vagas, p, M),
+      slideVagasFinalizadas(vagas, p, M, dados.metas || []),
+      slidePorUnidade(vagas, p, M),
       slideComparativo(vagas, p),
-      slideAtivas(vagas, M, dados.atualizadoEm),
+      slideAtivas(vagas, M, dados.atualizadoEm, p),
       slideProjecao(vagas, p, dados.metas || [], M),
       D || C ? slideDivisor('dho-divisor', 'DESENVOLVIMENTO', 'HUMANO E ORGANIZACIONAL', 40) : [],
       D ? D.slides(p, dados.dho) : [],
@@ -355,8 +410,15 @@
         if (!MAN.temConteudo(m)) continue;
         // Se o slide de referência não está no deck (ex.: outro slide do RH vazio),
         // volta pela sequência até achar um que esteja.
-        let ref = def.depois;
-        while (ref && !deck.some(s => s.id === ref)) { const ant = MAN.MANUAIS.find(x => x.id === ref); ref = ant ? ant.depois : null; }
+        const noDeck = id => deck.some(s => s.id === id);
+        const ancora = id => {
+          if (!id) return null;
+          if (noDeck(id)) return id;
+          const d = MAN.MANUAIS.find(x => x.id === id);
+          if (!d) return null;
+          return ancora(d.depois) || (d.alt && noDeck(d.alt) ? d.alt : null);
+        };
+        const ref = ancora(def.depois) || (def.alt && noDeck(def.alt) ? def.alt : null);
         const i = deck.findIndex(s => s.id === ref);
         const sd = MAN.slideManual(def, m);
         if (i >= 0) deck.splice(i + 1, 0, sd); else deck.push(sd);

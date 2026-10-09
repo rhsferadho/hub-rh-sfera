@@ -137,7 +137,7 @@
     const dia = x => (x == null ? '—' : Math.round(x) + ' dias');
     return {
       linhas: r.linhas.length, avisos: r.avisos,
-      resumo: `${U.fmtInt(r.linhas.length)} vagas importadas (aba ${r.aba}). ${de.slice(5, 7)}/${de.slice(0, 4)}: ${p.abertas} abertas, ${p.fechadas} fechadas, ${pct(p.noPrazo)} no prazo do SLA pela regra oficial (pela coluna Status SLA da planilha, ${pct(p.noPrazoPlanilha)}); média de ${dia(p.diasMedio)}, Operacional ${dia(p.operacional.diasMedio)} e Estratégica ${dia(p.estrategica.diasMedio)}. Hoje: ${at.aberta.total} em aberto, ${at.andamento.total} em andamento, ${at.congelada.total} congeladas.`
+      resumo: `${U.fmtInt(r.linhas.length)} vagas importadas (aba ${r.aba}). ${de.slice(5, 7)}/${de.slice(0, 4)}: ${p.abertas} abertas, ${p.fechadas} fechadas pela DATA DE FECHAMENTO (${p.aguardandoAdmissao} aguardando admissão), ${pct(p.noPrazo)} dentro do SLA (${p.dentro} sem "Expirou SLA"); SLA médio de ${dia(p.diasMedio)}, Operacional ${dia(p.operacional.diasMedio)} e Estratégica ${dia(p.estrategica.diasMedio)}. Hoje: ${at.aberta.total} em aberto, ${at.andamento.total} em andamento, ${at.congelada.total} congeladas.`
     };
   }
 

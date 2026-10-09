@@ -112,14 +112,11 @@
     const n = (filtro, texto) => { const q = linhas.filter(filtro).length; if (q) avisos.push(texto.replace('#', q)); };
     n(r => r.status_vaga === 'Finalizada' && !r.data_fechamento, '# vaga(s) Finalizada(s) sem DATA DE FECHAMENTO — ficam fora das vagas fechadas.');
     n(r => r.status_vaga === 'Cancelada' && !r.data_cancelamento, '# vaga(s) Cancelada(s) sem DATA DO CANCELAMENTO — não dá para saber em que mês foram canceladas.');
-    n(r => (r.status_vaga === 'Aberta' || r.status_vaga === 'Andamento') && r.data_fechamento, '# vaga(s) Aberta/Andamento com DATA DE FECHAMENTO preenchida — contam como abertas, não como fechadas.');
+    // Vaga fechada = tem DATA DE FECHAMENTO (critério do RH): status que não combina com isso entra assim mesmo, mas avisa.
+    n(r => r.status_vaga === 'Aberta' && r.data_fechamento, '# vaga(s) com status Aberta e DATA DE FECHAMENTO preenchida — entram como fechadas.');
+    n(r => r.status_vaga === 'Cancelada' && r.data_fechamento, '# vaga(s) Cancelada(s) com DATA DE FECHAMENTO preenchida — entram como fechadas.');
     n(r => r.data_fechamento && r.data_fechamento < r.data_abertura, '# vaga(s) com DATA DE FECHAMENTO antes da DATA DE ABERTURA.');
-    n(r => r.status_vaga === 'Finalizada' && !r.fonte && r.data_fechamento >= '2026-01-01', '# vaga(s) finalizada(s) em 2026 sem FONTE.');
-    const M = window.HUB_METRICS_FECHAMENTO;
-    if (M) {
-      const sem = Array.from(new Set(linhas.filter(r => r.tipo_vaga !== 'Estratégica' && r.unidade && M.slaMeta(r) == null).map(r => r.unidade)));
-      if (sem.length) avisos.push('Sem regra de SLA para: ' + sem.join(', ') + ' — essas vagas ficam fora do % no prazo.');
-    }
+    n(r => r.data_fechamento && !r.fonte && r.data_fechamento >= '2026-01-01', '# vaga(s) fechada(s) em 2026 sem FONTE.');
     return avisos;
   }
 

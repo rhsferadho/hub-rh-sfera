@@ -82,7 +82,7 @@ run('parse: conferência da planilha', () => {
   const r = PF.parse(wb(BASE));
   const t = r.avisos.join(' | ');
   check('avisa cancelada sem data de cancelamento', /1 vaga\(s\) Cancelada\(s\) sem DATA DO CANCELAMENTO/.test(t), t);
-  check('avisa ativa com data de fechamento', /1 vaga\(s\) Aberta\/Andamento com DATA DE FECHAMENTO/.test(t), t);
+  check('Andamento com data de fechamento não gera aviso (é vaga fechada aguardando admissão)', !/Andamento/.test(t), t);
 });
 
 run('parse: planilha errada', () => {
@@ -91,30 +91,22 @@ run('parse: planilha errada', () => {
   check('erro explica o que falta', /CTRL GERAL/.test(msg), msg);
 });
 
-run('SLA: regra oficial por operação', () => {
-  const s = v => M.slaMeta(v);
-  check('Loja RJ 20', s({ tipo_vaga: 'Operacional', unidade: 'Boticário - Rio de Janeiro' }) === 20);
-  check('VD RJ 25', s({ tipo_vaga: 'Operacional', unidade: 'Boticário VD - Rio de Janeiro' }) === 25);
-  check('Loja MG 34', s({ tipo_vaga: 'Operacional', unidade: 'Boticário - Interior de MG' }) === 34);
-  check('VD MG 34', s({ tipo_vaga: 'Operacional', unidade: 'Boticário VD - Juiz de Fora' }) === 34);
-  check('Estratégica 35 em qualquer operação', s({ tipo_vaga: 'Estratégica', unidade: 'Boticário VD - Interior de MG' }) === 35);
-  check('unidade sem regra = null', s({ tipo_vaga: 'Operacional', unidade: 'Loja Nova' }) === null);
-});
-
-run('periodo: julho/2026', () => {
+run('periodo: julho/2026 (critérios do RH)', () => {
   const r = PF.parse(wb(BASE));
   const p = M.periodo(r.linhas, '2026-07-01', '2026-07-31');
-  check('5 fechadas (Andamento com data não conta)', p.fechadas === 5, p.fechadas);
+  check('6 fechadas pela DATA DE FECHAMENTO, qualquer status', p.fechadas === 6, p.fechadas);
+  check('1 delas aguardando admissão (Andamento com data)', p.aguardandoAdmissao === 1, p.aguardandoAdmissao);
   check('8 abertas no mês', p.abertas === 8, p.abertas);
   check('1 cancelada com data no mês', p.canceladas === 1, p.canceladas);
-  check('3 de 5 no prazo pela regra oficial', Math.abs(p.noPrazo - 0.6) < 1e-9, p.noPrazo);
-  check('3 de 5 pela coluna da planilha', Math.abs(p.noPrazoPlanilha - 0.6) < 1e-9, p.noPrazoPlanilha);
-  check('Estratégica: 1 fechada, 40 dias, 0% no prazo', p.estrategica.fechadas === 1 && p.estrategica.diasMedio === 40 && p.estrategica.noPrazo === 0, JSON.stringify(p.estrategica));
-  check('fonte Operacional mais usada', p.fontesOperacional[0].nome === 'InfoJobs' && p.fontesOperacional[0].qtd === 3, JSON.stringify(p.fontesOperacional));
+  check('SLA pela planilha: "Expirou SLA" fora, branco dentro (4 de 6)', p.dentro === 4 && Math.abs(p.noPrazo - 4 / 6) < 1e-9, p.noPrazo);
+  check('Estratégica: 1 fechada, 40 dias, dentro do prazo', p.estrategica.fechadas === 1 && p.estrategica.diasMedio === 40 && p.estrategica.noPrazo === 1, JSON.stringify(p.estrategica));
+  check('fonte Operacional mais usada', p.fontesOperacional[0].nome === 'InfoJobs' && p.fontesOperacional[0].qtd === 4, JSON.stringify(p.fontesOperacional));
+  check('time to fill = média abertura → fechamento', Math.abs(p.timeToFill - (20 + 21 + 25 + 30 + 40 + 8) / 6) < 1e-9, p.timeToFill);
+  check('maior SLA primeiro', p.maioresSla[0].dias === 40 && p.maioresSla[0].cargo === 'Vaga sigilosa', JSON.stringify(p.maioresSla[0]));
   const at = M.ativas(r.linhas);
-  check('ativas hoje: 1 aberta, 1 em andamento', at.aberta.total === 1 && at.andamento.total === 1, JSON.stringify([at.aberta.total, at.andamento.total]));
+  check('ativas: 1 aberta, 0 em andamento, 1 aguardando admissão', at.aberta.total === 1 && at.andamento.total === 0 && at.aguardandoAdmissao.total === 1, JSON.stringify([at.aberta.total, at.andamento.total, at.aguardandoAdmissao.total]));
   const mes = M.mensal(r.linhas, 2026);
-  check('mensal: julho com 8 abertas e 5 fechadas', mes[6].abertas === 8 && mes[6].fechadas === 5, JSON.stringify(mes[6]));
+  check('mensal: julho com 8 abertas e 6 fechadas', mes[6].abertas === 8 && mes[6].fechadas === 6, JSON.stringify(mes[6]));
   check('mensal: junho com 1 aberta', mes[5].abertas === 1, JSON.stringify(mes[5]));
 });
 
@@ -134,18 +126,21 @@ run('slides: deck de julho/2026', () => {
   const r = PF.parse(wb(BASE));
   const metas = [{ ano: 2026, mes: 7, meta_abertas: 10, meta_fechadas: 4 }];
   const deck = SL.montar(SL.periodo('mensal', 2026, 7), { vagas: r.linhas, metas, atualizadoEm: '2026-10-08' });
-  check('6 slides', deck.length === 6, deck.map(d => d.id).join(','));
+  check('7 slides, com Vagas por Unidade', deck.length === 7 && deck[3].id === 'rs-unidades', deck.map(d => d.id).join(','));
   const texto = sd => sd.els.filter(e => e.t === 'text').map(e => e.paras.map(p => p.runs.map(x => x.text).join('')).join(' ')).join(' | ');
   const fin = deck.find(d => d.id === 'rs-finalizadas');
-  check('resumo com 5 vagas e 60% no prazo', /Fechamos julho com 5 vagas.*60% dentro do prazo/.test(texto(fin)), texto(fin));
+  check('resumo com 6 vagas e 67% no prazo', /Fechamos julho com 6 vagas.*67% dentro do prazo/.test(texto(fin)), texto(fin));
+  check('fechadas contra a meta', /150% da meta \(4\)/.test(texto(fin)), texto(fin));
   const nat = fin.els.find(e => e.t === 'chart' && e.title === 'NATUREZA DA VAGA');
-  check('natureza agrupa Substituição', nat.labels[0] === 'Substituição' && nat.series[0].values[0] === 4 && nat.series[1].values[0] === 1, JSON.stringify(nat));
+  check('natureza agrupa Substituição', nat.labels[0] === 'Substituição' && nat.series[0].values[0] === 5 && nat.series[1].values[0] === 1, JSON.stringify(nat));
   const proj = deck.find(d => d.id === 'rs-projecao');
-  check('projeção compara com a meta', /abriram-se 8 vagas \(80% da meta de 10\) e fecharam-se 5 \(125% da meta de 4\)/.test(texto(proj)), texto(proj));
+  check('projeção compara com a meta', /abriram-se 8 vagas \(80% da meta de 10\) e fecharam-se 6 \(150% da meta de 4\)/.test(texto(proj)), texto(proj));
   const ch = proj.els.find(e => e.t === 'chart');
   check('realizado só até o mês do período', ch.series[1].values[6] === 8 && ch.series[1].values[7] === null, JSON.stringify(ch.series[1].values));
   const at = deck.find(d => d.id === 'rs-ativas');
-  check('foto das ativas com a data do upload', /EM ANDAMENTO — 1 vagas.*Atualização – 08\/10\/2026/.test(texto(at)), texto(at).slice(0, 200));
+  check('ativas na virada do período, sem as já fechadas', /— 31\/07\/2026/.test(texto(at)) && /EM ANDAMENTO — 0 vagas/.test(texto(at)) && /vagas abertas até 31\/07\/2026 · não inclui as 1 vagas já fechadas/.test(texto(at)), texto(at));
+  const uni = deck.find(d => d.id === 'rs-unidades');
+  check('por unidade: substituição por unidade e SLAs', uni.els.find(e => e.t === 'chart').labels[0] === 'Hering' && /MAIORES SLAs/.test(texto(uni)) && /40d/.test(texto(uni)), texto(uni).slice(0, 300));
   check('todo elemento dentro do slide 960 × 540', deck.every(d => d.els.every(e => e.x >= 0 && e.y >= 0 && e.x + e.w <= 960 && e.y + e.h <= 540)));
 });
 
@@ -180,7 +175,7 @@ function dhoFalso() {
 run('slides: Demografia e DHO', () => {
   const deck = SL.montar(SL.periodo('mensal', 2026, 7), { vagas: [], metas: [], atualizadoEm: '2026-08-05', dho: dhoFalso() });
   const ids = deck.map(d => d.id).join(',');
-  check('ordem: capa, resumo, demografia, R&S, DHO, contracapa', ids === 'capa,resumo,demografia,rs-divisor,rs-finalizadas,rs-comparativo,rs-ativas,rs-projecao,dho-divisor,dho-turnover,dho-nps,dho-motivos,dho-percepcao,dho-experiencia,contracapa', ids);
+  check('ordem: capa, resumo, demografia, R&S, DHO, contracapa', ids === 'capa,resumo,demografia,rs-divisor,rs-finalizadas,rs-unidades,rs-comparativo,rs-ativas,rs-projecao,dho-divisor,dho-turnover,dho-perfil-etario,dho-nps,dho-motivos,dho-percepcao,dho-experiencia,contracapa', ids);
   const texto = sd => sd.els.filter(e => e.t === 'text').map(e => e.paras.map(p => p.runs.map(x => x.text).join('')).join(' ')).join(' | ');
   const demo = deck.find(d => d.id === 'demografia');
   check('headcount em 31/07: 3 ativos', /HEADCOUNT \| 3 \|/.test(texto(demo)), texto(demo).slice(0, 120));
@@ -230,7 +225,7 @@ run('slides: Cultura, T&D, slides do RH, textos e resumo', () => {
   const texto = sd => sd.els.filter(e => e.t === 'text').map(e => e.paras.map(p => p.runs.map(x => x.text).join('')).join(' ')).join(' | ');
   const fin = deck.find(d => d.id === 'rs-finalizadas');
   check('texto de abertura reescrito pelo RH, com negrito', /Texto do RH para as vagas\./.test(texto(fin)) && fin.els.find(e => e.editado).paras[0].runs.some(r => r.bold && r.text === 'RH'), texto(fin).slice(0, 120));
-  check('texto automático guardado para "voltar ao automático"', /Nenhuma vaga finalizada/.test(fin.textoAuto), fin.textoAuto);
+  check('texto automático guardado para "voltar ao automático"', /Nenhuma vaga fechada/.test(fin.textoAuto), fin.textoAuto);
   const man = deck.find(d => d.id === 'man-rs-projetos');
   check('slide do RH: título padrão, 1 card, tópico em negrito', /PROJETOS EM ANDAMENTO — R&S/.test(texto(man)) && man.els.filter(e => e.t === 'rect').length === 2 && man.els.some(e => e.t === 'text' && e.paras.some(p => p.bullet && p.runs.some(r => r.bold && r.text === '4 vagas'))), texto(man));
   const cult = deck.find(d => d.id === 'cult-cultura');

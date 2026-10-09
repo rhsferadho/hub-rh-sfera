@@ -227,12 +227,23 @@
   // Cultura, Engajamento e T&D: o cálculo mensal do Boletim da Liderança
   // (precisa de HUB_BOLETIM.carregar, que também traz AvE e Engajamento).
   let cultOk = false;
+  let satisfacaoOk = false;
   function dadosCult() {
     if (!cultOk || !window.HUB_METRICS_BOLETIM) return null;
     return {
       OPERACOES: HUB_METRICS_BOLETIM.OPERACOES,
       // Pesquisa de Engajamento: totais oficiais dos pulsos e notas diárias (ver engajamentoDe).
       engajamento: { pulsos: (window.HUB_DATA && HUB_DATA.engajamento_pulso) || [], notas: (window.HUB_BOLETIM_DATA && HUB_BOLETIM_DATA.engajamento_notas) || [], operacaoDe: HUB_METRICS_BOLETIM.operacaoDe },
+      // Feedbacks (planilha 4), Humor (36, agregado) e Satisfação (16).
+      feedbacks: (window.HUB_DATA && HUB_DATA.feedbacks) || null,
+      humor: (window.HUB_BOLETIM_DATA && HUB_BOLETIM_DATA.humor_mensal) || null,
+      rotuloHumor: HUB_METRICS_BOLETIM.rotuloHumor,
+      satisfacao: satisfacaoOk && window.HUB_SATISFACAO_DATA ? { respostas: HUB_SATISFACAO_DATA.respostas, ciclos: HUB_SATISFACAO_DATA.ciclos } : null,
+      headcount: ate => {
+        const porUni = {};
+        HUB_FECHAMENTO_DHO._internal.ativosEm((window.HUB_DATA && HUB_DATA.colaboradores) || [], ate).forEach(c => { const k = c.unidade || 'Não informado'; porUni[k] = (porUni[k] || 0) + 1; });
+        return porUni;
+      },
       mes: mk => { if (!CACHE.mes.has(mk)) CACHE.mes.set(mk, HUB_METRICS_BOLETIM.calcularMes(mk)); return CACHE.mes.get(mk); }
     };
   }
@@ -274,6 +285,7 @@
         try { experiencia[c] = HUB_EXP_METRICS.preparar(await HUB_EXPERIENCIA.carregar(c), c); } catch (err) { experiencia[c] = null; }
       }
       try { await HUB_BOLETIM.carregar(); cultOk = true; } catch (err) { cultOk = false; }
+      try { await HUB_SATISFACAO.carregar(); satisfacaoOk = true; } catch (err) { satisfacaoOk = false; }
     } catch (err) {
       el.innerHTML = STYLE + `<div class="card"><div class="empty">${esc(err.message)}</div></div>`;
       return;

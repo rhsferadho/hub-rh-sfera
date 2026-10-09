@@ -40,51 +40,102 @@
   // Demografia
   // ------------------------------------------------------------------
   function demografia(p, dho) {
-    const { COR, para, titulo, card, fmtInt, fmtPct, fmtData } = S().pecas;
+    const { COR, MES3, para, titulo, card, fmtInt, fmtPct, fmtData } = S().pecas;
     const cols = dho.colaboradores || [];
-    const fim = p.ate, antes = addDias(p.de, -1), anoAntes = (+fim.slice(0, 4) - 1) + fim.slice(4);
-    const at = ativosEm(cols, fim), atAnt = ativosEm(cols, antes), atAno = ativosEm(cols, anoAntes);
-    const delta = at.length - atAnt.length;
+    const fim = p.ate, anoAntes = (+fim.slice(0, 4) - 1) + fim.slice(4);
+    const fimJan = `${p.ano}-01-31`;
+    const at = ativosEm(cols, fim), atJan = ativosEm(cols, fimJan), atAno = ativosEm(cols, anoAntes);
+    const r = dho.rot ? dho.rot(filtro(p.de, p.ate)) : null;
+    const adm = r ? r.totalAdmitidos : cols.filter(c => c.data_admissao >= p.de && c.data_admissao <= p.ate).length;
+    const desl = r ? r.totalDesligados : cols.filter(c => desligado(c) && c.ultimo_dia_trabalhado >= p.de && c.ultimo_dia_trabalhado <= p.ate).length;
+    // Admissões dos 2 meses anteriores (para o subtítulo do cartão).
+    const mesesAnt = [2, 1].map(k => { const d = new Date(Date.UTC(p.ano, p.m1 - 1 - k, 1)); const de = d.toISOString().slice(0, 10); const ate = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).toISOString().slice(0, 10); return { rot: MES3[d.getUTCMonth()].toLowerCase(), n: cols.filter(c => c.data_admissao >= de && c.data_admissao <= ate).length }; });
+    const diasCasa = c => (Date.parse(fim) - Date.parse(c.data_admissao)) / MS_DIA;
+    const exp = at.filter(c => diasCasa(c) <= 90).length;
     const ate12 = (l, ref) => (l.length ? l.filter(c => c.data_admissao > addDias(ref, -365)).length / l.length : null);
     const ate35 = (l, ref) => { const id = l.map(c => idadeEm(c.data_nascimento, ref)).filter(a => a != null); return id.length ? id.filter(a => a <= 35).length / id.length : null; };
-    const t12 = ate12(at, fim), t12a = ate12(atAno, anoAntes), i35 = ate35(at, fim), i35a = ate35(atAno, anoAntes);
+    const t12 = ate12(at, fim), t12a = ate12(atAno, anoAntes), i35 = ate35(at, fim);
+    const tempoMedio = at.length ? at.reduce((s, c) => s + diasCasa(c), 0) / at.length : null;
+    const anosMeses = d => { if (d == null) return '—'; const m = Math.floor(d / 30.44); return `${Math.floor(m / 12)}a ${m % 12}m`; };
+    const vJan = atJan.length ? (at.length - atJan.length) / atJan.length : null;
+
+    // Faixas de tempo de casa (as 3 primeiras = até 12 meses).
+    const FAIXAS = [['0–3m', 0, 91], ['3–6m', 91, 183], ['6–12m', 183, 366], ['1–2a', 366, 731], ['2–5a', 731, 1827], ['5–7a', 1827, 2557], ['7–10a', 2557, 3653], ['>10a', 3653, 1e9]];
+    const faixa = FAIXAS.map(([, a, b]) => at.filter(c => { const d = diasCasa(c); return d >= a && d < b; }).length);
     const porUnidade = {};
     at.forEach(c => { const k = c.unidade || 'Não informado'; porUnidade[k] = (porUnidade[k] || 0) + 1; });
     const unidades = Object.entries(porUnidade).sort((a, b) => b[1] - a[1]);
-    const varTxt = !atAnt.length ? '' : delta === 0 ? 'sem variação' : `${delta > 0 ? '+' : '−'}${fmtInt(Math.abs(delta))} · ${delta > 0 ? '+' : '−'}${fmtPct(Math.abs(delta) / atAnt.length, 1)}`;
 
-    const leituras = [
-      delta === 0
-        ? `Headcount de **${fmtInt(at.length)}** em ${fmtData(fim)}, estável em relação a ${fmtData(antes)}.`
-        : `Headcount de **${fmtInt(at.length)}** em ${fmtData(fim)}, ${delta > 0 ? 'alta' : 'queda'} de ${fmtInt(Math.abs(delta))} (${fmtPct(Math.abs(delta) / (atAnt.length || 1), 1)}) em relação a ${fmtData(antes)}.`,
-      i35 != null ? `**${fmtPct(i35, 1)}** do quadro tem até 35 anos (${fmtPct(i35a, 1)} um ano antes).` : null,
-      t12 != null ? `**${fmtPct(t12)}** do quadro tem até 12 meses de casa (${fmtPct(t12a)} um ano antes).` : null
-    ].filter(Boolean);
-
+    const texto = `Quadro ${vJan == null ? '' : `${vJan < 0 ? 'recua' : vJan > 0 ? 'cresce' : 'estável'} de ${fmtInt(atJan.length)} (jan) para ${fmtInt(at.length)} (${MES3[p.m2 - 1].toLowerCase()}), ${vJan > 0 ? '+' : vJan < 0 ? '−' : ''}${fmtPct(Math.abs(vJan), 1)}. `}${S().pecas.cap(S().pecas.emPeriodo(p))}, **${fmtInt(adm)} admissões × ${fmtInt(desl)} desligamentos** (saldo ${adm - desl >= 0 ? '+' : '−'}${fmtInt(Math.abs(adm - desl))}).`;
+    const W = 145, G = 7;
+    const kpis = [
+      ['HEADCOUNT', fmtInt(at.length), vJan == null ? `em ${fmtData(fim)}` : `${vJan > 0 ? '+' : vJan < 0 ? '−' : ''}${fmtPct(Math.abs(vJan), 1)} vs jan/${String(p.ano).slice(2)} (${fmtInt(atJan.length)})`],
+      ['ADMISSÕES', fmtInt(adm), mesesAnt.map(m => `${m.rot} ${m.n}`).join(' · ')],
+      ['DESLIGAMENTOS', fmtInt(desl), `saldo: ${adm - desl >= 0 ? '+' : '−'}${fmtInt(Math.abs(adm - desl))}`],
+      ['EM EXPERIÊNCIA', fmtInt(exp), `≤90 dias · ${fmtPct(at.length ? exp / at.length : null)} do quadro`],
+      ['TEMPO MÉDIO DE CASA', anosMeses(tempoMedio), `${fmtPct(t12, 1)} com até 12 meses`],
+      ['ATÉ 35 ANOS', fmtPct(i35), i35 == null ? '' : `${Math.round(i35 * 10)} a cada 10`]
+    ];
     const els = [].concat(
-      titulo(`DISTRIBUIÇÃO DEMOGRÁFICA DOS FERAS — ${p.label.toUpperCase()}`),
-      [card(25, 105, 255, 235),
-        { t: 'text', x: 45, y: 120, w: 220, h: 18, size: 11, color: COR.claro, paras: [para('HEADCOUNT', { run: { bold: true } })] },
-        { t: 'text', x: 45, y: 145, w: 220, h: 80, size: 60, bold: true, color: COR.branco, valign: 'middle', paras: [para(fmtInt(at.length))] },
-        { t: 'text', x: 45, y: 228, w: 220, h: 18, size: 11, color: COR.suave, paras: [para(`em ${fmtData(fim)}`)] },
-        { t: 'text', x: 45, y: 268, w: 220, h: 50, size: 11, color: COR.suave, paras: [
-          { runs: [{ text: fmtInt(atAnt.length), bold: true, size: 20, color: COR.suave }, { text: `  em ${fmtData(antes)}`, size: 10 }] },
-          para(varTxt, { run: { bold: true, color: delta < 0 ? 'F48FB1' : COR.verde } })
-        ] }],
-      { t: 'chart', x: 295, y: 105, w: 640, h: 215, kind: 'col', title: 'HEADCOUNT POR UNIDADE', catSize: 8, labels: unidades.map(u => unidadeCurta(u[0])), series: [{ name: 'Headcount', values: unidades.map(u => u[1]), color: '4472C4' }] },
-      [card(295, 330, 315, 110),
-        { t: 'text', x: 312, y: 340, w: 285, h: 16, size: 10, color: COR.claro, paras: [para('TEMPO DE CASA · ATÉ 12 MESES')] },
-        { t: 'text', x: 312, y: 362, w: 285, h: 40, size: 11, color: COR.suave, valign: 'middle', paras: [{ runs: [{ text: fmtPct(t12), bold: true, size: 26, color: COR.branco }, { text: `   ${fmtPct(t12a)} em ${anoAntes.slice(0, 4)}`, size: 11 }] }] },
-        { t: 'text', x: 312, y: 410, w: 285, h: 18, size: 9, color: COR.suave, paras: [para(`admitidos nos 12 meses até ${fmtData(fim)}`)] }],
-      [card(620, 330, 315, 110),
-        { t: 'text', x: 637, y: 340, w: 285, h: 16, size: 10, color: COR.claro, paras: [para('FAIXA ETÁRIA PREDOMINANTE')] },
-        { t: 'text', x: 637, y: 362, w: 285, h: 40, size: 11, color: COR.suave, valign: 'middle', paras: [{ runs: [{ text: fmtPct(i35, 1), bold: true, size: 26, color: '2BB3FF' }, { text: `   ${fmtPct(i35a, 1)} em ${anoAntes.slice(0, 4)}`, size: 11 }] }] },
-        { t: 'text', x: 637, y: 410, w: 285, h: 18, size: 9, color: COR.suave, paras: [para('do quadro com até 35 anos')] }],
-      [card(25, 350, 255, 140),
-        { t: 'text', x: 37, y: 358, w: 232, h: 128, size: 9, color: COR.branco, paras: [para('**Principais leituras**', { spaceAfter: 3 })].concat(leituras.map(l => para(l, { bullet: true, spaceAfter: 3 }))) }]
+      titulo(`HEADCOUNT — ${p.label.toUpperCase()}`),
+      { t: 'text', x: 40, y: 76, w: 830, h: 20, size: 11, color: COR.branco, paras: [para(texto)] },
+      kpis.map(([rot, val, sub], i) => [
+        card(25 + i * (W + G), 102, W, 78),
+        { t: 'text', x: 35 + i * (W + G), y: 108, w: W - 20, h: 14, size: 8, color: COR.claro, paras: [para(rot)] },
+        { t: 'text', x: 35 + i * (W + G), y: 124, w: W - 20, h: 30, size: 21, bold: true, color: COR.branco, valign: 'middle', paras: [para(val)] },
+        { t: 'text', x: 35 + i * (W + G), y: 156, w: W - 20, h: 20, size: 7.5, color: '6FA8FF', paras: [para(sub)] }
+      ]).flat(),
+      [card(25, 190, 420, 300)],
+      { t: 'chart', x: 35, y: 196, w: 400, h: 288, kind: 'bar', catSize: 8, labelSize: 8, title: 'HEADCOUNT POR UNIDADE', labels: unidades.map(u => unidadeCurta(u[0])), series: [{ name: 'Headcount', values: unidades.map(u => u[1]), color: '1C7CEC' }] },
+      [card(455, 190, 300, 300)],
+      { t: 'chart', x: 465, y: 196, w: 280, h: 288, kind: 'col', stacked: true, legend: true, catSize: 7.5, labelSize: 8, title: 'FAIXA DE TEMPO DE CASA', labels: FAIXAS.map(f => f[0]),
+        series: [{ name: `até 12 meses: ${fmtInt(faixa.slice(0, 3).reduce((s, x) => s + x, 0))} (${fmtPct(t12, 1)})`, values: faixa.map((v, i) => (i < 3 ? v : null)), color: 'F5B800' }, { name: 'mais de 12 meses', values: faixa.map((v, i) => (i >= 3 ? v : null)), color: '1C7CEC' }] },
+      [card(765, 190, 170, 300),
+        { t: 'text', x: 777, y: 200, w: 148, h: 282, size: 9, color: COR.branco, paras: [
+          para('**LEITURA**', { run: { color: '6FA8FF' }, spaceAfter: 4 }),
+          para(`${fmtPct(t12, 1)} do quadro tem até 12 meses de casa (${fmtPct(t12a, 1)} um ano antes).`, { bullet: true, spaceAfter: 4 }),
+          para(`${fmtInt(exp)} pessoas em experiência (até 90 dias).`, { bullet: true, spaceAfter: 4 }),
+          para(`Maior unidade: ${unidades[0] ? `${unidadeCurta(unidades[0][0])} (${fmtInt(unidades[0][1])})` : '—'}.`, { bullet: true })
+        ] }]
     );
-    const notas = `Fonte: planilha 1. Colaboradores. Ativos = admitidos até a data e não desligados até ela (mesma regra do headcount da tela Rotatividade). Idade pela data de nascimento (${fmtInt(at.filter(c => c.data_nascimento).length)} de ${fmtInt(at.length)} com a data preenchida).`;
-    return [{ id: 'demografia', nome: 'Distribuição Demográfica', fundo: 'conteudo', els, notas }];
+    const notas = `Fonte: planilha 1. Colaboradores. Headcount = ativos em ${fmtData(fim)} (admitidos até a data e não desligados até ela, mesma regra da tela Rotatividade). Admissões e desligamentos do período = mesma conta do Turnover. Em experiência = ativos com até 90 dias de casa em ${fmtData(fim)}. Idade pela data de nascimento (${fmtInt(at.filter(c => c.data_nascimento).length)} de ${fmtInt(at.length)} com a data).`;
+    return [{ id: 'demografia', nome: 'Headcount', fundo: 'conteudo', els, notas }];
+  }
+
+  // Perfil etário: quadro ativo × desligados do período, e turnover por faixa no ano.
+  function slidePerfilEtario(p, dho) {
+    const { COR, para, titulo, card, fmtInt, fmtPct, fmtData } = S().pecas;
+    const cols = dho.colaboradores || [];
+    const FX = [['até 25', 0, 25], ['26–35', 26, 35], ['36–44', 36, 44], ['45+', 45, 200]];
+    const faixaDe = idade => (idade == null ? null : FX.findIndex(([, a, b]) => idade >= a && idade <= b));
+    const at = ativosEm(cols, p.ate);
+    const deslP = cols.filter(c => desligado(c) && c.ultimo_dia_trabalhado && c.ultimo_dia_trabalhado >= p.de && c.ultimo_dia_trabalhado <= p.ate);
+    const deslAno = cols.filter(c => desligado(c) && c.ultimo_dia_trabalhado && c.ultimo_dia_trabalhado >= `${p.ano}-01-01` && c.ultimo_dia_trabalhado <= p.ate);
+    const contaFx = (lista, dataDe) => { const n = [0, 0, 0, 0]; lista.forEach(c => { const f = faixaDe(idadeEm(c.data_nascimento, dataDe(c))); if (f != null && f >= 0) n[f]++; }); return n; };
+    const nAt = contaFx(at, () => p.ate), nDesl = contaFx(deslP, c => c.ultimo_dia_trabalhado), nAno = contaFx(deslAno, c => c.ultimo_dia_trabalhado);
+    const tot = a => a.reduce((s, x) => s + x, 0);
+    const pctAt = nAt.map(x => (tot(nAt) ? x / tot(nAt) : null)), pctDesl = nDesl.map(x => (tot(nDesl) ? x / tot(nDesl) : null));
+    const W = 205;
+    const els = [].concat(
+      titulo(`PERFIL ETÁRIO — QUADRO ATIVO × DESLIGAMENTOS — ${p.label.toUpperCase()}`),
+      { t: 'text', x: 40, y: 76, w: 830, h: 20, size: 11, color: COR.branco, paras: [para(tot(nDesl)
+        ? `A faixa **até 25 anos** é ${fmtPct(pctAt[0], 1)} do quadro e ${fmtPct(pctDesl[0], 1)} das saídas ${S().pecas.emPeriodo(p)}; a faixa **45+** é ${fmtPct(pctDesl[3], 1)} das saídas.`
+        : `Sem desligamentos com data de nascimento ${S().pecas.emPeriodo(p)}.`)] },
+      [card(25, 105, 910, 225)],
+      { t: 'chart', x: 35, y: 111, w: 890, h: 213, kind: 'col', fmt: 'pct', legend: true, title: 'COMPOSIÇÃO POR FAIXA — % DO HEADCOUNT ATIVO × % DOS DESLIGAMENTOS', labels: FX.map(f => f[0]),
+        series: [{ name: `Headcount ativo (${fmtData(p.ate)})`, values: pctAt, color: '2E75B6' }, { name: `Desligamentos (${p.curto})`, values: pctDesl, color: 'F28C38' }] },
+      { t: 'text', x: 40, y: 338, w: 880, h: 16, size: 10, bold: true, color: COR.claro, paras: [para(`TURNOVER POR FAIXA (JAN–${S().MESES[p.m2 - 1].slice(0, 3).toUpperCase()}, ACUMULADO)`)] },
+      FX.map((f, i) => {
+        const x = 25 + i * (W + 30);
+        const t = nAt[i] ? nAno[i] / nAt[i] : null;
+        return [card(x, 358, W, 120),
+          { t: 'text', x: x + 14, y: 368, w: W - 28, h: 36, size: 26, bold: true, color: i === 0 ? 'F46A6A' : i === 3 ? '3CCB8B' : COR.amarelo, valign: 'middle', paras: [para(fmtPct(t, 1))] },
+          { t: 'text', x: x + 14, y: 408, w: W - 28, h: 16, size: 10, bold: true, color: COR.branco, paras: [para(`faixa ${f[0]}`)] },
+          { t: 'text', x: x + 14, y: 428, w: W - 28, h: 40, size: 8.5, color: COR.suave, paras: [para(`${fmtInt(nAno[i])} desligados de ${fmtInt(nAt[i])} ativos na faixa`)] }];
+      }).flat()
+    );
+    const notas = `Idade na data de saída (desligados) ou em ${fmtData(p.ate)} (ativos), pela data de nascimento da planilha 1. Colaboradores. Turnover por faixa = desligados de jan até ${fmtData(p.ate)} ÷ ativos da faixa em ${fmtData(p.ate)}.`;
+    return { id: 'dho-perfil-etario', nome: 'Perfil Etário', fundo: 'conteudo', els, notas };
   }
 
   // ------------------------------------------------------------------
@@ -293,6 +344,7 @@
   function slides(p, dho) {
     const out = [];
     if (dho.rot) out.push(slideTurnover(p, dho));
+    if (dho.colaboradores) out.push(slidePerfilEtario(p, dho));
     if (dho.ent && dho.rot) out.push(slideNps(p, dho), slideMotivos(p, dho), slidePercepcao(p, dho));
     out.push(slideExperiencia(p, dho));
     return out;
