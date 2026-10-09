@@ -71,5 +71,39 @@
     invalidar();
   }
 
-  window.HUB_FECHAMENTO = { carregar, invalidar, salvarVagas };
+  // ------------------------------------------------------------------
+  // Período (tabela fechamento_periodo, ver supabase-fechamento-periodo.sql):
+  // textos e slides escritos pelo RH, slides ocultos e a foto do fechamento.
+  // Sem a tabela (SQL ainda não rodado), lê como vazio e a gravação explica.
+  // ------------------------------------------------------------------
+  const periodoId = (tipo, ano, n) => `${tipo}-${ano}-${tipo === 'anual' ? 1 : n}`;
+  const semTabela = err => /fechamento_periodo|schema cache|does not exist|not find/i.test((err && err.message) || '');
+  const quem = () => { const u = window.HUB_USER || {}; return u.nome || u.email || null; };
+
+  async function buscarPeriodo(id) {
+    const { data, error } = await withTimeout(sb.from('fechamento_periodo').select('*').eq('id', id).maybeSingle(), QUERY_TIMEOUT_MS, 'tempo esgotado buscando o período');
+    if (error) { if (semTabela(error)) return { indisponivel: true }; throw error; }
+    return data || null;
+  }
+
+  async function listarPeriodos() {
+    const { data, error } = await withTimeout(sb.from('fechamento_periodo').select('id,tipo,ano,n,status,fechado_em,fechado_por,atualizado_em,atualizado_por').order('ano', { ascending: false }).order('n', { ascending: false }), QUERY_TIMEOUT_MS, 'tempo esgotado buscando os períodos');
+    if (error) { if (semTabela(error)) return []; throw error; }
+    return data || [];
+  }
+
+  async function salvarPeriodo(p, campos) {
+    const linha = Object.assign({ id: periodoId(p.tipo, p.ano, p.n), tipo: p.tipo, ano: p.ano, n: p.tipo === 'anual' ? 1 : p.n, atualizado_por: quem() }, campos);
+    const { data, error } = await sb.from('fechamento_periodo').upsert(linha).select().single();
+    if (error) {
+      if (semTabela(error)) throw new Error('A tabela do Fechamento ainda não existe no Supabase (rode supabase-fechamento-periodo.sql).');
+      throw new Error('Erro ao gravar no Supabase: ' + error.message);
+    }
+    return data;
+  }
+
+  const fecharPeriodo = (p, snapshot) => salvarPeriodo(p, { status: 'fechado', snapshot, fechado_em: new Date().toISOString(), fechado_por: quem() });
+  const reabrirPeriodo = p => salvarPeriodo(p, { status: 'rascunho', snapshot: null, fechado_em: null, fechado_por: null });
+
+  window.HUB_FECHAMENTO = { carregar, invalidar, salvarVagas, periodoId, buscarPeriodo, listarPeriodos, salvarPeriodo, fecharPeriodo, reabrirPeriodo };
 })();

@@ -51,15 +51,19 @@
     else slide.addShape(pres.shapes.RECTANGLE, o);
   }
 
+  // Formato dos rótulos (código de número do Excel). Na contagem os zeros somem.
+  const FORMATOS = { int: '0;-0;;', pct: '0.0%', pct0: '0%', nps: '+0;-0;0', dec1: '0.0' };
+  const formato = el => FORMATOS[el.fmt || (el.pct ? 'pct' : 'int')];
+
   function grafico(pres, slide, el, COR) {
     const base = {
       x: pol(el.x), y: pol(el.y), w: pol(el.w), h: pol(el.h),
       showTitle: !!el.title, title: el.title, titleColor: COR.branco, titleFontSize: 11, titleFontFace: FONTE, titleBold: true,
       showLegend: !!el.legend && el.series.length > 1, legendPos: 't', legendColor: COR.claro, legendFontSize: 9, legendFontFace: FONTE,
-      catAxisLabelColor: COR.claro, catAxisLabelFontSize: 9, catAxisLabelFontFace: FONTE, catAxisLineShow: true, catAxisLineColor: '5C76A8',
+      catAxisLabelColor: COR.claro, catAxisLabelFontSize: el.catSize || 9, catAxisLabelPos: el.negativos ? 'low' : 'nextTo', catAxisLabelFontFace: FONTE, catAxisLineShow: true, catAxisLineColor: '5C76A8',
       valAxisHidden: true, valGridLine: { style: 'none' }, catGridLine: { style: 'none' },
-      showValue: true, dataLabelColor: COR.branco, dataLabelFontSize: 9, dataLabelFontFace: FONTE, dataLabelFontBold: true,
-      dataLabelFormatCode: el.pct ? '0.0%' : '0;-0;;'   // contagem: esconde os zeros
+      showValue: true, dataLabelColor: COR.branco, dataLabelFontSize: el.labelSize || 9, dataLabelFontFace: FONTE, dataLabelFontBold: true,
+      dataLabelFormatCode: formato(el)
     };
     const dados = el.series.map(s => ({ name: s.name, labels: el.labels, values: s.values.map(v => (v == null ? null : v)) }));
     if (!el.labels.length) {
@@ -79,8 +83,9 @@
     }
     const horizontal = el.kind === 'bar';
     slide.addChart(pres.charts.BAR, dados, Object.assign(base, {
-      barDir: horizontal ? 'bar' : 'col', barGrouping: 'clustered', chartColors: el.series.map(s => s.color), barGapWidthPct: horizontal ? 40 : 60,
-      dataLabelPosition: 'outEnd', catAxisOrientation: horizontal ? 'maxMin' : 'minMax'
+      barDir: horizontal ? 'bar' : 'col', barGrouping: el.stacked ? 'stacked' : 'clustered', chartColors: el.series.map(s => s.color), barGapWidthPct: horizontal ? 40 : 60,
+      // Em barra empilhada 'outEnd' deixa o arquivo inválido: só ctr, inEnd ou inBase.
+      dataLabelPosition: el.stacked ? 'inEnd' : 'outEnd', catAxisOrientation: horizontal ? 'maxMin' : 'minMax'
     }));
   }
 

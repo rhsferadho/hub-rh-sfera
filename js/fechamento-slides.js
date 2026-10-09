@@ -7,7 +7,8 @@
 // Elementos:
 //   { t:'rect', x, y, w, h, fill, transp (0–100), line, r (cantos, px) }
 //   { t:'text', x, y, w, h, size (pt), color, bold, align, valign, paras:[{ runs:[{text,bold,color,size,italic}], bullet }] }
-//   { t:'chart', x, y, w, h, kind:'col'|'bar'|'combo', title, labels, series:[{name, values, color, line}], legend, pct }
+//   { t:'chart', x, y, w, h, kind:'col'|'bar'|'combo', title, labels, series:[{name, values, color, line}], legend,
+//     fmt:'int'|'pct'|'pct0'|'nps'|'dec1', stacked, negativos (rótulos do eixo na borda), catSize, labelSize }
 // Texto aceita **negrito** (ver txt()).
 (function () {
   const COR = {
@@ -107,13 +108,15 @@
     };
   }
 
-  function slideDivisor(id, linha1, linha2) {
+  // size: 54 pt como no deck; linhas longas ("HUMANO E ORGANIZACIONAL") pedem menos.
+  function slideDivisor(id, linha1, linha2, size) {
+    size = size || 54;
     return {
       id, nome: linha1 + ' ' + linha2, fundo: 'divisor',
       els: [
         { t: 'rect', x: 106, y: 198, w: 11, h: 123, fill: COR.azul, r: 5 },
-        { t: 'text', x: 129, y: 192, w: 640, h: 68, size: 54, bold: true, color: COR.azul, valign: 'middle', paras: [para(linha1)] },
-        { t: 'text', x: 129, y: 260, w: 640, h: 77, size: 54, bold: true, color: COR.branco, valign: 'middle', paras: [para(linha2)] }
+        { t: 'text', x: 129, y: 192, w: 645, h: 68, size, bold: true, color: COR.azul, valign: 'middle', paras: [para(linha1)] },
+        { t: 'text', x: 129, y: 260, w: 645, h: 77, size, bold: true, color: COR.branco, valign: 'middle', paras: [para(linha2)] }
       ]
     };
   }
@@ -303,19 +306,74 @@
     return { id: 'rs-projecao', nome: 'Projeção de Vagas', fundo: 'conteudo', els, notas };
   }
 
-  // Deck do período. dados = { vagas, metas, atualizadoEm }.
+  // Texto de abertura de cada slide (a linha logo abaixo do título, em 40 × 76):
+  // é o que o RH pode reescrever na tela; o texto salvo substitui o automático.
+  const ehAbertura = e => e.t === 'text' && e.x === 40 && e.y === 76;
+  function textoAbertura(sd) {
+    const e = sd.els.find(ehAbertura);
+    return e ? e.paras.map(p => p.runs.map(r => (r.bold ? `**${r.text}**` : r.text)).join('')).join('\n') : null;
+  }
+  function aplicarTexto(sd, texto) {
+    const e = sd.els.find(ehAbertura);
+    if (!e || texto == null || !String(texto).trim()) return sd;
+    e.paras = String(texto).split(/\r?\n/).filter(l => l.trim()).map(l => para(l));
+    e.editado = true;
+    return sd;
+  }
+
+  // Deck do período, na ordem do Fechamento do RH:
+  //   capa, resumo executivo, demografia, R&S, DHO (+ cultura e engajamento),
+  //   T&D, slides escritos pelo RH (nos seus lugares) e contracapa.
+  // dados = { vagas, metas, atualizadoEm } (R&S) e, opcionais:
+  //   dho   → fechamento-slides-dho.js      cult → fechamento-slides-cultura.js
+  //   manuais { id: { titulo, subtitulo, cards } } e textos { idSlide: texto }.
+  // Sem dho/cult o deck sai só com R&S (é o que os testes usam).
   function montar(p, dados) {
     const M = window.HUB_METRICS_FECHAMENTO;
     const vagas = dados.vagas || [];
-    return [
+    const D = dados.dho && window.HUB_FECHAMENTO_DHO;
+    const C = dados.cult && window.HUB_FECHAMENTO_CULTURA;
+    const MAN = window.HUB_FECHAMENTO_MANUAIS;
+    const completo = !!(D || C);
+    let deck = [].concat(
       slideCapa(p),
+      D ? D.demografia(p, dados.dho) : [],
       slideDivisor('rs-divisor', 'RECRUTAMENTO E', 'SELEÇÃO'),
       slideVagasFinalizadas(vagas, p, M),
       slideComparativo(vagas, p),
       slideAtivas(vagas, M, dados.atualizadoEm),
-      slideProjecao(vagas, p, dados.metas || [], M)
-    ];
+      slideProjecao(vagas, p, dados.metas || [], M),
+      D || C ? slideDivisor('dho-divisor', 'DESENVOLVIMENTO', 'HUMANO E ORGANIZACIONAL', 40) : [],
+      D ? D.slides(p, dados.dho) : [],
+      C ? C.cultura(p, dados.cult) : [],
+      C ? [slideDivisor('td-divisor', 'TREINAMENTO E', 'DESENVOLVIMENTO')].concat(C.td(p, dados.cult)) : []
+    );
+    // Slides escritos pelo RH: entram depois do slide indicado, se tiverem conteúdo.
+    if (MAN && completo) {
+      for (const def of MAN.MANUAIS) {
+        const m = (dados.manuais || {})[def.id];
+        if (!MAN.temConteudo(m)) continue;
+        // Se o slide de referência não está no deck (ex.: outro slide do RH vazio),
+        // volta pela sequência até achar um que esteja.
+        let ref = def.depois;
+        while (ref && !deck.some(s => s.id === ref)) { const ant = MAN.MANUAIS.find(x => x.id === ref); ref = ant ? ant.depois : null; }
+        const i = deck.findIndex(s => s.id === ref);
+        const sd = MAN.slideManual(def, m);
+        if (i >= 0) deck.splice(i + 1, 0, sd); else deck.push(sd);
+      }
+    }
+    // Textos de abertura reescritos pelo RH.
+    const textos = dados.textos || {};
+    deck = deck.map(sd => { sd.textoAuto = textoAbertura(sd); return textos[sd.id] ? aplicarTexto(sd, textos[sd.id]) : sd; });
+    if (MAN && completo) {
+      deck.splice(1, 0, MAN.resumo(p, dados, deck));
+      deck.push(MAN.contracapa(p));
+    }
+    return deck;
   }
 
-  window.HUB_FECHAMENTO_SLIDES = { COR, MESES, TIPOS, periodo, mesmoPeriodoAnoAnterior, montar, _internal: { runs, naturezaPrincipal, fmtPct } };
+  // Peças compartilhadas com fechamento-slides-dho.js.
+  const pecas = { COR, MESES, MES3, para, runs, titulo, resumo, card, kpi, fmtInt, fmtPct, fmtDias, fmtData, pp, varPct, emPeriodo, cap };
+
+  window.HUB_FECHAMENTO_SLIDES = { COR, MESES, TIPOS, periodo, mesmoPeriodoAnoAnterior, montar, textoAbertura, pecas, _internal: { runs, naturezaPrincipal, fmtPct } };
 })();

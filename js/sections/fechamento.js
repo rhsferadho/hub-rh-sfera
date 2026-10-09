@@ -4,7 +4,11 @@
 // desenhados aqui em HTML (960 × 540 pt, escalados para caber na tela); o
 // mesmo conteúdo vai para o PowerPoint por fechamento-pptx.js.
 //
-// Fase 1: Recrutamento e Seleção, a partir da planilha 18 (card 18 do Upload).
+// Blocos: Resumo executivo, Demografia, Recrutamento e Seleção (planilha 18),
+// DHO (Turnover, Pesquisa de Desligamento, Experiência, Cultura e Engajamento),
+// T&D (Twygo, Unibê e Academia Hering) e os slides escritos pelo RH. Textos,
+// slides ocultos e o "Fechar período" ficam em fechamento_periodo
+// (supabase-fechamento-periodo.sql).
 (function () {
   const S = () => window.HUB_FECHAMENTO_SLIDES;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -15,6 +19,27 @@
   const state = { tipo: 'mensal', ano: null, n: null };
   let slidesAtuais = [];
   let elAtual = null;
+  let experiencia = { 45: null, 90: null };
+
+  // Demografia e DHO: as mesmas contas das telas Rotatividade, Entrevista
+  // Desligamento e Avaliação da Experiência (ver fechamento-slides-dho.js).
+  // O NPS por unidade chama a mesma conta várias vezes: guarda por filtro.
+  // Os resultados ficam guardados enquanto a tela está aberta (salvar um texto,
+  // ocultar um slide ou voltar a um período já visto não recalcula nada); a
+  // abertura da tela (renderFechamento) e o "Atualizar dados" limpam.
+  const CACHE = { rot: new Map(), ent: new Map(), mes: new Map() };
+  function limparCache() { CACHE.rot.clear(); CACHE.ent.clear(); CACHE.mes.clear(); }
+  function dadosDho() {
+    const memo = (fn, c) => f => { const k = JSON.stringify(f); if (!c.has(k)) c.set(k, fn(f)); return c.get(k); };
+    const cols = (window.HUB_DATA && HUB_DATA.colaboradores) || [];
+    const unidades = Array.from(new Set(cols.map(c => c.unidade).concat(((window.HUB_DATA && HUB_DATA.entrevista_pesquisa) || []).map(r => r.unidade)).filter(Boolean)));
+    return {
+      colaboradores: cols, unidades,
+      rot: memo(f => HUB_METRICS.rotatividadeMetrics(f), CACHE.rot),
+      ent: memo(f => HUB_METRICS.entrevistaMetrics(f), CACHE.ent),
+      exp: experiencia, X: window.HUB_EXP_METRICS
+    };
+  }
 
   const STYLE = `<style>
     #sec-ind-fechamento .fx-top{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
@@ -32,6 +57,24 @@
     #sec-ind-fechamento .fx-notas{font-size:11.5px;color:var(--muted);margin-top:6px}
     #sec-ind-fechamento .fx-notas summary{cursor:pointer}
     #sec-ind-fechamento .fx-notas p{white-space:pre-wrap;margin:6px 0 0;line-height:1.5}
+    #sec-ind-fechamento .fx-faixa{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;border-radius:10px;background:#EAF2FE;color:#1d3f73;font-size:12.5px;margin-bottom:12px}
+    #sec-ind-fechamento .fx-faixa.fechado{background:#E6F6EE;color:#0f5c36}
+    #sec-ind-fechamento .fx-faixa.aviso{background:#FFF4E0;color:#7a3e00}
+    #sec-ind-fechamento .fx-tag{font-size:10.5px;padding:2px 8px;border-radius:10px;background:#FFF4E0;color:#7a3e00;margin-left:6px}
+    #sec-ind-fechamento .fx-incl{font-size:11.5px;color:var(--text2);display:inline-flex;gap:5px;align-items:center;cursor:pointer}
+    #sec-ind-fechamento .fx-oculto .fx-quadro{opacity:.35}
+    #sec-ind-fechamento .fx-edit textarea,#sec-ind-fechamento .fx-man textarea,#sec-ind-fechamento .fx-man input{width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font:12.5px/1.45 inherit;font-family:inherit;color:var(--text);background:#fff;margin-top:6px}
+    #sec-ind-fechamento .fx-edit-acoes{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+    #sec-ind-fechamento .fx-edit-acoes span,#sec-ind-fechamento .fx-man-top span,#sec-ind-fechamento .fx-mcab span{font-size:11px;color:var(--muted)}
+    #sec-ind-fechamento .fx-man{max-width:1100px;margin-bottom:18px}
+    #sec-ind-fechamento .fx-man summary{cursor:pointer;font-size:13px}
+    #sec-ind-fechamento .fx-man-top{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0}
+    #sec-ind-fechamento .fx-mslide{border-top:1px solid var(--border);padding:14px 0}
+    #sec-ind-fechamento .fx-mcab{display:flex;flex-direction:column;gap:2px;font-size:13px}
+    #sec-ind-fechamento .fx-mlinha{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    #sec-ind-fechamento .fx-mcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin:4px 0 10px}
+    #sec-ind-fechamento .fx-histbox{max-width:1100px;margin-bottom:16px;font-size:12.5px}
+    #sec-ind-fechamento .fx-histbox table{margin-top:8px}
     .fx-quadro{position:relative;overflow:hidden;border-radius:8px;box-shadow:0 2px 10px rgba(10,25,66,.18);background:#1E3461}
     .fx-slide{position:absolute;left:0;top:0;width:960pt;height:540pt;transform-origin:0 0;background-size:cover;background-position:center;font-family:'Ubuntu',system-ui,sans-serif;overflow:hidden}
     .fx-el{position:absolute;box-sizing:border-box}
@@ -83,9 +126,13 @@
     return `<div class="fx-slide" style="background-image:url('${FUNDOS[sd.fundo]}')">${els}</div>`;
   }
 
-  function fmtValor(v, pct) {
+  // Mesmos formatos do PPTX (fechamento-pptx.js): int (sem zeros), pct, pct0, nps.
+  function fmtValor(v, fmt) {
     if (v == null) return '';
-    if (pct) return (v * 100).toFixed(1).replace('.', ',') + '%';
+    if (fmt === 'pct') return (v * 100).toFixed(1).replace('.', ',') + '%';
+    if (fmt === 'pct0') return Math.round(v * 100) + '%';
+    if (fmt === 'nps') return (v > 0 ? '+' : '') + Math.round(v);
+    if (fmt === 'dec1') return v.toFixed(1).replace('.', ',');
     return v === 0 ? '' : Math.round(v).toLocaleString('pt-BR');
   }
 
@@ -94,15 +141,18 @@
     const fonte = (pt, bold) => ({ family: 'Ubuntu', size: px(pt), weight: bold ? '700' : '400' });
     const claro = '#' + C.claro;
     const horizontal = e.kind === 'bar';
+    const fmt = e.fmt || (e.pct ? 'pct' : 'int');
     const datasets = e.series.map(s => s.line
       ? { type: 'line', label: s.name, data: s.values, borderColor: '#' + s.color, backgroundColor: '#' + s.color, borderWidth: 2, pointRadius: 3, spanGaps: false, order: 0,
-        datalabels: { anchor: 'end', align: 'top', color: '#FFD9B3', font: fonte(8, true), formatter: v => fmtValor(v, e.pct) } }
+        datalabels: { anchor: 'end', align: 'top', color: '#FFD9B3', font: fonte(8, true), formatter: v => fmtValor(v, fmt) } }
       : { type: 'bar', label: s.name, data: s.values, backgroundColor: '#' + s.color, borderWidth: 0, categoryPercentage: horizontal ? 0.7 : 0.75, barPercentage: 0.9, order: 1,
         datalabels: e.kind === 'combo'
-          ? { anchor: 'start', align: 'end', color: '#FFFFFF', font: fonte(8, true), formatter: v => fmtValor(v, e.pct) }
-          : { anchor: 'end', align: 'end', color: '#FFFFFF', font: fonte(9, true), formatter: v => fmtValor(v, e.pct) } });
-    const eixoCat = { ticks: { color: claro, font: fonte(9) }, grid: { display: false }, border: { color: '#5C76A8' } };
-    const eixoVal = { display: false, beginAtZero: true, grace: horizontal ? '28%' : '15%', grid: { display: false } };
+          ? { anchor: 'start', align: 'end', color: '#FFFFFF', font: fonte(8, true), formatter: v => fmtValor(v, fmt) }
+          : e.stacked
+            ? { anchor: 'end', align: 'start', color: '#FFFFFF', font: fonte(e.labelSize || 9, true), formatter: v => fmtValor(v, fmt) }
+            : { anchor: 'end', align: 'end', color: '#FFFFFF', font: fonte(e.labelSize || 9, true), formatter: v => fmtValor(v, fmt) } });
+    const eixoCat = { stacked: !!e.stacked, ticks: { color: claro, font: fonte(e.catSize || 9), autoSkip: false }, grid: { display: false }, border: { color: '#5C76A8' } };
+    const eixoVal = { stacked: !!e.stacked, display: false, beginAtZero: true, grace: horizontal ? '28%' : '15%', grid: { display: false } };
     return {
       type: 'bar',
       data: { labels: e.labels, datasets },
@@ -174,11 +224,54 @@
   // ------------------------------------------------------------------
   // Tela
   // ------------------------------------------------------------------
+  // Cultura, Engajamento e T&D: o cálculo mensal do Boletim da Liderança
+  // (precisa de HUB_BOLETIM.carregar, que também traz AvE e Engajamento).
+  let cultOk = false;
+  function dadosCult() {
+    if (!cultOk || !window.HUB_METRICS_BOLETIM) return null;
+    return {
+      OPERACOES: HUB_METRICS_BOLETIM.OPERACOES,
+      mes: mk => { if (!CACHE.mes.has(mk)) CACHE.mes.set(mk, HUB_METRICS_BOLETIM.calcularMes(mk)); return CACHE.mes.get(mk); }
+    };
+  }
+
+  // Registro do período (textos e slides do RH, ocultos, fechamento).
+  let registro = null;      // linha de fechamento_periodo, ou null
+  let registroId = null;
+  let tabelaOk = true;
+  const edicao = { textos: {}, manuais: {}, ocultos: [] };
+  const fechado = () => !!(registro && registro.status === 'fechado' && registro.snapshot);
+  const visiveis = () => slidesAtuais.filter(sd => !edicao.ocultos.includes(sd.id));
+  const dataBr = iso => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '');
+
+  async function carregarRegistro(p) {
+    const id = HUB_FECHAMENTO.periodoId(p.tipo, p.ano, p.n);
+    if (registroId === id) return;
+    registroId = id;
+    const r = await HUB_FECHAMENTO.buscarPeriodo(id).catch(() => null);
+    tabelaOk = !(r && r.indisponivel);
+    registro = r && !r.indisponivel ? r : null;
+    edicao.textos = Object.assign({}, (registro && registro.textos) || {});
+    edicao.manuais = JSON.parse(JSON.stringify((registro && registro.manuais) || {}));
+    edicao.ocultos = ((registro && registro.ocultos) || []).slice();
+  }
+
+  async function salvar(campos) {
+    const p = S().periodo(state.tipo, state.ano, state.n);
+    registro = await HUB_FECHAMENTO.salvarPeriodo(p, Object.assign({ textos: edicao.textos, manuais: edicao.manuais, ocultos: edicao.ocultos }, campos || {}));
+    registroId = registro.id;
+  }
+
   async function renderFechamento(el) {
     elAtual = el;
     el.innerHTML = STYLE + '<div class="card"><div class="empty">Carregando o Fechamento...</div></div>';
     try {
       await HUB_FECHAMENTO.carregar();
+      // Avaliação da Experiência é carregada sob demanda; se falhar, o slide avisa.
+      for (const c of [45, 90]) {
+        try { experiencia[c] = HUB_EXP_METRICS.preparar(await HUB_EXPERIENCIA.carregar(c), c); } catch (err) { experiencia[c] = null; }
+      }
+      try { await HUB_BOLETIM.carregar(); cultOk = true; } catch (err) { cultOk = false; }
     } catch (err) {
       el.innerHTML = STYLE + `<div class="card"><div class="empty">${esc(err.message)}</div></div>`;
       return;
@@ -189,19 +282,37 @@
       return;
     }
     if (state.ano == null) Object.assign(state, periodoPadrao(state.tipo));
-    desenhar(el);
+    registroId = null;
+    limparCache();
+    await desenhar(el);
     // Já baixa o gerador de PowerPoint em segundo plano (é o que mais demora no
     // primeiro "Baixar PPTX").
     HUB_FECHAMENTO_PPTX.carregarBiblioteca().catch(() => {});
   }
 
-  function desenhar(el) {
+  async function desenhar(el) {
     const d = window.HUB_FECHAMENTO_DATA;
     const anos = anosDisponiveis(d.vagas);
     if (!anos.includes(state.ano)) anos.unshift(state.ano);
     const p = S().periodo(state.tipo, state.ano, state.n);
+    await carregarRegistro(p);
+    // Primeira montagem do período: avisa e deixa a tela pintar antes das contas
+    // (no Anual, Cultura e T&D calculam até 24 meses do Boletim).
+    if (!fechado() && cultOk && !CACHE.mes.has(`${p.ano}-${String(p.m2).padStart(2, '0')}`)) {
+      el.innerHTML = STYLE + `<div class="card"><div class="empty">Calculando o Fechamento de ${esc(p.label)}... (alguns segundos na primeira vez)</div></div>`;
+      await new Promise(r => setTimeout(r, 30));
+    }
     const atualizadoEm = d.vagas.reduce((m, v) => (v.importado_em && v.importado_em > m ? v.importado_em : m), '').slice(0, 10);
-    slidesAtuais = S().montar(p, { vagas: d.vagas, metas: d.metas, atualizadoEm });
+    slidesAtuais = fechado()
+      ? registro.snapshot
+      : S().montar(p, { vagas: d.vagas, metas: d.metas, atualizadoEm, dho: dadosDho(), cult: dadosCult(), manuais: edicao.manuais, textos: edicao.textos });
+    const travado = fechado();
+
+    const faixa = !tabelaOk
+      ? '<div class="fx-faixa aviso">Os textos do RH, os slides ocultos e o "Fechar período" precisam da tabela nova no Supabase (rode supabase-fechamento-periodo.sql). Os slides de dados funcionam normalmente.</div>'
+      : travado
+        ? `<div class="fx-faixa fechado"><span><b>Período fechado</b> em ${esc(dataBr(registro.fechado_em))}${registro.fechado_por ? ' por ' + esc(registro.fechado_por) : ''}. Os números estão congelados como foram apresentados.</span><button class="fx-btn" id="fx-reabrir">Reabrir período</button></div>`
+        : `<div class="fx-faixa"><span><b>Rascunho</b> — os números são recalculados com os dados atuais do Hub.${registro && registro.atualizado_em ? ` Textos salvos em ${esc(dataBr(registro.atualizado_em))}${registro.atualizado_por ? ' por ' + esc(registro.atualizado_por) : ''}.` : ''}</span><button class="fx-btn pri" id="fx-fechar">Fechar período</button></div>`;
 
     el.innerHTML = STYLE + `
       <div class="fx-top">
@@ -209,17 +320,29 @@
         <label>Ano<select id="fx-ano">${anos.map(a => `<option value="${a}" ${a === state.ano ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
         ${state.tipo === 'anual' ? '' : `<label>Período<select id="fx-n">${opcoesPeriodo(state.tipo).map(o => `<option value="${o.n}" ${o.n === state.n ? 'selected' : ''}>${esc(o.nome)}</option>`).join('')}</select></label>`}
         <div class="fx-acoes">
+          <button class="fx-btn" id="fx-historico">Histórico</button>
           <button class="fx-btn" id="fx-apresentar">${ICON.apresentar}Apresentar</button>
           <button class="fx-btn pri" id="fx-baixar">${ICON.baixar}Baixar PPTX</button>
         </div>
       </div>
-      <p class="fx-info"><b>${esc(p.label)}</b> (${esc(p.de.split('-').reverse().join('/'))} a ${esc(p.ate.split('-').reverse().join('/'))}) · Recrutamento e Seleção a partir da planilha 18, atualizada em ${esc(atualizadoEm.split('-').reverse().join('/'))}. Os demais blocos do Fechamento entram nas próximas etapas.</p>
-      <div class="fx-lista">${slidesAtuais.map((sd, i) => `
-        <div>
-          <div class="fx-cab"><span><b>${i + 1}.</b> ${esc(sd.nome)}</span></div>
+      ${faixa}
+      <p class="fx-info"><b>${esc(p.label)}</b> (${esc(p.de.split('-').reverse().join('/'))} a ${esc(p.ate.split('-').reverse().join('/'))}) · ${visiveis().length} de ${slidesAtuais.length} slides na apresentação · R&S pela planilha 18 (atualizada em ${esc(atualizadoEm.split('-').reverse().join('/'))}); Demografia, DHO, Cultura e T&D pelas mesmas contas das telas do Hub e do Boletim da Liderança.${cultOk ? '' : ' <b>Cultura e T&D indisponíveis:</b> não consegui carregar o Boletim da Liderança.'}</p>
+      <div id="fx-hist"></div>
+      ${travado || !tabelaOk ? '' : painelManuais(p)}
+      <div class="fx-lista">${slidesAtuais.map((sd, i) => {
+        const oculto = edicao.ocultos.includes(sd.id);
+        const podeEditar = !travado && tabelaOk && sd.textoAuto != null;
+        return `
+        <div class="${oculto ? 'fx-oculto' : ''}">
+          <div class="fx-cab"><span><b>${i + 1}.</b> ${esc(sd.nome)}${oculto ? ' <span class="fx-tag">fora da apresentação</span>' : ''}</span>
+            ${!travado && tabelaOk && sd.id !== 'capa' ? `<label class="fx-incl"><input type="checkbox" data-incluir="${esc(sd.id)}" ${oculto ? '' : 'checked'}> incluir na apresentação</label>` : ''}</div>
           <div class="fx-quadro" data-i="${i}">${htmlSlide(sd, 'fx' + i)}</div>
+          ${podeEditar ? `<details class="fx-notas fx-edit"><summary>Editar o texto de abertura</summary>
+            <textarea data-texto="${esc(sd.id)}" rows="3">${esc(edicao.textos[sd.id] || sd.textoAuto)}</textarea>
+            <div class="fx-edit-acoes"><button class="fx-btn pri" data-salvar-texto="${esc(sd.id)}">Salvar texto</button>${edicao.textos[sd.id] ? `<button class="fx-btn" data-restaurar="${esc(sd.id)}">Voltar ao texto automático</button>` : ''}<span>Use **texto** para negrito.</span></div></details>` : ''}
           ${sd.notas ? `<details class="fx-notas"><summary>Como foi calculado</summary><p>${esc(sd.notas)}</p></details>` : ''}
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
       </div>`;
 
     const lista = el.querySelector('.fx-lista');
@@ -233,6 +356,102 @@
     if (selN) selN.addEventListener('change', e => { state.n = +e.target.value; desenhar(el); });
     el.querySelector('#fx-baixar').addEventListener('click', e => baixar(e.currentTarget, p));
     el.querySelector('#fx-apresentar').addEventListener('click', () => apresentar(0));
+    el.querySelector('#fx-historico').addEventListener('click', () => mostrarHistorico(el));
+    ligarAcoes(el, p);
+  }
+
+  // Ações de edição (salvar textos, ocultar slide, slides do RH, fechar/reabrir).
+  function ligarAcoes(el, p) {
+    const tentar = async (btn, fn) => {
+      const txt = btn ? btn.textContent : '';
+      if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
+      try { await fn(); await desenhar(el); }
+      catch (err) { alert(err.message || err); if (btn) { btn.disabled = false; btn.textContent = txt; } }
+    };
+    el.querySelectorAll('[data-salvar-texto]').forEach(b => b.addEventListener('click', () => {
+      const id = b.dataset.salvarTexto;
+      const sd = slidesAtuais.find(s => s.id === id);
+      const v = el.querySelector(`textarea[data-texto="${id}"]`).value.trim();
+      if (!v || (sd && v === sd.textoAuto)) delete edicao.textos[id]; else edicao.textos[id] = v;
+      tentar(b, () => salvar());
+    }));
+    el.querySelectorAll('[data-restaurar]').forEach(b => b.addEventListener('click', () => { delete edicao.textos[b.dataset.restaurar]; tentar(b, () => salvar()); }));
+    el.querySelectorAll('[data-incluir]').forEach(c => c.addEventListener('change', () => {
+      const id = c.dataset.incluir;
+      edicao.ocultos = edicao.ocultos.filter(x => x !== id);
+      if (!c.checked) edicao.ocultos.push(id);
+      tentar(null, () => salvar());
+    }));
+    el.querySelectorAll('[data-salvar-manual]').forEach(b => b.addEventListener('click', () => {
+      const id = b.dataset.salvarManual;
+      const caixa = el.querySelector(`[data-manual="${id}"]`);
+      const cards = Array.from(caixa.querySelectorAll('.fx-mcard')).map(c => ({ titulo: c.querySelector('input').value.trim(), texto: c.querySelector('textarea').value.trim() }));
+      edicao.manuais[id] = { titulo: caixa.querySelector('[data-campo="titulo"]').value.trim(), subtitulo: caixa.querySelector('[data-campo="subtitulo"]').value.trim(), cards };
+      tentar(b, () => salvar());
+    }));
+    const copiar = el.querySelector('#fx-copiar');
+    if (copiar) copiar.addEventListener('click', () => tentar(copiar, async () => {
+      const lista = await HUB_FECHAMENTO.listarPeriodos();
+      const atual = HUB_FECHAMENTO.periodoId(p.tipo, p.ano, p.n);
+      const ordem = r => r.ano * 100 + (r.tipo === 'anual' ? 12 : r.n * S().TIPOS[r.tipo].meses);
+      const anteriores = lista.filter(r => r.id !== atual && ordem(r) < p.ano * 100 + p.m2).sort((a, b) => ordem(b) - ordem(a));
+      for (const r of anteriores) {
+        const reg = await HUB_FECHAMENTO.buscarPeriodo(r.id);
+        if (reg && reg.manuais && Object.keys(reg.manuais).some(k => HUB_FECHAMENTO_MANUAIS.temConteudo(reg.manuais[k]))) {
+          edicao.manuais = JSON.parse(JSON.stringify(reg.manuais));
+          await salvar();
+          return;
+        }
+      }
+      throw new Error('Nenhum fechamento anterior com slides do RH preenchidos.');
+    }));
+    const fechar = el.querySelector('#fx-fechar');
+    if (fechar) fechar.addEventListener('click', () => {
+      if (!confirm(`Fechar ${p.label}?\n\nOs números ficam congelados como estão agora (uploads novos não mudam mais este fechamento). Dá para reabrir depois.`)) return;
+      tentar(fechar, () => salvar({ status: 'fechado', snapshot: slidesAtuais, fechado_em: new Date().toISOString(), fechado_por: (window.HUB_USER || {}).nome || null }));
+    });
+    const reabrir = el.querySelector('#fx-reabrir');
+    if (reabrir) reabrir.addEventListener('click', () => {
+      if (!confirm(`Reabrir ${p.label}?\n\nOs números voltam a ser recalculados com os dados atuais. Os textos do RH continuam salvos.`)) return;
+      tentar(reabrir, async () => { await HUB_FECHAMENTO.reabrirPeriodo(p); registroId = null; });
+    });
+  }
+
+  // Slides escritos pelo RH: título, subtítulo e até 4 cards cada.
+  function painelManuais(p) {
+    const MAN = window.HUB_FECHAMENTO_MANUAIS;
+    if (!MAN) return '';
+    const preenchidos = MAN.MANUAIS.filter(d => MAN.temConteudo(edicao.manuais[d.id])).length;
+    return `<details class="card fx-man"><summary><b>Slides escritos pelo RH</b> — projetos, próximos passos, endomarketing, rituais... (${preenchidos} de ${MAN.MANUAIS.length} preenchidos; os vazios não entram na apresentação)</summary>
+      <div class="fx-man-top"><button class="fx-btn" id="fx-copiar">Trazer do último fechamento</button><span>Cada linha do texto vira um parágrafo; linha começando com "-" vira tópico; **texto** fica em negrito.</span></div>
+      ${MAN.MANUAIS.map(d => {
+        const m = edicao.manuais[d.id] || {};
+        const cards = (m.cards || []).concat([{}, {}, {}, {}]).slice(0, 4);
+        return `<div class="fx-mslide" data-manual="${d.id}">
+          <div class="fx-mcab"><b>${esc(d.titulo)}</b><span>${esc(d.dica)}</span></div>
+          <div class="fx-mlinha"><input data-campo="titulo" placeholder="Título do slide (padrão: ${esc(d.titulo)})" value="${esc(m.titulo || '')}"><input data-campo="subtitulo" placeholder="Frase de abertura (opcional)" value="${esc(m.subtitulo || '')}"></div>
+          <div class="fx-mcards">${cards.map((c, i) => `<div class="fx-mcard"><input placeholder="Card ${i + 1} — título" value="${esc(c.titulo || '')}"><textarea rows="5" placeholder="Texto do card ${i + 1}">${esc(c.texto || '')}</textarea></div>`).join('')}</div>
+          <button class="fx-btn pri" data-salvar-manual="${d.id}">Salvar slide</button>
+        </div>`;
+      }).join('')}
+    </details>`;
+  }
+
+  async function mostrarHistorico(el) {
+    const box = el.querySelector('#fx-hist');
+    if (box.innerHTML) { box.innerHTML = ''; return; }
+    box.innerHTML = '<div class="card fx-histbox">Carregando...</div>';
+    const lista = await HUB_FECHAMENTO.listarPeriodos().catch(() => []);
+    if (!lista.length) { box.innerHTML = '<div class="card fx-histbox">Nenhum fechamento salvo ainda.</div>'; return; }
+    box.innerHTML = `<div class="card fx-histbox"><b>Fechamentos salvos</b><table class="dt"><thead><tr><th>Período</th><th>Situação</th><th>Atualizado</th><th></th></tr></thead><tbody>${lista.map(r => {
+      const pr = S().periodo(r.tipo, r.ano, r.n);
+      return `<tr><td>${esc(ROTULO_TIPO[r.tipo])} · ${esc(pr.label)}</td><td>${r.status === 'fechado' ? `Fechado em ${esc(dataBr(r.fechado_em))}` : 'Rascunho'}</td><td>${esc(dataBr(r.atualizado_em))}${r.atualizado_por ? ' · ' + esc(r.atualizado_por) : ''}</td><td><button class="fx-btn" data-abrir="${esc(r.id)}">Abrir</button></td></tr>`;
+    }).join('')}</tbody></table></div>`;
+    box.querySelectorAll('[data-abrir]').forEach(b => b.addEventListener('click', () => {
+      const r = lista.find(x => x.id === b.dataset.abrir);
+      Object.assign(state, { tipo: r.tipo, ano: r.ano, n: r.n });
+      desenhar(el);
+    }));
   }
 
   // Redimensiona os quadros sem redesenhar os gráficos (o Chart.js se ajusta sozinho).
@@ -260,7 +479,7 @@
     try {
       const fundos = {};
       for (const k of Object.keys(FUNDOS)) fundos[k] = await paraDataUrl(FUNDOS[k]);
-      const pres = await HUB_FECHAMENTO_PPTX.gerar(slidesAtuais, { fundos, titulo: 'Fechamento RH — ' + p.label });
+      const pres = await HUB_FECHAMENTO_PPTX.gerar(visiveis(), { fundos, titulo: 'Fechamento RH — ' + p.label });
       await pres.writeFile({ fileName: `Fechamento RH - ${p.label}.pptx` });
     } catch (err) {
       alert('Não foi possível gerar o PowerPoint: ' + (err.message || err));
@@ -274,22 +493,23 @@
   // Modo apresentação: tela cheia, setas/espaço avançam, Esc sai.
   // ------------------------------------------------------------------
   function apresentar(inicio) {
+    const deck = visiveis();
     let i = inicio;
     const palco = document.createElement('div');
     palco.className = 'fx-palco';
     document.body.appendChild(palco);
     const mostrar = () => {
-      palco.innerHTML = `<div class="fx-quadro">${htmlSlide(slidesAtuais[i], 'fxp')}</div><div class="fx-pg">${i + 1} / ${slidesAtuais.length}</div>`;
+      palco.innerHTML = `<div class="fx-quadro">${htmlSlide(deck[i], 'fxp')}</div><div class="fx-pg">${i + 1} / ${deck.length}</div>`;
       const q = palco.querySelector('.fx-quadro');
       encaixar(q, Math.min(window.innerWidth, window.innerHeight * 16 / 9));
-      desenharGraficos(slidesAtuais[i], 'fxp');
+      desenharGraficos(deck[i], 'fxp');
     };
     const sair = () => {
       document.removeEventListener('keydown', tecla);
       if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
       palco.remove();
     };
-    const ir = delta => { const j = i + delta; if (j < 0) return; if (j >= slidesAtuais.length) { sair(); return; } i = j; mostrar(); };
+    const ir = delta => { const j = i + delta; if (j < 0) return; if (j >= deck.length) { sair(); return; } i = j; mostrar(); };
     function tecla(e) {
       if (e.key === 'Escape') sair();
       else if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); ir(1); }

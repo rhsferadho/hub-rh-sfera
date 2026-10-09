@@ -22,7 +22,7 @@ const ctx = { console, Intl, Date };
 ctx.window = ctx;
 ctx.XLSX = { utils: { sheet_to_json: ws => ws.rows } };   // SheetJS falso: a aba já é a lista de linhas
 vm.createContext(ctx);
-for (const f of ['js/utils.js', 'js/parsers.js', 'js/parsers-fechamento.js', 'js/metrics-fechamento.js', 'js/fechamento-slides.js']) {
+for (const f of ['js/utils.js', 'js/parsers.js', 'js/parsers-fechamento.js', 'js/metrics-fechamento.js', 'js/fechamento-slides.js', 'js/fechamento-slides-dho.js', 'js/fechamento-slides-cultura.js', 'js/fechamento-slides-manuais.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f });
 }
 const PF = ctx.HUB_PARSERS_FECHAMENTO;
@@ -147,6 +147,102 @@ run('slides: deck de julho/2026', () => {
   const at = deck.find(d => d.id === 'rs-ativas');
   check('foto das ativas com a data do upload', /EM ANDAMENTO — 1 vagas.*Atualização – 08\/10\/2026/.test(texto(at)), texto(at).slice(0, 200));
   check('todo elemento dentro do slide 960 × 540', deck.every(d => d.els.every(e => e.x >= 0 && e.y >= 0 && e.x + e.w <= 960 && e.y + e.h <= 540)));
+});
+
+// DHO: as contas vêm das telas do Hub (rotatividade/entrevista/experiência);
+// aqui elas são simuladas para testar só a montagem dos slides.
+function dhoFalso() {
+  const colab = (adm, opts) => Object.assign({ unidade: 'Hering', departamento: 'Loja Centro', data_admissao: adm, data_nascimento: '1995-05-10', situacao: 'Ativo' }, opts || {});
+  const colaboradores = [
+    colab('2024-01-10'), colab('2026-03-01'), colab('2025-12-01', { unidade: 'Levis', data_nascimento: '1980-01-01' }),
+    colab('2026-06-15', { situacao: 'Desligado', ultimo_dia_trabalhado: '2026-07-20' }),   // saiu na experiência
+    colab('2023-02-01', { situacao: 'Desligado', ultimo_dia_trabalhado: '2026-07-31' })
+  ];
+  const serieMes = mes => ({ mes, taxaTurnover: 0.05, taxaDesligamento: 0.04, voluntarios: 1, involuntarios: 1 });
+  const rot = f => ({
+    turnoverMedio: 0.05, taxaDesligamentoMedia: 0.04, totalDesligados: 2, voluntarios: 1, involuntarios: 1, totalAdmitidos: 1, semDataSaida: 0,
+    motivos: [{ label: 'Outra Oportunidade de Trabalho - Remun. e/ou Benef.', value: 1 }, { label: 'Baixo Desempenho/ Performance', value: 1 }],
+    serie: ['2026-02', '2026-03', '2026-04', '2026-05', '2026-06', '2026-07'].filter(m => m >= f.start.slice(0, 7) && m <= f.end.slice(0, 7)).map(serieMes)
+  });
+  const ent = f => {
+    const so = f.unidade && f.unidade.length ? f.unidade[0] : null;
+    const nps = so === 'Hering' ? -50 : so === 'Levis' ? 100 : so ? null : 0;
+    const total = so === 'Hering' ? 2 : so === 'Levis' ? 1 : so ? 0 : 3;
+    return {
+      nps, npsDetalhe: { total, promotores: 1, neutros: 1, detratores: 1 }, totalRespostas: 3, positivos: 2, participacao: 0.5,
+      motivos: [{ label: 'Liderança', value: 2 }, { label: 'Motivos Pessoais', value: 1 }],
+      indicesDesligamento: [{ key: 'efetividade_onboarding', total: 3, simples: false, principal: [], linhas: [{ bucket: 'positivo' }, { bucket: 'positivo' }, { bucket: 'negativo' }] }]
+    };
+  };
+  return { colaboradores, unidades: ['Hering', 'Levis', 'Escritório'], rot, ent, exp: { 45: null, 90: null }, X: null };
+}
+
+run('slides: Demografia e DHO', () => {
+  const deck = SL.montar(SL.periodo('mensal', 2026, 7), { vagas: [], metas: [], atualizadoEm: '2026-08-05', dho: dhoFalso() });
+  const ids = deck.map(d => d.id).join(',');
+  check('ordem: capa, resumo, demografia, R&S, DHO, contracapa', ids === 'capa,resumo,demografia,rs-divisor,rs-finalizadas,rs-comparativo,rs-ativas,rs-projecao,dho-divisor,dho-turnover,dho-nps,dho-motivos,dho-percepcao,dho-experiencia,contracapa', ids);
+  const texto = sd => sd.els.filter(e => e.t === 'text').map(e => e.paras.map(p => p.runs.map(x => x.text).join('')).join(' ')).join(' | ');
+  const demo = deck.find(d => d.id === 'demografia');
+  check('headcount em 31/07: 3 ativos', /HEADCOUNT \| 3 \|/.test(texto(demo)), texto(demo).slice(0, 120));
+  const turn = deck.find(d => d.id === 'dho-turnover');
+  check('desligados na experiência: 1 de 2', /50,0% \(1\/2\)/.test(texto(turn)), texto(turn));
+  const nps = deck.find(d => d.id === 'dho-nps').els.find(e => e.t === 'chart');
+  check('NPS por unidade só com quem respondeu, do maior para o menor', nps.labels.join('|') === 'Levis (n=1)|Hering (n=2)', nps.labels.join('|'));
+  check('NPS negativo na série vermelha', nps.series[0].values[1] === null && nps.series[1].values[1] === -50, JSON.stringify(nps.series));
+  const mot = deck.find(d => d.id === 'dho-motivos').els.find(e => e.t === 'chart' && /REGISTRADO/.test(e.title));
+  check('motivo do RH com prefixo abreviado', mot.labels[0] === 'Outra oport.: Remun. e/ou Benef.', mot.labels[0]);
+  const perc = texto(deck.find(d => d.id === 'dho-percepcao'));
+  check('percepção: Onboarding 66,7%', /Onboarding \| 66,7%/.test(perc), perc.slice(0, 300));
+  check('experiência sem planilha avisa em vez de quebrar', /indisponível/.test(texto(deck.find(d => d.id === 'dho-experiencia'))));
+  check('todo elemento dentro do slide 960 × 540', deck.every(d => d.els.every(e => e.x >= 0 && e.y >= 0 && e.x + e.w <= 960 && e.y + e.h <= 540)));
+});
+
+// Cultura e T&D: o cálculo mensal do Boletim é simulado (mesmo formato de calcularMes).
+function cultFalso() {
+  const OPERACOES = [{ id: 'hering', nome: 'Hering' }, { id: 'levis', nome: "Levi's" }];
+  const ind = (k) => ({ celebracoes: 10 * k, feedback_painel: 0.3 * k, humor_media: 4, humor_participacao: 0.5, engajamento_feedz: 0.4 * k,
+    pesquisa_nota: 3.5 + 0.1 * k, pesquisa_participacao: 0.5, nps: 10, nps_respostas: 20, twygo_progresso: 0.5 + 0.1 * k,
+    pilares: { 'Bem-estar': 3 + 0.1 * k, 'Conexão com líder': 4 }, unibe_adesao: k === 1 ? 0.8 : null, academia_pontos: k === 1 ? 750 : null });
+  const loja = (nome, v) => ({ nome, apoio: false, base: { twygo_pessoas: 5 }, ind: { twygo_progresso: v } });
+  const mes = mk => ({
+    empresa: { ind: ind(2), base: { twygo_pessoas: 100 } },
+    operacoes: { hering: { ind: ind(1), lojas: [loja('Rio Sul', 0.9), loja('Centro', 0.2)] }, levis: { ind: ind(2), lojas: [loja('Barra', 0.6)] } }
+  });
+  return { OPERACOES, mes };
+}
+
+run('slides: Cultura, T&D, slides do RH, textos e resumo', () => {
+  const manuais = {
+    'man-rs-projetos': { titulo: '', subtitulo: 'Objetivo: reduzir substituição', cards: [{ titulo: 'Persona', texto: 'Mapeamento da base\n- **4 vagas** piloto' }, { titulo: '', texto: '' }] },
+    'man-rituais': { titulo: '', subtitulo: '', cards: [] },
+    // "Próximos passos" vem depois de "Projetos DHO", que está vazio: tem de cair depois do Boletim/Engajamento.
+    'man-dho-proximos': { cards: [{ titulo: 'AVD', texto: 'Calibragem em agosto' }] }
+  };
+  const textos = { 'rs-finalizadas': 'Texto do **RH** para as vagas.' };
+  const deck = SL.montar(SL.periodo('mensal', 2026, 7), { vagas: [], metas: [], atualizadoEm: '2026-08-05', dho: dhoFalso(), cult: cultFalso(), manuais, textos });
+  const ids = deck.map(d => d.id);
+  check('cultura e engajamento depois da experiência', ids.indexOf('cult-cultura') === ids.indexOf('dho-experiencia') + 1 && ids.indexOf('cult-engajamento') === ids.indexOf('cult-cultura') + 1, ids.join(','));
+  check('T&D com divisor, Twygo e parceiras', ids.indexOf('td-twygo') === ids.indexOf('td-divisor') + 1 && ids.indexOf('td-parceiras') === ids.indexOf('td-twygo') + 1, ids.join(','));
+  check('slide do RH preenchido entra depois da Projeção', ids.indexOf('man-rs-projetos') === ids.indexOf('rs-projecao') + 1, ids.join(','));
+  check('slide do RH vazio não entra', !ids.includes('man-rituais'));
+  check('slide do RH cujo anterior está vazio volta pela sequência', ids.indexOf('man-dho-proximos') === ids.indexOf('cult-engajamento') + 1, ids.join(','));
+  check('resumo em 2º e contracapa no fim', ids[1] === 'resumo' && ids[ids.length - 1] === 'contracapa', ids.join(','));
+  const texto = sd => sd.els.filter(e => e.t === 'text').map(e => e.paras.map(p => p.runs.map(x => x.text).join('')).join(' ')).join(' | ');
+  const fin = deck.find(d => d.id === 'rs-finalizadas');
+  check('texto de abertura reescrito pelo RH, com negrito', /Texto do RH para as vagas\./.test(texto(fin)) && fin.els.find(e => e.editado).paras[0].runs.some(r => r.bold && r.text === 'RH'), texto(fin).slice(0, 120));
+  check('texto automático guardado para "voltar ao automático"', /Nenhuma vaga finalizada/.test(fin.textoAuto), fin.textoAuto);
+  const man = deck.find(d => d.id === 'man-rs-projetos');
+  check('slide do RH: título padrão, 1 card, tópico em negrito', /PROJETOS EM ANDAMENTO — R&S/.test(texto(man)) && man.els.filter(e => e.t === 'rect').length === 2 && man.els.some(e => e.t === 'text' && e.paras.some(p => p.bullet && p.runs.some(r => r.bold && r.text === '4 vagas'))), texto(man));
+  const cult = deck.find(d => d.id === 'cult-cultura');
+  check('cultura: celebrações e engajamento da empresa', /CELEBRAÇÕES DE GESTORES \| 20/.test(texto(cult)) && /ENGAJAMENTO NA FEEDZ \| 80%/.test(texto(cult)), texto(cult).slice(0, 400));
+  const eng = deck.find(d => d.id === 'cult-engajamento');
+  check('engajamento: pilar melhor e pior', /Conexão com líder.*mais bem avaliado.*Bem-estar/.test(texto(eng)), texto(eng).slice(0, 300));
+  const tw = deck.find(d => d.id === 'td-twygo').els.filter(e => e.t === 'chart');
+  check('Twygo: maior e menor progresso por loja', tw[1].labels[0] === 'Rio Sul' && tw[2].labels[0] === 'Centro', JSON.stringify(tw.map(c => c.labels)));
+  check('Unibê e Academia Hering pelos valores manuais', /750/.test(texto(deck.find(d => d.id === 'td-parceiras'))));
+  const res = texto(deck.find(d => d.id === 'resumo'));
+  check('resumo traz turnover, NPS, engajamento e Twygo', /Turnover médio/.test(res) && /NPS de desligamento/.test(res) && /Engajamento na Feedz/.test(res) && /Progresso na Twygo \| 70%/.test(res), res);
+  check('todo elemento dentro do slide 960 × 540', deck.every(d => d.els.every(e => e.x >= 0 && e.y >= 0 && e.x + e.w <= 960 && e.y + e.h <= 540.5)), deck.filter(d => d.els.some(e => e.x + e.w > 960 || e.y + e.h > 540.5)).map(d => d.id).join(','));
 });
 
 console.log(`\n${pass} ok, ${fail} falha(s)`);
