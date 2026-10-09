@@ -15,7 +15,8 @@
     { id: 'man-dho-projetos', depois: 'man-dho-boletim', titulo: 'PROJETOS EM ANDAMENTO — DHO', dica: 'Um card por projeto: objetivo, status e o que foi feito.' },
     { id: 'man-dho-proximos', depois: 'man-dho-projetos', titulo: 'PRÓXIMOS PASSOS', dica: 'Avaliação de Desempenho, calendário de ciclos, política de carreiras...' },
     { id: 'man-dho-endomarketing', depois: 'man-dho-proximos', titulo: 'AÇÕES DE ENDOMARKETING', dica: 'Ações realizadas no período e próximas datas.' },
-    { id: 'man-td-horas', depois: 'td-parceiras', titulo: 'DASHBOARD DE TREINAMENTOS — ESFORÇO MULTIPLICADORA', dica: 'Horas e quantidade de treinamentos por multiplicadora (enquanto a planilha do Treinamento não entra no Hub).' },
+    // Depois do slide automático das multiplicadoras; sem ele (nenhuma turma no Hub), depois de Unibê e Academia.
+    { id: 'man-td-horas', depois: 'td-multis', alt: 'td-parceiras', titulo: 'DASHBOARD DE TREINAMENTOS — ESFORÇO MULTIPLICADORA', dica: 'Complemento ao slide automático "Esforço das multiplicadoras" (que sai das planilhas importadas em Turmas e Multiplicadoras): destaques, projetos, multiplicadoras que ainda não estão no Hub.' },
     { id: 'man-td-projetos', depois: 'man-td-horas', titulo: 'PROJETOS EM ANDAMENTO — T&D', dica: 'Um card por projeto: objetivo, status e o que foi feito.' },
     { id: 'man-rituais', depois: 'man-td-projetos', titulo: 'RITUAIS DO RH', dica: 'Rituais e reuniões recorrentes do time.' }
   ];

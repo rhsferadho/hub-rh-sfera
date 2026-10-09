@@ -160,10 +160,13 @@
     }));
     lojas.sort((a, b) => b.v - a.v);
     const top = lojas.slice(0, 10), fundo = lojas.slice(-10).reverse();
+    // Cursos concluídos no período, pela data da conclusão (histórico da planilha 27).
+    const hist = window.HUB_METRICS_TREINAMENTOS ? HUB_METRICS_TREINAMENTOS.twygoHistorico({ start: p.de, end: p.ate, unidade: [], departamento: [] }) : null;
+    const feitos = hist && hist.temDatas && hist.conclusoes ? ` No período, **${fmtInt(hist.conclusoes)} cursos concluídos** (${fmtInt(Math.round(hist.horas))} h de carga horária, ${fmtInt(hist.pessoas)} pessoas).` : '';
 
     const els = [].concat(
       titulo('STATUS DE TREINAMENTOS — TWYGO'),
-      { t: 'text', x: 40, y: 76, w: 830, h: 20, size: 11, color: COR.branco, paras: [para(`Progresso médio nas trilhas da Twygo em ${S().MESES[p.m2 - 1].toLowerCase()} ${p.ano}: **${fmtPct(geral)}**${pessoas ? ` entre ${fmtInt(pessoas)} colaboradores` : ''}.`)] },
+      { t: 'text', x: 40, y: 76, w: 830, h: 20, size: 11, color: COR.branco, paras: [para(`Progresso médio nas trilhas da Twygo em ${S().MESES[p.m2 - 1].toLowerCase()} ${p.ano}: **${fmtPct(geral)}**${pessoas ? ` entre ${fmtInt(pessoas)} colaboradores` : ''}.${feitos}`)] },
       [card(25, 105, 300, 385)],
       { t: 'chart', x: 35, y: 111, w: 280, h: 373, kind: 'bar', fmt: 'pct0', catSize: 8.5, title: 'POR OPERAÇÃO', labels: ops.map(o => o.nome), series: [{ name: 'Progresso', values: ops.map(o => o.v), color: '2E75B6' }] },
       [card(335, 105, 295, 385)],
@@ -171,7 +174,7 @@
       [card(640, 105, 295, 385)],
       { t: 'chart', x: 650, y: 111, w: 275, h: 373, kind: 'bar', fmt: 'pct0', catSize: 8, labelSize: 8, title: 'TOP 10 — MENOR PROGRESSO', labels: fundo.map(l => l.nome), series: [{ name: 'Progresso', values: fundo.map(l => l.v), color: 'E8604C' }] }
     );
-    const notas = 'Mesma conta do Boletim da Liderança: progresso médio das inscrições da Twygo (planilha 27). É uma foto do último upload, não um histórico mês a mês. Lojas: só as com 3 ou mais colaboradores inscritos, sem as áreas de apoio.';
+    const notas = 'Mesma conta do Boletim da Liderança: progresso médio das inscrições da Twygo (planilha 27). É uma foto do último upload, não um histórico mês a mês. Cursos concluídos: inscrições confirmadas que chegaram a 100% dentro do período (coluna Conclusão 100%), inclusive de quem já saiu. Lojas: só as com 3 ou mais colaboradores inscritos, sem as áreas de apoio.';
     return { id: 'td-twygo', nome: 'Status de Treinamentos — Twygo', fundo: 'conteudo', els, notas };
   }
 
@@ -182,27 +185,31 @@
     const ultimo = (id, opId) => { for (let i = ms.length - 1; i >= 0; i--) { const c = cult.mes(ms[i]); const a = opId ? c.operacoes[opId] : c.empresa; const v = a && a.ind ? a.ind[id] : null; if (v != null) return v; } return null; };
     const unibe = cult.OPERACOES.map(o => ({ nome: o.nome, v: ultimo('unibe_adesao', o.id) })).filter(o => o.v != null).sort((a, b) => b.v - a.v);
     const academia = ultimo('academia_pontos', 'hering');
-    const unibeMedia = media(unibe.map(o => o.v));
+    // Mesma conta do módulo Treinamentos: média dos PDVs da última foto do período
+    // (planilha 27.1). Sem planilha no período, média das operações digitadas.
+    const ubMod = window.HUB_METRICS_TREINAMENTOS ? HUB_METRICS_TREINAMENTOS.unibeMetrics({ start: p.de, end: p.ate, unidade: [], departamento: [], colaborador: '' }) : null;
+    const daPlanilha = !!(ubMod && ubMod.mes);
+    const unibeMedia = daPlanilha ? ubMod.adesaoMedia : media(unibe.map(o => o.v));
     const vazio = !unibe.length && academia == null;
     const els = [].concat(
       titulo('PLATAFORMAS PARCEIRAS — UNIBÊ E ACADEMIA HERING'),
       { t: 'text', x: 40, y: 76, w: 830, h: 20, size: 11, color: COR.branco, paras: [para(vazio
-        ? 'Sem valores lançados no período. Preencha em Boletim da Liderança → Valores manuais (Unibê e Academia Hering).'
-        : `Valores lançados no Boletim da Liderança para ${p.label.toLowerCase()}.`)] },
+        ? 'Sem dados no período. Envie as planilhas 27.1 Unibê e 27.2 Academia Hering em Administração → Upload, com o mês de referência.'
+        : `Foto do último mês com dados em ${p.label.toLowerCase()} (planilhas 27.1 e 27.2).`)] },
       [card(25, 105, 600, 385)],
       unibe.length
         ? { t: 'chart', x: 35, y: 111, w: 580, h: 373, kind: 'bar', fmt: 'pct0', catSize: 9, title: 'UNIBÊ — ADESÃO POR OPERAÇÃO', labels: unibe.map(o => o.nome), series: [{ name: 'Adesão', values: unibe.map(o => o.v), color: 'B45CD6' }] }
-        : { t: 'text', x: 45, y: 120, w: 560, h: 40, size: 11, color: COR.suave, paras: [para('**UNIBÊ** — sem adesão lançada no período.')] },
+        : { t: 'text', x: 45, y: 120, w: 560, h: 40, size: 11, color: COR.suave, paras: [para('**UNIBÊ** — sem planilha no período.')] },
       [card(640, 105, 295, 185),
-        { t: 'text', x: 655, y: 115, w: 265, h: 18, size: 10.5, bold: true, color: COR.claro, paras: [para('UNIBÊ — MÉDIA DAS OPERAÇÕES')] },
-        { t: 'text', x: 655, y: 140, w: 265, h: 60, size: 40, bold: true, color: 'D99BF0', valign: 'middle', paras: [para(fmtPct(unibeMedia))] },
-        { t: 'text', x: 655, y: 210, w: 265, h: 70, size: 9.5, color: COR.suave, paras: [para('meta do Boletim: 90%')] }],
+        { t: 'text', x: 655, y: 115, w: 265, h: 18, size: 10.5, bold: true, color: COR.claro, paras: [para(daPlanilha ? 'UNIBÊ — ADESÃO MÉDIA DOS PDVs' : 'UNIBÊ — MÉDIA DAS OPERAÇÕES')] },
+        { t: 'text', x: 655, y: 140, w: 265, h: 60, size: 40, bold: true, color: 'D99BF0', valign: 'middle', paras: [para(fmtPct(unibeMedia, 1))] },
+        { t: 'text', x: 655, y: 210, w: 265, h: 70, size: 9.5, color: COR.suave, paras: [para(daPlanilha ? `${ubMod.pdvsNaMeta} de ${ubMod.totalPdvs} PDVs na meta de 90%` : 'meta do Boletim: 90%')] }],
       [card(640, 300, 295, 190),
         { t: 'text', x: 655, y: 310, w: 265, h: 18, size: 10.5, bold: true, color: COR.claro, paras: [para('ACADEMIA HERING')] },
         { t: 'text', x: 655, y: 335, w: 265, h: 60, size: 40, bold: true, color: COR.amarelo, valign: 'middle', paras: [para(academia == null ? '—' : fmtInt(academia))] },
-        { t: 'text', x: 655, y: 405, w: 265, h: 70, size: 9.5, color: COR.suave, paras: [para('pontos (média das lojas Hering)')] }]
+        { t: 'text', x: 655, y: 405, w: 265, h: 70, size: 9.5, color: COR.suave, paras: [para('pontos de performance (média das pessoas)')] }]
     );
-    const notas = 'Valores manuais do Boletim da Liderança (Unibê — adesão por operação; Academia Hering — pontos). Usa o último mês do período com valor lançado.';
+    const notas = 'Mesmos números do Boletim da Liderança. Unibê: adesão oficial de cada PDV (aba PDV da planilha 27.1); operação e número em destaque = média dos PDVs, a mesma conta do módulo Treinamentos. Academia Hering: performance média das pessoas (planilha 27.2). Usa o último mês do período com planilha; sem planilha no mês, vale o valor digitado em Valores manuais.';
     return { id: 'td-parceiras', nome: 'Unibê e Academia Hering', fundo: 'conteudo', els, notas };
   }
 
@@ -333,11 +340,42 @@
     return { id: 'cult-satisfacao', nome: 'Satisfação com Áreas de Suporte', fundo: 'conteudo', els, notas };
   }
 
+  // T&D — esforço das multiplicadoras: turmas das planilhas "Controle de
+  // Treinamentos" (Treinamento e Desenvolvimento → Turmas e Multiplicadoras).
+  // Sem turmas no Hub, o slide não entra (vale o slide manual do RH).
+  function slideMultis(p, cult) {
+    const T = window.HUB_METRICS_TURMAS;
+    const turmas = cult.turmas || [];
+    if (!T || !turmas.length) return [];
+    const { COR, para, titulo, card, kpi, fmtInt, fmtPct } = S().pecas;
+    const d = T.painel(turmas, { de: p.de, ate: p.ate }, cult.colaboradores || []);
+    const t = d.total, a = d.anterior;
+    const h1 = v => (v == null ? '—' : String(Math.round(v * 10) / 10).replace('.', ','));
+    const vs = (x, y) => (y ? `${x >= y ? '▲' : '▼'} ${fmtPct(Math.abs(x - y) / y)} vs. ${p.ano - 1}` : '');
+    const multis = d.porMultiplicadora.slice(0, 8), marcas = d.porMarca.slice(0, 8);
+    const els = [].concat(
+      titulo('ESFORÇO DAS MULTIPLICADORAS — TREINAMENTOS'),
+      { t: 'text', x: 40, y: 76, w: 830, h: 20, size: 11, color: COR.branco, paras: [para(t.turmas
+        ? `Em ${p.label.toLowerCase()}, **${fmtInt(t.turmas)} turmas** e **${h1(t.horas)} h de treinamento**, com ${fmtInt(t.presentes)} presenças e aderência de ${fmtPct(t.presenca)} (presentes ÷ convocados).`
+        : `Nenhuma turma registrada em ${p.label.toLowerCase()} nas planilhas das multiplicadoras.`)] },
+      kpi(25, 105, 220, 95, 'TURMAS', fmtInt(t.turmas), a ? vs(t.turmas, a.turmas) : ''),
+      kpi(255, 105, 220, 95, 'HORAS DE TREINAMENTO', h1(t.horas), a ? vs(t.horas, a.horas) : ''),
+      kpi(485, 105, 220, 95, 'HORAS ENTREGUES', fmtInt(Math.round(t.horasPessoa)), a ? vs(t.horasPessoa, a.horasPessoa) : 'duração × presentes'),
+      kpi(715, 105, 220, 95, 'ADERÊNCIA', fmtPct(t.presenca), a && a.presenca != null ? `${fmtPct(a.presenca)} em ${p.ano - 1}` : 'presentes ÷ convocados'),
+      [card(25, 210, 450, 280)],
+      multis.length ? [{ t: 'chart', x: 35, y: 216, w: 430, h: 268, kind: 'bar', fmt: 'int', catSize: 8.5, title: 'HORAS ENTREGUES POR MULTIPLICADORA', labels: multis.map(x => x.label), series: [{ name: 'Horas entregues', values: multis.map(x => Math.round(x.horasPessoa)), color: '2E75B6' }] }] : [],
+      [card(485, 210, 450, 280)],
+      marcas.length ? [{ t: 'chart', x: 495, y: 216, w: 430, h: 268, kind: 'bar', fmt: 'int', catSize: 9, title: 'HORAS ENTREGUES POR MARCA', labels: marcas.map(x => x.label), series: [{ name: 'Horas entregues', values: marcas.map(x => Math.round(x.horasPessoa)), color: 'F2B84B' }] }] : []
+    );
+    const notas = `Planilhas "Controle de Treinamentos" das multiplicadoras importadas no Hub (${d.planilhas.join(', ')}). Horas de treinamento = duração das turmas; horas entregues = duração × presentes. Turma em dupla conta uma vez no total e para cada multiplicadora no gráfico; turma de mais de uma marca entra em cada marca. Comparação com o mesmo período de ${p.ano - 1}.`;
+    return [{ id: 'td-multis', nome: 'Esforço das multiplicadoras', fundo: 'conteudo', els, notas }];
+  }
+
   window.HUB_FECHAMENTO_CULTURA = {
     // Ordem do deck: Cultura (Feedz), Feedbacks, Humor, Pesquisa de Engajamento e Satisfação. Sem base, o slide sai.
     cultura: (p, cult) => [slideCultura(p, cult), cult.feedbacks ? slideFeedbacks(p, cult) : null, cult.humor ? slideHumor(p, cult) : null, slideEngajamento(p, cult), slideSatisfacao(p, cult)].filter(Boolean),
     engajamentoDe,
-    td: (p, cult) => [slideTwygo(p, cult), slideParceiras(p, cult)],
+    td: (p, cult) => [slideTwygo(p, cult), slideParceiras(p, cult)].concat(slideMultis(p, cult)),
     _internal: { mesesDe, mesesAte, valor, pilares, engajamentoDe }
   };
 })();

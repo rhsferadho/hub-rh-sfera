@@ -10,7 +10,11 @@
   const TABLES = [
     'colaboradores', 'feedbacks', 'one_on_one', 'celebracoes',
     'entrevista_pesquisa', 'entrevista_solicitacao',
-    'twygo_participantes', 'twygo_usuarios', 'twygo_conteudos'
+    'twygo_participantes', 'twygo_usuarios', 'twygo_conteudos',
+    // Unibê e Academia Hering: fotos mensais por upload (supabase-treinamentos.sql)
+    'unibe_pdv', 'unibe_pessoas', 'academia_hering',
+    // Turmas das multiplicadoras (supabase-treinamento-turmas.sql)
+    'treinamento_turmas'
   ];
 
   // Nunca deixa HUB_DATA como `undefined` — qualquer código que leia
@@ -148,6 +152,36 @@
     return window.HUB_DATA;
   }
 
+  // Unibê / Academia Hering (um mês) e turmas das multiplicadoras (uma planilha):
+  // uma chamada; a função no banco apaga e insere na mesma transação.
+  async function salvarTreinamento(rpc, args, sql) {
+    await sb.auth.refreshSession().catch(() => {});
+    const { data, error } = await sb.rpc(rpc, args);
+    if (error) {
+      if (/does not exist|schema cache|not find/i.test(error.message)) throw new Error(`As tabelas novas ainda não existem no Supabase (rode ${sql}).`);
+      throw new Error('Erro ao gravar no Supabase: ' + error.message);
+    }
+    return data;
+  }
+  const salvarUnibe = (mes, pdvs, pessoas) => salvarTreinamento('treinamentos_salvar_unibe', { p_mes: mes + '-01', p_pdvs: pdvs, p_pessoas: pessoas }, 'supabase-treinamentos.sql');
+  const salvarAcademia = (mes, linhas) => salvarTreinamento('treinamentos_salvar_academia', { p_mes: mes + '-01', p_linhas: linhas }, 'supabase-treinamentos.sql');
+  const salvarTurmas = (planilha, arquivo, linhas) => salvarTreinamento('treinamento_salvar_turmas', { p_planilha: planilha, p_arquivo: arquivo, p_linhas: linhas }, 'supabase-treinamento-turmas.sql');
+
+  // Turma lançada pela tela (Treinamento e Desenvolvimento → Turmas e
+  // Multiplicadoras → Lançamentos). Depois de gravar, rebusca só a tabela de turmas.
+  async function salvarTurmaHub(id, dados) {
+    const r = await salvarTreinamento('treinamento_turma_salvar', { p_id: id || null, p_dados: dados }, 'supabase-treinamento-turmas.sql');
+    await recarregarTurmas();
+    return r;
+  }
+  async function excluirTurmaHub(id) {
+    await salvarTreinamento('treinamento_turma_excluir', { p_id: id }, 'supabase-treinamento-turmas.sql');
+    await recarregarTurmas();
+  }
+  async function recarregarTurmas() {
+    window.HUB_DATA.treinamento_turmas = await fetchAll('treinamento_turmas');
+  }
+
   async function listProfiles() {
     const { data, error } = await sb.from('profiles').select('*').order('nome');
     if (error) throw error;
@@ -204,7 +238,7 @@
   }
 
   window.HUB_DAL = {
-    TABLES, loadAll, replaceTable, logUpload, listUploadLog, listProfiles, upsertProfile, deleteProfile, setProfileStatus,
+    TABLES, loadAll, replaceTable, salvarUnibe, salvarAcademia, salvarTurmas, salvarTurmaHub, excluirTurmaHub, recarregarTurmas, logUpload, listUploadLog, listProfiles, upsertProfile, deleteProfile, setProfileStatus,
     logViewAsStart, logViewAsEnd, listViewAsLog
   };
 })();

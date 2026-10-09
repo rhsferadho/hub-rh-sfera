@@ -349,7 +349,11 @@
         frequencia: num(g('Frequência')),
         pontuacao: num(g('Pontuação')),
         carga_horaria: parseDuracaoTexto(cargaTexto),
-        emitido_em: toISODate(g('Emitido em'))
+        emitido_em: toISODate(g('Emitido em')),
+        // Data em que a inscrição chegou a 100% e data de aprovação: dão a série
+        // de conclusões e horas concluídas por mês (supabase-treinamentos.sql).
+        concluido_em: toISODate(g('Conclusão 100%')),
+        aprovado_em: toISODate(g('Data de Aprovação'))
       };
     }).filter(r => r.nome_completo || r.email);
   }

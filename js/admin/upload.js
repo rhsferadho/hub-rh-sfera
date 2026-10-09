@@ -11,8 +11,13 @@
     { key: 'oneonone', table: 'one_on_one', label: '5. 1 on 1', file: '1 on 1.xlsx', icon: '&#129309;', parse: wb => P.parseOneOnOne(wb) },
     { key: 'celebracoes', table: 'celebracoes', label: '20. Celebrações', file: 'Celebrações.xlsx', icon: '&#127881;', parse: wb => P.parseCelebracoes(wb) },
     { key: 'twygo_part', table: 'twygo_participantes', label: '27. Twygo', file: 'Twygo.xlsx', icon: '&#128218;', parse: wb => P.parseTwygoParticipantes(wb) },
-    { key: 'twygo_usu', table: 'twygo_usuarios', label: '27.1. Twygo usuários', file: 'Twygo usuários.xlsx', icon: '&#128100;', parse: wb => P.parseTwygoUsuarios(wb) },
-    { key: 'twygo_cont', table: 'twygo_conteudos', label: '27.1. Twygo conteúdos', file: 'Twygo conteúdos.xlsx', icon: '&#127891;', parse: wb => P.parseTwygoConteudos(wb) },
+    // Unibê e Academia Hering: foto do dia da exportação, sem data — quem envia
+    // escolhe o mês de referência (campo mes) e só aquele mês é substituído.
+    { key: 'unibe', table: 'unibe_pdv', label: '27.1. Unibê', file: '27.1.Unibe.xlsx (abas PDV e Pessoa)', icon: '&#127891;', mes: true, custom: importarUnibe },
+    // Turmas das multiplicadoras: uma planilha por multiplicadora; cada arquivo
+    // substitui só as turmas dela (supabase-treinamento-turmas.sql).
+    { key: 'turmas', table: 'treinamento_turmas', label: 'Controle de Treinamentos (multiplicadoras)', file: 'Controle Treinamento_[nome da multiplicadora].xlsx (uma por vez)', icon: '&#127891;', custom: importarTurmas },
+    { key: 'academia', table: 'academia_hering', label: '27.2. Academia Hering', file: '27.2.Academia Hering.xlsx', icon: '&#127891;', mes: true, custom: importarAcademia },
     { key: 'ave45', table: 'avaliacao_experiencia_45', label: '28. Avaliação da Experiência — 45 dias', file: 'AVE 45 DIAS.xlsx', icon: '&#128221;', parse: wb => P.parseAveExperiencia(wb, 45) },
     { key: 'ave90', table: 'avaliacao_experiencia_90', label: '28.1. Avaliação da Experiência — 90 dias', file: 'AVE 90 DIAS.xlsx', icon: '&#128221;', parse: wb => P.parseAveExperiencia(wb, 90) },
     // Pesquisa de Engajamento (só participação): uma planilha, gravada por inteiro numa
@@ -141,6 +146,55 @@
     };
   }
 
+  // Unibê / Academia Hering: o boletim de um mês já fechado não muda sozinho
+  // (as setas usam a foto publicada), mas a tela do mês passa a mostrar o valor novo.
+  function avisoMesFechado(mes) {
+    const f = ((window.HUB_BOLETIM_DATA || {}).fechamentos || []).some(x => String(x.mes).slice(0, 7) === mes);
+    return f ? `O Boletim da Liderança de ${mesRotulo(mes)} já foi fechado: o boletim publicado não muda; reabra e feche de novo o mês se quiser atualizar a foto.` : null;
+  }
+  const mesRotulo = mes => `${mes.slice(5, 7)}/${mes.slice(0, 4)}`;
+
+  async function importarUnibe(wb, setStatus, mes) {
+    const r = HUB_PARSERS_TREINAMENTOS.parseUnibe(wb, { colaboradores: HUB_DATA.colaboradores || [] });
+    setStatus(`Gravando ${r.pdvs.length} PDVs e ${U.fmtInt(r.pessoas.length)} pessoas em ${mesRotulo(mes)}...`);
+    await HUB_DAL.salvarUnibe(mes, r.pdvs, r.pessoas);
+    const fechado = avisoMesFechado(mes);
+    return {
+      linhas: r.pdvs.length + r.pessoas.length, avisos: r.avisos.concat(fechado ? [fechado] : []),
+      resumo: `Unibê de ${mesRotulo(mes)}: ${r.resumo.pdvs} PDVs, adesão média de ${U.fmtPct(r.resumo.adesaoMedia, 1)} (média dos PDVs); ${U.fmtInt(r.resumo.pessoas)} pessoas, ${U.fmtInt(r.resumo.noCadastro)} achadas no cadastro de Colaboradores.`
+    };
+  }
+
+  async function importarAcademia(wb, setStatus, mes) {
+    const r = HUB_PARSERS_TREINAMENTOS.parseAcademia(wb, { colaboradores: HUB_DATA.colaboradores || [] });
+    setStatus(`Gravando ${U.fmtInt(r.linhas.length)} pessoas em ${mesRotulo(mes)}...`);
+    await HUB_DAL.salvarAcademia(mes, r.linhas);
+    const fechado = avisoMesFechado(mes);
+    return {
+      linhas: r.linhas.length, avisos: r.avisos.concat(fechado ? [fechado] : []),
+      resumo: `Academia Hering de ${mesRotulo(mes)}: ${U.fmtInt(r.resumo.pessoas)} pessoas em ${r.resumo.lojas} lojas, ${U.fmtInt(Math.round(r.resumo.horas))} horas de treinamento, performance média de ${U.fmtInt(Math.round(r.resumo.performanceMedia))} pontos; ${U.fmtInt(r.resumo.noCadastro)} achadas no cadastro de Colaboradores.`
+    };
+  }
+
+  async function importarTurmas(wb, setStatus, mes, arquivo) {
+    const r = HUB_PARSERS_TURMAS.parse(wb, { existentes: HUB_DATA.treinamento_turmas || [] });
+    setStatus(`Gravando ${r.turmas.length} turmas de ${r.planilha}...`);
+    await HUB_DAL.salvarTurmas(r.planilha, arquivo, r.turmas);
+    const br = d => d.split('-').reverse().join('/');
+    return {
+      linhas: r.turmas.length, avisos: r.avisos,
+      resumo: `Planilha de ${r.planilha} (aba "${r.aba}"): ${r.turmas.length} turmas de ${br(r.resumo.de)} a ${br(r.resumo.ate)}, ${U.fmtInt(Math.round(r.resumo.horas))} horas e ${U.fmtInt(r.resumo.presentes)} presentes. As turmas anteriores desta planilha foram substituídas; as das outras multiplicadoras e as lançadas no Hub continuam.`
+    };
+  }
+
+  // Mês sugerido no card: o anterior (a foto costuma ser tirada no começo do mês
+  // seguinte, para o fechamento).
+  function mesSugerido() {
+    const t = new Date();
+    const d = new Date(t.getFullYear(), t.getMonth() - 1, 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const fmtDT = iso => {
     const d = new Date(iso);
@@ -218,11 +272,12 @@
         <h4>${u.label}</h4>
         <p>Arquivo: ${u.file}</p>
         <p id="lu-${u.key}" style="margin-top:4px;font-weight:600;color:var(--muted)">Carregando...</p>
+        ${u.mes ? `<label style="display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0 2px">Mês de referência <input type="month" id="mes-${u.key}" value="${mesSugerido()}" style="font-size:12px"></label>` : ''}
         <input type="file" accept=".xlsx,.xls,.csv" data-key="${u.key}">
         <div class="progress" id="pg-${u.key}" style="display:none"><div></div></div>
         <div class="status" id="st-${u.key}"></div>
       </div>`).join('')}</div>
-      <p class="sub" style="color:var(--muted);font-size:11.5px">Cada upload substitui completamente os dados daquela planilha — pode reenviar quantas vezes precisar, sempre com o mesmo modelo de colunas. Na Pesquisa de Engajamento (33), as notas também são guardadas (só médias por loja e pilar, sem respostas individuais) para o Boletim da Liderança. Humor (36) e Pesquisa de Satisfação (16) substituem os meses presentes no arquivo e são guardados já agregados, sem nomes. A 16 também guarda as notas, o "O que melhorar?" e os comentários de cada área (sem nome, CPF, e-mail nem líder direto) para o módulo Pesquisa de Satisfação, que só mostra cada área a quem a tem liberada no cadastro. A 18 (Controle Geral de Vagas) substitui a base inteira de vagas do Fechamento do Período, sem nomes de candidatos, contratados ou substituídos e sem as observações; os indicadores do módulo Recrutamento continuam vindo das telas do próprio módulo.</p>`;
+      <p class="sub" style="color:var(--muted);font-size:11.5px">Cada upload substitui completamente os dados daquela planilha — pode reenviar quantas vezes precisar, sempre com o mesmo modelo de colunas. Na Pesquisa de Engajamento (33), as notas também são guardadas (só médias por loja e pilar, sem respostas individuais) para o Boletim da Liderança. Humor (36) e Pesquisa de Satisfação (16) substituem os meses presentes no arquivo e são guardados já agregados, sem nomes. A 16 também guarda as notas, o "O que melhorar?" e os comentários de cada área (sem nome, CPF, e-mail nem líder direto) para o módulo Pesquisa de Satisfação, que só mostra cada área a quem a tem liberada no cadastro. A 18 (Controle Geral de Vagas) substitui a base inteira de vagas do Fechamento do Período, sem nomes de candidatos, contratados ou substituídos e sem as observações; os indicadores do módulo Recrutamento continuam vindo das telas do próprio módulo. Unibê (27.1) e Academia Hering (27.2) são uma foto do dia da exportação: escolha o mês de referência no card antes de enviar; só aquele mês é substituído, e os meses anteriores ficam guardados para a evolução. Elas alimentam o módulo Treinamentos, o Boletim da Liderança e o Fechamento do Período.</p>`;
     el.querySelectorAll('input[type=file]').forEach(inp => inp.addEventListener('change', e => handleUpload(e.target.dataset.key, e.target.files[0])));
     el.querySelector('#btn-upload-history').addEventListener('click', openHistory);
     Object.keys(resumos).forEach(k => mostrarResumo(k, resumos[k]));
@@ -243,11 +298,14 @@
     pg.style.display = 'block';
     bar.style.width = '5%';
     try {
+      const mesInp = cfg.mes ? document.getElementById('mes-' + key) : null;
+      const mes = mesInp ? mesInp.value : null;
+      if (cfg.mes && !/^\d{4}-\d{2}$/.test(mes || '')) throw new Error('Escolha o mês de referência antes de enviar o arquivo.');
       const wb = await P.readWorkbook(file);
       let totalLinhas;
       if (cfg.custom) {
         bar.style.width = '40%';
-        const r = await cfg.custom(wb, msg => { statusEl.textContent = msg; });
+        const r = await cfg.custom(wb, msg => { statusEl.textContent = msg; }, mes, file.name);
         totalLinhas = r.linhas;
         resumos[key] = esc(r.resumo) + (r.avisos || []).map(a => `<br><span style="color:var(--warning)">&#9888; ${esc(a)}</span>`).join('');
         statusEl.innerHTML = resumos[key];

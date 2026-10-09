@@ -233,6 +233,9 @@
     return {
       OPERACOES: HUB_METRICS_BOLETIM.OPERACOES,
       // Pesquisa de Engajamento: totais oficiais dos pulsos e notas diárias (ver engajamentoDe).
+      // Turmas das multiplicadoras (slide de esforço em T&D).
+      turmas: (window.HUB_DATA && HUB_DATA.treinamento_turmas) || [],
+      colaboradores: (window.HUB_DATA && HUB_DATA.colaboradores) || [],
       engajamento: { pulsos: (window.HUB_DATA && HUB_DATA.engajamento_pulso) || [], notas: (window.HUB_BOLETIM_DATA && HUB_BOLETIM_DATA.engajamento_notas) || [], operacaoDe: HUB_METRICS_BOLETIM.operacaoDe },
       // Feedbacks (planilha 4), Humor (36, agregado) e Satisfação (16).
       feedbacks: (window.HUB_DATA && HUB_DATA.feedbacks) || null,

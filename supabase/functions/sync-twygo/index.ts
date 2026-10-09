@@ -119,7 +119,11 @@ Deno.serve(async (_req: Request) => {
         frequencia: a.attendance_score ?? null, // suposição: "Frequência" = pontuação de presença
         pontuacao: a.score ?? null, // suposição: "Pontuação" = pontuação total ponderada
         carga_horaria: parseHoras(c.hours),
-        emitido_em: cert?.certificate_issuing_date ? String(cert.certificate_issuing_date).slice(0, 10) : null
+        emitido_em: cert?.certificate_issuing_date ? String(cert.certificate_issuing_date).slice(0, 10) : null,
+        // "Conclusão 100%" não tem campo documentado na API: fica vazio e o Hub
+        // usa a data de aprovação no lugar (ver js/metrics-treinamentos.js).
+        concluido_em: null,
+        aprovado_em: a.approved_at ? String(a.approved_at).slice(0, 10) : null
       };
     }).filter(r => r.nome_completo || r.email);
 

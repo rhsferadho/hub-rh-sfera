@@ -194,8 +194,8 @@
       k('pesquisa_participacao', b.pesquisa_convidados != null ? `${U.fmtInt(b.pesquisa_respondentes)} de ${U.fmtInt(b.pesquisa_convidados)} convidados · meta ${U.fmtPct(M.INDICADORES.pesquisa_participacao.meta, 0)}` : 'pulso sem a base de convidados', 'Pesquisa de Engajamento — participação'),
       k('nps', i.nps_respostas ? `${i.nps_respostas} resposta(s) · média ${M.fmtValor('pesquisa_nota', i.nps_media)}` : 'sem respostas'),
       b.twygo_pessoas ? k('twygo_progresso', `${b.twygo_pessoas} pessoas · foto atual`) : '',
-      i.unibe_adesao != null ? k('unibe_adesao', 'valor informado') : '',
-      i.academia_pontos != null ? k('academia_pontos', 'valor informado') : ''
+      i.unibe_adesao != null ? k('unibe_adesao', daPlanilha('unibe_adesao') ? 'planilha 27.1 · média dos PDVs' : 'valor informado') : '',
+      i.academia_pontos != null ? k('academia_pontos', daPlanilha('academia_pontos') ? 'planilha 27.2 · performance média' : 'valor informado') : ''
     ];
     return `<div class="kpi-grid">${lista.join('')}</div>`;
   }
@@ -445,7 +445,7 @@
         : (r.base.satisfacao_aptos ? cardGrafico('bl-c-satp', 'Pesquisa de Satisfação — participação dos gestores', '&#128101;', 280, `${U.fmtInt(Math.min(r.base.satisfacao_respondentes, r.base.satisfacao_aptos))} de ${U.fmtInt(r.base.satisfacao_aptos)} gestores aptos responderam no ciclo (tag pesquisa.satisfação no cadastro). Visão da operação, sem identificar lojas.`) : ''),
       areas.length ? cardGrafico('bl-c-sat', 'Satisfação com o Suporte do Escritório — notas por área', '&#127970;', alturaPara(areas.length), r.id === 'escritorio' ? 'Notas de 0 a 10 dadas pelos gestores de todas as operações.' : 'Notas de 0 a 10 dadas pelos gestores desta operação.') : '',
       com('twygo_progresso').length ? cardGrafico('bl-c-tw', 'Twygo — progresso por loja', '&#128218;', alturaPara(com('twygo_progresso').length), 'Progresso médio das inscrições confirmadas (foto atual do Twygo, não do mês).') : '',
-      com('unibe_adesao').length ? cardGrafico('bl-c-ub', 'Unibê — adesão por loja', '&#127891;', alturaPara(com('unibe_adesao').length), 'Valores informados em "Valores manuais".') : ''
+      com('unibe_adesao').length ? cardGrafico('bl-c-ub', 'Unibê — adesão por loja', '&#127891;', alturaPara(com('unibe_adesao').length), daPlanilha('unibe_adesao') ? 'Adesão oficial de cada PDV na planilha 27.1 (Unibê) do mês.' : 'Valores informados em "Valores manuais".') : ''
     ].filter(Boolean);
     return `<div class="grid2">${html.join('')}</div>`;
   }
@@ -558,13 +558,18 @@
     const inp = (loja, id, pct, v) => pode
       ? `<input type="number" step="${pct ? '0.1' : '1'}" min="0" ${pct ? 'max="100"' : ''} data-loja="${esc(loja || '')}" data-ind="${id}" data-pct="${pct ? 1 : 0}" value="${v == null ? '' : (pct ? +(v * 100).toFixed(1) : v)}">`
       : esc(v == null ? '—' : (pct ? U.fmtPct(v, 1) : U.fmtInt(v)));
+    // Unibê / Academia com planilha no mês: mostra o valor calculado, sem campo.
+    const campo = (x, loja, c) => daPlanilha(c[0])
+      ? `<span title="Da planilha ${c[0] === 'unibe_adesao' ? '27.1 Unibê' : '27.2 Academia Hering'} do mês">${esc(x.ind[c[0]] == null ? '—' : (c[2] ? U.fmtPct(x.ind[c[0]], 1) : U.fmtInt(Math.round(x.ind[c[0]]))))}</span>`
+      : inp(loja, c[0], c[2], manual(r, loja, c[0]));
     const lojas = r.lojas.filter(l => !l.apoio);
+    const algumaPlanilha = campos.some(c => daPlanilha(c[0]));
     const aviso = fechado ? `<div class="insight info" style="margin-bottom:16px"><span class="ic">${HUB_ICON('info')}</span><span><b>${esc(mesLabel(b.mes))} está fechado:</b> os valores manuais ficam travados. Para alterar, clique em <b>Reabrir mês</b> no topo, ajuste e feche de novo.</span></div>` : '';
     return aviso + cardEngajamento(r, b, inp) + '<div style="height:16px"></div>' + card(`Treinamentos — ${esc(r.op.nome)} · ${esc(mesLabel(b.mes))}`, '&#128221;', `
-      <p class="bl-note" style="margin:0 0 12px">Indicadores que não têm planilha no Hub. O valor salva ao sair do campo; apagar o campo remove o valor. Se só a operação for informada, ela vale como total.</p>
+      <p class="bl-note" style="margin:0 0 12px">${algumaPlanilha ? 'Com a planilha do mês enviada em Administração → Upload (27.1 Unibê / 27.2 Academia Hering), o valor vem dela e não pode ser digitado. ' : 'Envie as planilhas 27.1 Unibê e 27.2 Academia Hering em Administração → Upload, com o mês de referência, para não precisar digitar. '}O valor digitado salva ao sair do campo; apagar o campo remove o valor. Se só a operação for informada, ela vale como total.</p>
       <div class="table-wrap" style="max-height:600px"><table class="dt bl-man"><thead><tr><th>Loja</th>${campos.map(c => `<th>${c[1]}</th>`).join('')}<th></th></tr></thead><tbody>
-        <tr style="font-weight:700;background:#F7F9FC"><td>Total da operação</td>${campos.map(c => `<td>${inp(null, c[0], c[2], manual(r, null, c[0]))}</td>`).join('')}<td class="ok-salvo"></td></tr>
-        ${lojas.map(l => `<tr><td>${esc(l.nome)}</td>${campos.map(c => `<td>${inp(l.departamento, c[0], c[2], manual(r, l.departamento, c[0]))}</td>`).join('')}<td class="ok-salvo"></td></tr>`).join('')}
+        <tr style="font-weight:700;background:#F7F9FC"><td>Total da operação</td>${campos.map(c => `<td>${campo(r, null, c)}</td>`).join('')}<td class="ok-salvo"></td></tr>
+        ${lojas.map(l => `<tr><td>${esc(l.nome)}</td>${campos.map(c => `<td>${campo(l, l.departamento, c)}</td>`).join('')}<td class="ok-salvo"></td></tr>`).join('')}
       </tbody></table></div>`, { full: true });
   }
 
@@ -585,6 +590,13 @@
         ${linha({ base: r.base, ind: r.ind }, true)}
         ${lojas.map(l => linha(l, false)).join('')}
       </tbody></table></div>`, { full: true });
+  }
+
+  // Unibê / Academia Hering do mês vieram de planilha (supabase-treinamentos.sql)?
+  // Então o valor manual não vale (ver metrics-boletim.js, passo 10).
+  function daPlanilha(id) {
+    const t = { unibe_adesao: 'unibe_pdv', academia_pontos: 'academia_hering' }[id];
+    return !!t && ((window.HUB_DATA || {})[t] || []).some(x => String(x.mes).slice(0, 7) === state.mes);
   }
 
   // Valor informado à mão (não o calculado), para o campo começar vazio quando não houver.
@@ -629,6 +641,8 @@
     ['Participação na Pesquisa', 'Respondentes ÷ convidados do pulso que começa no mês. Meta: 60%.', '33. Pesquisa de Engajamento', 'Convidados = headcount ativo do departamento (foto do pulso).'],
     ['eNPS', '% de promotores (9-10) − % de detratores (0-6).', '33. Pesquisa de Engajamento', 'Só no total da operação.'],
     ['Twygo', 'Progresso médio das inscrições confirmadas (ambiente ativo).', '27. Twygo', 'Foto atual: não muda com o mês; só tem seta quando o mês anterior foi fechado.'],
+    ['Unibê', 'Adesão oficial de cada PDV (aba PDV); loja e operação = média dos PDVs. Meta: 90%.', '27.1 Unibê (mês escolhido no upload)', 'Sem planilha no mês, vale o valor digitado em Valores manuais.'],
+    ['Academia Hering', 'Performance média (pontos) das pessoas da loja/operação.', '27.2 Academia Hering (mês escolhido no upload)', 'Sem planilha no mês, vale o valor digitado em Valores manuais.'],
     ['Totais da operação', 'Soma dos numeradores ÷ soma dos denominadores de todas as lojas e áreas da operação.', '', 'Nunca média simples das lojas.'],
     ['Setas', '▲ subiu / ▼ caiu / = estável, sempre comparando com o mês anterior. A cor diz se foi bom (verde) ou ruim (vermelho) — no turnover, cair é bom.', '', 'Percentuais variam em pontos percentuais (p.p.).']
   ];

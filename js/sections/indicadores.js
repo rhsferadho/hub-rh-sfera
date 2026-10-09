@@ -7,7 +7,7 @@
 (function () {
   const U = HUB_UTILS;
   const M = HUB_METRICS;
-  const { kpi, empty, card, insightsCard, insightsList, noDataGate, barChart, lineChart, doughnutChart, topRows, rankingTable } = HUB_UI;
+  const { kpi, empty, card, insightsCard, insightsList, noDataGate, barChart, lineChart, doughnutChart, topRows } = HUB_UI;
 
   function canUpload() { return HUB_PERMISSIONS.hasPerm(HUB_USER, 'admin.upload'); }
 
@@ -699,56 +699,10 @@
     if (d.serie.length) lineChart('c-oo-serie', d.serie.map(x => x.label), [{ label: '1:1 realizados', data: d.serie.map(x => x.value) }]);
   }
 
-  // ==================================================================
-  // TREINAMENTOS
-  // ==================================================================
-  function renderTreinamentos(el, f) {
-    if (noDataGate(el, ['twygo_participantes'], canUpload())) return;
-    const d = M.treinamentosMetrics(f);
-    let drill = '';
-    if (f.colaborador && d.porColaborador && d.porColaborador.totalCursos !== undefined) {
-      const p = d.porColaborador;
-      drill = card(`Detalhe de treinamentos — ${U.escapeHtml(f.colaborador)}`, '&#127891;', `
-        <div class="kpi-grid" style="margin-bottom:16px">
-          ${kpi('Progresso geral', p.progressoGeral == null ? '—' : U.fmtPct(p.progressoGeral), '', 'var(--p1)')}
-          ${kpi('Pontuação', p.pontuacao == null ? '—' : U.fmtInt(p.pontuacao), '', '#eda100')}
-          ${kpi('Horas de treinamento', U.fmt1(p.horasTotais), '', '#1baf7a')}
-          ${kpi('Cursos concluídos', `${p.cursosConcluidos}/${p.totalCursos}`, '', '#4a3aa7')}
-        </div>
-        <div class="table-wrap"><table class="dt"><thead><tr><th>Curso</th><th>Situação</th><th>Progresso</th><th>Nota</th><th>Carga horária</th><th>Último acesso</th></tr></thead><tbody>
-          ${p.cursos.map(c => `<tr><td>${U.escapeHtml(c.curso || '')}</td><td>${U.escapeHtml(c.situacao || '')}</td><td>${c.progresso == null ? '—' : U.fmtPct(c.progresso)}</td><td>${c.nota == null ? '—' : U.fmt1(c.nota)}</td><td>${c.cargaHoraria == null ? '—' : U.fmt1(c.cargaHoraria) + 'h'}</td><td>${U.fmtDateBR(c.ultimoAcesso)}</td></tr>`).join('') || '<tr><td colspan="6">Nenhum curso encontrado para esta pessoa.</td></tr>'}
-        </tbody></table></div>`, { full: true });
-    }
-    el.innerHTML = `
-      <div class="kpi-grid">
-        ${kpi('Inscrições confirmadas', U.fmtInt(d.totalInscricoes), 'cancelamentos não entram na conta', 'var(--p1)')}
-        ${kpi('Taxa de conclusão', U.fmtPct(d.taxaConclusao), `${U.fmtInt(d.totalConcluidos)} concluída(s)`, '#1baf7a')}
-        ${kpi('Progresso médio', U.fmtPct(d.progressoMedio), '', 'var(--p2)')}
-        ${kpi('Horas de treinamento (soma)', U.fmt1(d.horasTotais), '', '#eda100')}
-        ${kpi('Pontuação média', U.fmt1(d.pontuacaoMedia), `${U.fmtInt(d.totalUsuarios)} usuário(s)`, '#4a3aa7')}
-        ${kpi('Cursos concluídos', U.fmtInt(d.totalConcluidos), '', '#1baf7a')}
-        ${kpi('Cursos em andamento', U.fmtInt(d.totalEmAndamento), '', '#eda100')}
-        ${kpi('Cursos não iniciados', U.fmtInt(d.totalNaoIniciados), '0% de progresso', 'var(--critical)')}
-      </div>
-      ${drill}
-      <div class="grid2">
-        ${card('Progresso por curso', '&#128218;', d.progressoPorCurso.length ? `<div class="chart-scroll"><div class="chart-inner" id="c-tr-cursos-wrap"><canvas id="c-tr-cursos"></canvas></div></div>` : empty('Sem dados.'), { full: true })}
-        ${card('Evolução de inscrições', '&#128200;', d.serie.length ? '<div class="chart-h"><canvas id="c-tr-serie"></canvas></div>' : empty('Sem dados.'), { full: true })}
-        ${card('Top 10 departamentos — conclusão e progresso', '&#127942;', rankingTable(d.topDepartamentos, 'Departamento'), { full: true })}
-        ${card('Top 10 colaboradores — conclusão e progresso', '&#127942;', rankingTable(d.topColaboradores, 'Colaborador'), { full: true })}
-      </div>`;
-    if (d.progressoPorCurso.length) {
-      // Altura do canvas cresce com a quantidade de cursos (não com o tamanho
-      // do card) — o card fica com altura fixa e rola por dentro, assim dá
-      // pra ver a lista inteira sem cada barra ficar espremida.
-      document.getElementById('c-tr-cursos-wrap').style.height = Math.max(d.progressoPorCurso.length * 32, 200) + 'px';
-      barChart('c-tr-cursos', d.progressoPorCurso.map(x => x.label), d.progressoPorCurso.map(x => x.value), { horizontal: true, pct: true });
-    }
-    if (d.serie.length) lineChart('c-tr-serie', d.serie.map(x => x.label), [{ label: 'Inscrições', data: d.serie.map(x => x.value) }]);
-  }
+  // Treinamentos: js/sections/treinamentos.js (abas Visão geral, Twygo, Unibê e Academia Hering).
 
   window.HUB_SECTIONS = {
     renderDashboard, renderHeadcount, renderRotatividade, renderDesligamento,
-    renderCelebracoes, renderFeedbacks, renderOneOnOne, renderTreinamentos
+    renderCelebracoes, renderFeedbacks, renderOneOnOne
   };
 })();

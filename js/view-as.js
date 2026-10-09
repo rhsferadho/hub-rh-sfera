@@ -60,7 +60,8 @@
     entrevista_pesquisa: ['unidade', 'departamento'], entrevista_solicitacao: ['unidade', 'departamento'],
     experiencia_candidato: ['unidade', 'departamento'], twygo_participantes: ['unidade', 'departamento'],
     twygo_usuarios: ['unidade', 'departamento'], pesquisa_clima: ['unidade', 'departamento'],
-    pesquisa_clima_hc: ['unidade', 'departamento'], engajamento_participacao: ['unidade', 'departamento']
+    pesquisa_clima_hc: ['unidade', 'departamento'], engajamento_participacao: ['unidade', 'departamento'],
+    unibe_pdv: ['unidade', 'departamento'], unibe_pessoas: ['unidade', 'departamento'], academia_hering: ['unidade', 'departamento']
   };
   // Tabelas do Recrutamento (HUB_RECRUIT_DATA) — entrevistas não tem coluna
   // "departamento" (can_see(unidade, null) na policy real); visitas_loja usa
@@ -85,8 +86,12 @@
     feedbacks: 'indicadores.feedbacks', one_on_one: 'indicadores.oneonone', celebracoes: 'indicadores.celebracoes',
     twygo_participantes: 'indicadores.treinamentos', twygo_usuarios: 'indicadores.treinamentos',
     entrevista_pesquisa: 'indicadores.desligamento', entrevista_solicitacao: 'indicadores.desligamento',
-    pesquisa_clima: 'indicadores.pesquisa_clima', pesquisa_clima_hc: 'indicadores.pesquisa_clima'
+    pesquisa_clima: 'indicadores.pesquisa_clima', pesquisa_clima_hc: 'indicadores.pesquisa_clima',
+    unibe_pdv: 'indicadores.treinamentos', unibe_pessoas: 'indicadores.treinamentos', academia_hering: 'indicadores.treinamentos'
   };
+
+  const SEM_UNIDADE_BLOQUEIA = new Set(['unibe_pdv', 'unibe_pessoas', 'academia_hering']);
+  const UNIBE_ESCRITORIO = new Set(['unibe_pdv', 'unibe_pessoas']);
 
   // Mesma regra de public.can_see() do banco: só o admin vê tudo; RH e
   // gestor só veem linhas cuja unidade/departamento estejam liberados (lista
@@ -117,7 +122,24 @@
       savedHubData[tabela] = window.HUB_DATA[tabela];
       const perm = INDICADORES_PERM[tabela];
       const temPerm = !perm || simUser.perfil === 'admin' || !!(simUser.permissoes && simUser.permissoes[perm] === true);
-      window.HUB_DATA[tabela] = temPerm ? scopeArray(window.HUB_DATA[tabela], u, d) : [];
+      // Unibê / Academia: linha sem unidade não passa (coalesce na policy, supabase-treinamentos.sql).
+      const linhas = SEM_UNIDADE_BLOQUEIA.has(tabela) ? window.HUB_DATA[tabela].map(r => r[u] == null ? Object.assign({}, r, { [u]: '(sem unidade)' }) : r) : window.HUB_DATA[tabela];
+      // Unibê: quem tem a unidade Escritório liberada vê tudo (treinamentos_ve_escritorio no banco).
+      const escritorio = UNIBE_ESCRITORIO.has(tabela) && (simUser.unidades || []).some(x => U.normalizeText(x) === 'escritorio');
+      window.HUB_DATA[tabela] = !temPerm ? [] : escritorio ? linhas : scopeArray(linhas, u, d);
+    }
+  }
+  // Tabelas sem unidade/departamento, liberadas só pela permissão do módulo.
+  const SO_PERMISSAO = { treinamento_turmas: 'treinamento_dev.turmas' };
+  function aplicarSoPermissao() {
+    for (const [tabela, perm] of Object.entries(SO_PERMISSAO)) {
+      if (!window.HUB_DATA || !Array.isArray(window.HUB_DATA[tabela])) continue;
+      savedHubData[tabela] = window.HUB_DATA[tabela];
+      const temPerm = simUser.perfil === 'admin' || !!(simUser.permissoes && simUser.permissoes[perm] === true);
+      if (temPerm) continue;
+      // Turmas: a multiplicadora (só "lançar") vê as que ela mesma lançou — mesma regra da policy.
+      const lanca = tabela === 'treinamento_turmas' && !!(simUser.permissoes && simUser.permissoes['treinamento_dev.turmas_lancar'] === true);
+      window.HUB_DATA[tabela] = lanca ? window.HUB_DATA[tabela].filter(r => r.criado_por && r.criado_por === simUser.id) : [];
     }
   }
   function restoreHubData() {
@@ -401,6 +423,7 @@
     wrapReloaders();
     blockWrites();
     applyScopeToHubData();
+    aplicarSoPermissao();
     applyScopeToRecruitData();
     scopeExperienciaCache();
 

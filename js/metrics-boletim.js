@@ -473,9 +473,34 @@
       l.tw_pessoas.add(chavePessoa(p) || N(r.email || r.nome_completo));
     }
 
-    // 10. Entradas manuais (Unibê, Academia Hering, ajustes)
-    const manuais = (B.entradas || []).filter(e => noMes(iso(e.mes), mes));
+    // 10. Unibê e Academia Hering: a planilha do mês (upload com mês de
+    // referência, supabase-treinamentos.sql) vale no lugar do valor digitado —
+    // o campo manual só conta quando o mês não tem planilha. Unibê: adesão
+    // oficial de cada PDV (aba PDV); loja e operação = média dos PDVs. Academia:
+    // performance média das pessoas (loja e operação ponderadas por pessoa).
+    const unibeMes = (D.unibe_pdv || []).filter(r => noMes(iso(r.mes), mes));
+    const academiaMes = (D.academia_hering || []).filter(r => noMes(iso(r.mes), mes));
+    const daPlanilha = { unibe_adesao: unibeMes.length > 0, academia_pontos: academiaMes.length > 0 };
+    const planilhaOp = {};
+    const acumular = (alvo, ind, v) => { const x = alvo[ind] || (alvo[ind] = { s: 0, n: 0 }); x.s += v; x.n++; };
+    for (const [ind, rows, campo] of [['unibe_adesao', unibeMes, 'adesao'], ['academia_pontos', academiaMes, 'performance']]) {
+      for (const r of rows) {
+        if (r[campo] == null) continue;
+        const l = lojaDe(r.unidade, r.departamento);
+        if (!l) continue;
+        acumular(l.treino || (l.treino = {}), ind, Number(r[campo]));
+        acumular(planilhaOp[l.op] || (planilhaOp[l.op] = {}), ind, Number(r[campo]));
+      }
+    }
+    for (const l of lojas.values()) for (const [ind, x] of Object.entries(l.treino || {})) l.manual[ind] = x.s / x.n;
+
+    // 11. Entradas manuais (Unibê e Academia Hering sem planilha no mês, acessos da Feedz)
+    const manuais = (B.entradas || []).filter(e => noMes(iso(e.mes), mes) && !daPlanilha[e.indicador]);
     const manuaisOp = {};
+    for (const [op, inds] of Object.entries(planilhaOp)) {
+      manuaisOp[op] = {};
+      for (const [ind, x] of Object.entries(inds)) manuaisOp[op][ind] = x.s / x.n;
+    }
     for (const e of manuais) {
       if (e.loja) {
         const l = loja(e.operacao, e.loja);
@@ -715,7 +740,7 @@
     const B = window.HUB_BOLETIM_DATA || {};
     const D = window.HUB_DATA || {};
     const exp = window.HUB_EXPERIENCIA_DATA || {};
-    const chave = [mes, D.colaboradores, D.feedbacks, D.celebracoes, D.one_on_one, D.twygo_participantes, D.engajamento_participacao, B.versao, exp[45], exp[90]];
+    const chave = [mes, D.colaboradores, D.feedbacks, D.celebracoes, D.one_on_one, D.twygo_participantes, D.unibe_pdv, D.academia_hering, D.engajamento_participacao, B.versao, exp[45], exp[90]];
     if (memo.chave && memo.chave.length === chave.length && memo.chave.every((v, i) => v === chave[i])) return memo.valor;
     const atual = calcularMes(mes);
     const ant = mesAnterior(mes);

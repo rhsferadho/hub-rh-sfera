@@ -19,7 +19,7 @@
     'rec-dashboard': 'Dashboard — Recrutamento', 'rec-vagas': 'Controle de Vagas', 'rec-candidatos': 'Candidatos',
     'rec-agenda': 'Agenda de Entrevistas', 'rec-banco-talentos': 'Banco de Talentos', 'rec-aprovacoes': 'Aprovações',
     'rec-historico': 'Histórico', 'rec-transferencia': 'Transferência de Vaga', 'rec-parecer-gestor': 'Parecer do Gestor',
-    'tre-onboarding': 'Onboarding', 'tre-visita-loja': 'Visita em Loja',
+    'tre-onboarding': 'Onboarding', 'tre-visita-loja': 'Visita em Loja', 'tre-turmas': 'Turmas e Multiplicadoras',
     'adm-upload': 'Upload de Planilhas', 'adm-cadastros': 'Cadastros do Recrutamento', 'adm-usuarios': 'Cadastro de Acessos', 'adm-log-acessos': 'Log de Acessos'
   };
   window.HUB_NAV_TITLES = NAV_TITLES;
@@ -36,7 +36,7 @@
     'rec-agenda': 'recrutamento.agenda', 'rec-banco-talentos': 'recrutamento.banco_talentos',
     'rec-aprovacoes': 'recrutamento.aprovacoes', 'rec-historico': 'recrutamento.historico',
     'rec-transferencia': 'recrutamento.transferencia', 'rec-parecer-gestor': 'recrutamento.parecer_gestor',
-    'tre-onboarding': 'treinamento_dev.onboarding', 'tre-visita-loja': 'treinamento_dev.visita_loja',
+    'tre-onboarding': 'treinamento_dev.onboarding', 'tre-visita-loja': 'treinamento_dev.visita_loja', 'tre-turmas': ['treinamento_dev.turmas', 'treinamento_dev.turmas_lancar'],
     'adm-upload': 'admin.upload', 'adm-cadastros': 'admin.cadastros_recrutamento', 'adm-usuarios': 'admin.usuarios', 'adm-log-acessos': 'admin.log_acessos'
   };
 
@@ -78,6 +78,7 @@
       case 'rec-parecer-gestor': return HUB_SECTIONS.renderParecerGestor(el, f);
       case 'tre-onboarding': return HUB_SECTIONS.renderOnboarding(el, f);
       case 'tre-visita-loja': return HUB_SECTIONS.renderVisitaLoja(el, f);
+      case 'tre-turmas': return HUB_SECTIONS.renderTurmas(el);
       case 'adm-upload': return HUB_ADMIN_UPLOAD.render(el);
       case 'adm-cadastros': return HUB_ADMIN_CADASTROS.render(el);
       case 'adm-usuarios': return HUB_ADMIN_USUARIOS.render(el);
@@ -119,6 +120,8 @@
 
   function canSee(name) {
     const perm = NAV_PERMISSIONS[name];
+    // Lista = basta ter uma das permissões (ex.: Turmas: ver tudo ou lançar as próprias).
+    if (Array.isArray(perm)) return P.hasAnyPerm(HUB_USER, perm);
     return !perm || P.hasPerm(HUB_USER, perm);
   }
 
@@ -134,7 +137,7 @@
     $('#fg-conteudo').style.display = showTwygo ? 'flex' : 'none';
     $('#fg-experiencia').style.display = name === 'ind-headcount' ? 'flex' : 'none';
     // O Boletim da Liderança, a Pesquisa de Satisfação, o Fechamento e o Log de Acessos têm seletores próprios.
-    $('#filter-bar').style.display = name === 'ind-boletim' || name === 'ind-satisfacao' || name === 'ind-fechamento' || name === 'adm-log-acessos' ? 'none' : '';
+    $('#filter-bar').style.display = name === 'ind-boletim' || name === 'ind-satisfacao' || name === 'ind-fechamento' || name === 'adm-log-acessos' || name === 'tre-turmas' ? 'none' : '';
     HUB_LOG_ACESSO.registrar('modulo', name);
     renderCurrentSection();
   }
@@ -256,7 +259,9 @@
       { rows: HUB_DATA.entrevista_pesquisa || [], u: 'unidade', d: 'departamento', n: null },
       { rows: HUB_DATA.entrevista_solicitacao || [], u: 'unidade', d: 'departamento', n: null },
       { rows: HUB_DATA.twygo_participantes || [], u: 'unidade', d: 'departamento', n: 'nome_completo' },
-      { rows: HUB_DATA.twygo_usuarios || [], u: 'unidade', d: 'departamento', n: 'nome_completo' }
+      { rows: HUB_DATA.twygo_usuarios || [], u: 'unidade', d: 'departamento', n: 'nome_completo' },
+      { rows: HUB_DATA.unibe_pessoas || [], u: 'unidade', d: 'departamento', n: 'nome_cadastro' },
+      { rows: HUB_DATA.academia_hering || [], u: 'unidade', d: 'departamento', n: 'nome_cadastro' }
     ];
   }
 

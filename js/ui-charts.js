@@ -227,6 +227,30 @@
     HUB_CHART(id, cfg);
   }
 
+  // Barras (quantidade) + linha (outra escala, eixo da direita).
+  function comboChart(id, labels, barras, linha) {
+    const fmt = (v, f) => (v == null ? '' : f(v));
+    HUB_CHART(id, {
+      type: 'bar',
+      data: {
+        labels, datasets: [
+          { type: 'bar', label: barras.label, data: barras.data, backgroundColor: U.color(0), borderRadius: 5, maxBarThickness: 34, yAxisID: 'y', order: 2,
+            datalabels: { anchor: 'end', align: 'top', formatter: v => fmt(v, barras.fmt || U.fmtInt) } },
+          { type: 'line', label: linha.label, data: linha.data, borderColor: U.color(2), backgroundColor: U.color(2), tension: 0.3, pointRadius: 3, yAxisID: 'y1', order: 1,
+            datalabels: { display: linha.rotulos !== false, align: 'top', offset: 6, backgroundColor: 'rgba(255,255,255,.9)', borderRadius: 3, padding: { top: 1, bottom: 1, left: 3, right: 3 }, color: U.color(2), formatter: v => fmt(v, linha.fmt || U.fmtInt) } }
+        ]
+      },
+      options: {
+        layout: { padding: { top: 22 } },
+        // Passar o mouse em qualquer ponto do mês mostra as duas séries.
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: true }, datalabels: { color: '#16181D', font: { size: 9, weight: '700' } } },
+        scales: { y: { beginAtZero: true }, y1: { beginAtZero: true, position: 'right', grid: { display: false } } }
+      }
+    });
+  }
+
+
   function doughnutChart(id, labels, values) {
     const total = values.reduce((s, v) => s + v, 0) || 1;
     HUB_CHART(id, {
@@ -264,5 +288,5 @@
       '</tbody></table></div>';
   }
 
-  window.HUB_UI = { kpi, empty, card, insightsCard, canSeeInsights, insightsList, noDataGate, barChart, lineChart, doughnutChart, topRows, rankingTable };
+  window.HUB_UI = { kpi, empty, card, insightsCard, canSeeInsights, insightsList, noDataGate, barChart, lineChart, comboChart, doughnutChart, topRows, rankingTable };
 })();

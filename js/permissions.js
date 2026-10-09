@@ -50,7 +50,11 @@
       group: 'treinamento_dev', groupLabel: 'Treinamento e Desenvolvimento', icon: '&#127891;',
       items: [
         { key: 'treinamento_dev.onboarding', label: 'Onboarding' },
-        { key: 'treinamento_dev.visita_loja', label: 'Visita em Loja' }
+        { key: 'treinamento_dev.visita_loja', label: 'Visita em Loja' },
+        // Só T&D e RH (decisão de 09/10/2026): fora do preset Gestor.
+        { key: 'treinamento_dev.turmas', label: 'Turmas e Multiplicadoras (controle das turmas dadas pelas multiplicadoras)' },
+        // Multiplicadora: lança e vê só as próprias turmas (fase 2, 09/10/2026).
+        { key: 'treinamento_dev.turmas_lancar', label: 'Turmas e Multiplicadoras — lançar as próprias turmas (multiplicadora: vê e edita só o que lançou)' }
       ]
     },
     {
