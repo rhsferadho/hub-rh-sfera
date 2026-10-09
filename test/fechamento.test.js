@@ -245,5 +245,30 @@ run('slides: Cultura, T&D, slides do RH, textos e resumo', () => {
   check('todo elemento dentro do slide 960 × 540', deck.every(d => d.els.every(e => e.x >= 0 && e.y >= 0 && e.x + e.w <= 960 && e.y + e.h <= 540.5)), deck.filter(d => d.els.some(e => e.x + e.w > 960 || e.y + e.h > 540.5)).map(d => d.id).join(','));
 });
 
+run('Pesquisa de Engajamento: pulsos oficiais e notas do período', () => {
+  const cult = cultFalso();
+  cult.engajamento = {
+    pulsos: [
+      { inicio: '2026-07-02', convidados: 100, respondentes: 40 }, { inicio: '2026-07-09', convidados: 100, respondentes: 60 },
+      { inicio: '2026-06-25', convidados: 100, respondentes: 90 }   // começou em junho: fica fora de julho
+    ],
+    notas: [
+      { dia: '2026-07-03', unidade: 'Hering', departamento: 'Hering Centro', dimensao: 'Cultura', soma: 40, n: 10 },
+      { dia: '2026-07-10', unidade: 'Levis', departamento: 'Levis Barra', dimensao: 'Bem-estar', soma: 30, n: 10 },
+      { dia: '2026-07-10', unidade: 'Levis', departamento: 'Levis Barra', dimensao: 'NPS', soma: 70, n: 10, promotores: 5, detratores: 2 },
+      { dia: '2026-06-30', unidade: 'Hering', departamento: 'Hering Centro', dimensao: 'Cultura', soma: 10, n: 10 }
+    ],
+    operacaoDe: u => (/hering/i.test(u) ? 'hering' : /levis/i.test(u) ? 'levis' : null)
+  };
+  const e = ctx.HUB_FECHAMENTO_CULTURA.engajamentoDe(cult, '2026-07-01', '2026-07-31');
+  check('participação = respondentes ÷ convidados dos pulsos que começaram no período', e.pulsos === 2 && Math.abs(e.participacao - 0.5) < 1e-9, JSON.stringify(e));
+  check('nota geral só com respostas do período, sem o NPS', Math.abs(e.nota - 3.5) < 1e-9, e.nota);
+  check('eNPS = (promotores − detratores) ÷ respostas', e.nps === 30 && e.npsN === 10, `${e.nps} ${e.npsN}`);
+  check('nota por operação', e.porOperacao.hering === 4 && e.porOperacao.levis === 3, JSON.stringify(e.porOperacao));
+  const deck = SL.montar(SL.periodo('mensal', 2026, 7), { vagas: [], metas: [], atualizadoEm: '2026-08-05', dho: dhoFalso(), cult });
+  const txt = deck.find(d => d.id === 'cult-engajamento').els.filter(x => x.t === 'text').map(x => x.paras.map(p => p.runs.map(r => r.text).join('')).join(' ')).join(' | ');
+  check('slide mostra 50,0% com 100 de 200 em 2 pulsos', /50,0%/.test(txt) && /100 de 200 · 2 pulsos/.test(txt), txt);
+});
+
 console.log(`\n${pass} ok, ${fail} falha(s)`);
 process.exit(fail ? 1 : 0);

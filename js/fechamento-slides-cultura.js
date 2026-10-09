@@ -65,16 +65,61 @@
   }
 
   // ------------------------------------------------------------------
+  // Pesquisa de Engajamento no período, direto das bases da planilha 33 (não do
+  // cálculo mensal do Boletim, que usa UM pulso por mês e só tem a base de
+  // convidados no pulso mais recente):
+  //   participação → total oficial de cada pulso que COMEÇA no período (aba
+  //                  Adesão): soma dos respondentes ÷ soma dos convidados;
+  //   notas/eNPS   → todas as respostas do período (notas diárias agregadas por
+  //                  loja e pilar, tabela engajamento_notas).
+  // cult.engajamento = { pulsos, notas, operacaoDe }.
+  const PILAR_NPS = 'NPS';
+  function engajamentoDe(cult, de, ate) {
+    const E = cult.engajamento;
+    if (!E) return null;
+    const ps = (E.pulsos || []).filter(x => x.inicio >= de && x.inicio <= ate && x.convidados);
+    const resp = ps.reduce((s, x) => s + (Number(x.respondentes) || 0), 0), conv = ps.reduce((s, x) => s + (Number(x.convidados) || 0), 0);
+    const pl = {}, porOp = {};
+    let s = 0, n = 0, npsN = 0, prom = 0, det = 0;
+    // Notas na mesma janela da participação: respostas dos pulsos que começaram
+    // no período, até 1 dia depois do fim de cada um (mesma tolerância da
+    // planilha 33). Sem pulso no período, valem as datas do período.
+    const umDia = iso => new Date(Date.parse(iso + 'T12:00:00Z') + 86400000).toISOString().slice(0, 10);
+    const janelas = (E.pulsos || []).filter(x => x.inicio >= de && x.inicio <= ate).map(x => [x.inicio, umDia(x.fim || x.inicio)]);
+    const dentro = dia => (janelas.length ? janelas.some(([a, b]) => dia >= a && dia <= b) : dia >= de && dia <= ate);
+    for (const r of E.notas || []) {
+      const dia = String(r.dia || '').slice(0, 10);
+      if (!dentro(dia)) continue;
+      if (r.dimensao === PILAR_NPS) { npsN += +r.n || 0; prom += +r.promotores || 0; det += +r.detratores || 0; continue; }
+      const a = pl[r.dimensao] = pl[r.dimensao] || { s: 0, n: 0 };
+      a.s += +r.soma || 0; a.n += +r.n || 0;
+      s += +r.soma || 0; n += +r.n || 0;
+      const op = E.operacaoDe ? E.operacaoDe(r.unidade, r.departamento) : null;
+      if (op) { const o = porOp[op] = porOp[op] || { s: 0, n: 0 }; o.s += +r.soma || 0; o.n += +r.n || 0; }
+    }
+    const medias = obj => Object.fromEntries(Object.entries(obj).filter(([, a]) => a.n).map(([k, a]) => [k, a.s / a.n]));
+    return {
+      pulsos: ps.length, respondentes: resp, convidados: conv, participacao: conv ? resp / conv : null,
+      nota: n ? s / n : null, pilares: medias(pl), porOperacao: medias(porOp),
+      nps: npsN ? Math.round((prom - det) / npsN * 100) : null, npsN
+    };
+  }
+
   function slideEngajamento(p, cult) {
     const { COR, para, titulo, card, fmtInt, fmtPct } = S().pecas;
     const ms = mesesDe(p), ano = doAno(p);
-    const nota = valor(cult, ms, 'pesquisa_nota'), notaAno = valor(cult, ano, 'pesquisa_nota');
-    const part = valor(cult, ms, 'pesquisa_participacao'), partAno = valor(cult, ano, 'pesquisa_participacao');
-    const nps = valor(cult, ms, 'nps'), npsN = valor(cult, ms, 'nps_respostas', null, soma);
-    const pl = pilares(cult, ms), plAno = pilares(cult, ano);
+    const e = engajamentoDe(cult, p.de, p.ate), eAno = engajamentoDe(cult, `${p.ano}-01-01`, p.ate);
+    // Sem as bases da pesquisa (ex.: testes), cai no cálculo mensal do Boletim.
+    const nota = e ? e.nota : valor(cult, ms, 'pesquisa_nota'), notaAno = eAno ? eAno.nota : valor(cult, ano, 'pesquisa_nota');
+    const part = e ? e.participacao : valor(cult, ms, 'pesquisa_participacao'), partAno = eAno ? eAno.participacao : valor(cult, ano, 'pesquisa_participacao');
+    const nps = e ? e.nps : valor(cult, ms, 'nps'), npsN = e ? e.npsN : valor(cult, ms, 'nps_respostas', null, soma);
+    const pl = e ? e.pilares : pilares(cult, ms), plAno = eAno ? eAno.pilares : pilares(cult, ano);
     const nomes = Object.keys(pl).sort((a, b) => (pl[b] || 0) - (pl[a] || 0));
-    const ops = cult.OPERACOES.map(o => ({ nome: o.nome, v: valor(cult, ms, 'pesquisa_nota', o.id) })).filter(o => o.v != null).sort((a, b) => b.v - a.v);
+    const ops = cult.OPERACOES.map(o => ({ nome: o.nome, v: e ? e.porOperacao[o.id] : valor(cult, ms, 'pesquisa_nota', o.id) })).filter(o => o.v != null).sort((a, b) => b.v - a.v);
     const melhor = nomes[0], pior = nomes[nomes.length - 1];
+    const subPart = e
+      ? (e.pulsos ? `${fmtInt(e.respondentes)} de ${fmtInt(e.convidados)} · ${e.pulsos} ${e.pulsos === 1 ? 'pulso' : 'pulsos'} · acum. ${p.ano}: ${fmtPct(partAno)}` : `nenhum pulso começou no período · acum. ${p.ano}: ${fmtPct(partAno)}`)
+      : `meta 60% · acumulado ${p.ano}: ${fmtPct(partAno)}`;
 
     const box = (x, rotulo, valorTxt, sub, cor) => [
       card(x, 105, 295, 90),
@@ -88,7 +133,7 @@
         ? `**${melhor}** é o pilar mais bem avaliado (${fmtNota(pl[melhor])}); **${pior}**, o que mais pede atenção (${fmtNota(pl[pior])}).`
         : `Sem respostas da pesquisa ${S().pecas.emPeriodo(p)}.`)] },
       box(25, 'NOTA MÉDIA (1 A 5)', fmtNota(nota), `acumulado ${p.ano}: ${fmtNota(notaAno)}`, COR.amarelo),
-      box(332, 'PARTICIPAÇÃO', fmtPct(part), `meta 60% · acumulado ${p.ano}: ${fmtPct(partAno)}`, '2EC4A0'),
+      box(332, 'PARTICIPAÇÃO (META 60%)', fmtPct(part, 1), subPart, part != null && part >= 0.6 ? '2EC4A0' : COR.amarelo),
       box(640, 'eNPS', sinal(nps), npsN ? `${fmtInt(npsN)} respostas · escala −100 a +100` : 'sem respostas de NPS', COR.valor),
       [card(25, 205, 450, 285)],
       { t: 'chart', x: 35, y: 211, w: 430, h: 273, kind: 'bar', fmt: 'dec1', legend: true, catSize: 8.5, labelSize: 8, title: 'NOTA POR PILAR',
@@ -97,7 +142,7 @@
       { t: 'chart', x: 495, y: 211, w: 430, h: 273, kind: 'bar', fmt: 'dec1', catSize: 8.5, title: 'NOTA POR OPERAÇÃO',
         labels: ops.map(o => o.nome), series: [{ name: 'Nota', values: ops.map(o => o.v), color: '2E75B6' }] }
     );
-    const notas = 'Mesmas contas do Boletim da Liderança: notas da Pesquisa de Engajamento (escala 1 a 5) por pilar, participação (respondentes ÷ convidados) e eNPS. Período de vários meses e acumulado do ano: média das médias mensais.';
+    const notas = 'Fonte: planilha 33 (Pesquisa de Engajamento). Participação: total oficial de cada pulso que começou no período (aba Adesão), respondentes ÷ convidados somados. Notas (1 a 5), pilares e eNPS: respostas desses mesmos pulsos (até 1 dia depois do fim de cada um). Nota por operação: lojas agrupadas como no Boletim da Liderança.';
     return { id: 'cult-engajamento', nome: 'Pesquisa de Engajamento', fundo: 'conteudo', els, notas };
   }
 
@@ -163,7 +208,8 @@
 
   window.HUB_FECHAMENTO_CULTURA = {
     cultura: (p, cult) => [slideCultura(p, cult), slideEngajamento(p, cult)],
+    engajamentoDe,
     td: (p, cult) => [slideTwygo(p, cult), slideParceiras(p, cult)],
-    _internal: { mesesDe, mesesAte, valor, pilares }
+    _internal: { mesesDe, mesesAte, valor, pilares, engajamentoDe }
   };
 })();

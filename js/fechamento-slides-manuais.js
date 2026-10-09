@@ -80,7 +80,9 @@
     if (cult) {
       const C = window.HUB_FECHAMENTO_CULTURA._internal;
       const ms = C.mesesDe(p);
-      const eng = C.valor(cult, ms, 'engajamento_feedz'), nota = C.valor(cult, ms, 'pesquisa_nota');
+      const eng = C.valor(cult, ms, 'engajamento_feedz');
+      const pe = C.engajamentoDe(cult, p.de, p.ate);
+      const nota = pe ? pe.nota : C.valor(cult, ms, 'pesquisa_nota');
       const tw = cult.mes(ms[ms.length - 1]).empresa.ind.twygo_progresso;
       tiles.push({ bloco: 'CULTURA', rotulo: 'Engajamento na Feedz', valor: fmtPct(eng), sub: 'índice do Boletim da Liderança' });
       tiles.push({ bloco: 'CULTURA', rotulo: 'Pesquisa de Engajamento', valor: nota == null ? '—' : nota.toFixed(1).replace('.', ',') + ' / 5', sub: 'nota média' });

@@ -231,6 +231,8 @@
     if (!cultOk || !window.HUB_METRICS_BOLETIM) return null;
     return {
       OPERACOES: HUB_METRICS_BOLETIM.OPERACOES,
+      // Pesquisa de Engajamento: totais oficiais dos pulsos e notas diárias (ver engajamentoDe).
+      engajamento: { pulsos: (window.HUB_DATA && HUB_DATA.engajamento_pulso) || [], notas: (window.HUB_BOLETIM_DATA && HUB_BOLETIM_DATA.engajamento_notas) || [], operacaoDe: HUB_METRICS_BOLETIM.operacaoDe },
       mes: mk => { if (!CACHE.mes.has(mk)) CACHE.mes.set(mk, HUB_METRICS_BOLETIM.calcularMes(mk)); return CACHE.mes.get(mk); }
     };
   }
